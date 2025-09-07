@@ -1,0 +1,770 @@
+// MARK: - File: ContentView.swift
+import SwiftUI
+import AppKit
+
+// Bridges to NSWindow so we can tweak size & autosave behavior.
+struct WindowConfigurator: NSViewRepresentable {
+    let apply: (NSWindow) -> Void
+    func makeNSView(context: Context) -> NSView {
+        let v = NSView()
+        DispatchQueue.main.async {
+            if let w = v.window { apply(w) }
+        }
+        return v
+    }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+struct ContentView: View {
+    @EnvironmentObject var app: AppModel
+    @StateObject private var player = SGFPlayer()
+
+    @State private var isPanelOpen: Bool = false
+    @State private var marginPercent: CGFloat = 0.041
+
+    // Settings
+    @AppStorage("includeSubfolders") private var includeSubfolders = true
+    @AppStorage("autoNext") private var autoNext = true
+    @AppStorage("randomOnStart") private var randomOnStart = false
+    @AppStorage("randomNext") private var randomNext = true
+    @AppStorage("eccentricity") private var eccentricity: Double = 1.0
+
+    @AppStorage("panelTintAlpha") private var panelTintAlpha: Double = 0.18   // 0.00–0.60 feels good
+    @AppStorage("panelFrost")     private var panelFrost: Double = 0.50       // 0 = ultraThin, 1 = thin
+
+    // Board shadow (user values are in "reference points"; we scale at render time)
+    @AppStorage("boardShadowOpacity") private var boardShadowOpacity: Double = 0.35
+    @AppStorage("boardShadowRadius")  private var boardShadowRadius:  Double = 22
+    @AppStorage("boardShadowDX")      private var boardShadowDX:      Double = 0
+    @AppStorage("boardShadowDY")      private var boardShadowDY:      Double = 8
+
+    // Stone shadow (scaling applied inside BoardViewport)
+    @AppStorage("stoneShadowOpacity") private var stoneShadowOpacity: Double = 0.35
+    @AppStorage("stoneShadowRadius")  private var stoneShadowRadius:  Double = 5
+    @AppStorage("stoneShadowDX")      private var stoneShadowDX:      Double = 0.5
+    @AppStorage("stoneShadowDY")      private var stoneShadowDY:      Double = 1.5
+
+    // Grid aspect (H/W). 1.04 is a tasteful traditional look (rectangular cells)
+    @AppStorage("cellAspect") private var cellAspect: Double = 1.04
+
+    // Bowl lids: size (fraction of board side), per-lid positions (× board side), and shadows
+    @AppStorage("lidScale") private var lidScale: Double = 0.20
+    @AppStorage("lidULX")   private var lidULX:   Double = -0.06
+    @AppStorage("lidULY")   private var lidULY:   Double = -0.06
+    @AppStorage("lidLRX")   private var lidLRX:   Double =  0.06
+    @AppStorage("lidLRY")   private var lidLRY:   Double =  0.06
+
+    @AppStorage("lidShadowOpacity") private var lidShadowOpacity: Double = 0.35
+    @AppStorage("lidShadowRadius")  private var lidShadowRadius:  Double = 22
+    @AppStorage("lidShadowDX")      private var lidShadowDX:      Double = 0
+    @AppStorage("lidShadowDY")      private var lidShadowDY:      Double = 8
+
+    @State private var uiMoveDelay: Double = 0.75   // seconds
+    @State private var debugLayout = false
+
+    // Advanced disclosure state
+    @State private var advancedExpanded: Bool = false
+
+    // Keyboard monitor handle / auto-next work item
+    @State private var keyMonitor: Any?
+    @State private var nextTimer: DispatchWorkItem?
+    
+    // Hide/show chrome (gear + fullscreen) after mouse inactivity
+    @State private var chromeVisible = true
+    @State private var mouseMonitor: Any?
+    @State private var chromeHideWork: DispatchWorkItem?
+
+    private func scheduleChromeHide(after seconds: Double = 3.0) {
+        chromeHideWork?.cancel()
+        let work = DispatchWorkItem {
+            withAnimation(.easeOut(duration: 0.5)) { chromeVisible = false }
+        }
+        chromeHideWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: work)
+    }
+
+    private func bumpChromeActivity() {
+        // show immediately and restart the idle timer
+        if chromeVisible == false {
+            withAnimation(.easeOut(duration: 0.2)) { chromeVisible = true }
+        }
+        scheduleChromeHide()
+    }
+
+    // MARK: - Panel palette + pill buttons
+    private var panelTint: Color {
+        Color(.sRGB, red: 0.24, green: 0.52, blue: 0.44, opacity: 1.0)
+    }
+
+    private struct GlassPillButton: ButtonStyle {
+        enum Emphasis { case normal, prominent }
+        var emphasis: Emphasis = .normal
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.white.opacity(0.95))
+                .padding(.vertical, 8)
+                .padding(.horizontal, emphasis == .prominent ? 14 : 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill((emphasis == .prominent ? Color.black.opacity(0.36)
+                                                      : Color.black.opacity(0.28)))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color.white.opacity(configuration.isPressed ? 0.18 : 0.12), lineWidth: 1)
+                )
+                .opacity(configuration.isPressed ? 0.85 : 1)
+                .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            // Main board + bottom metadata
+            detail
+
+            // Tap-to-dismiss overlay for the settings panel (clicking outside closes)
+            Rectangle()
+                .fill(.clear)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { isPanelOpen = false }
+                }
+                .allowsHitTesting(isPanelOpen)
+                .zIndex(2)
+
+            // Top-left gear — fades with mouse inactivity; disabled when no games are loaded
+            VStack {
+                HStack {
+                    Button(action: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            isPanelOpen.toggle()
+                        }
+                    }) {
+                        Image(systemName: "gearshape.fill")
+                            .imageScale(.large)
+                            .padding(10)
+                            .background(.ultraThinMaterial, in: Circle())
+                    }
+                    .disabled(app.games.isEmpty)
+                    .opacity(app.games.isEmpty ? 0.5 : 1.0)
+
+                    Spacer()
+                }
+                .padding(.leading, 12)
+                .padding(.top, 40)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .opacity(chromeVisible ? 1 : 0)
+            .allowsHitTesting(chromeVisible)
+            .animation(.easeOut(duration: 0.5), value: chromeVisible)
+            .zIndex(3)
+
+            // Top-right fullscreen toggle — fades with mouse inactivity
+            VStack {
+                HStack {
+                    Spacer()
+                    Button {
+                        NSApp.keyWindow?.toggleFullScreen(nil)
+                    } label: {
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .imageScale(.large)
+                            .padding(10)
+                            .background(.ultraThinMaterial, in: Circle())
+                    }
+                }
+                .padding(.trailing, 12)
+                .padding(.top, 40)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .opacity(chromeVisible ? 1 : 0)
+            .allowsHitTesting(chromeVisible)
+            .animation(.easeOut(duration: 0.5), value: chromeVisible)
+            .zIndex(3)
+
+            // Slide-out panel (from the left)
+            sidePanel
+                .offset(x: isPanelOpen ? 0 : -(360 + 12 + 16)) // 360 + paddings
+                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isPanelOpen)
+                .shadow(radius: 16, x: 4, y: 0)
+                .zIndex(4)
+        }
+        .frame(minWidth: 550, minHeight: 410)
+
+        // Start new selection at move 0 and auto-play
+        .onChange(of: app.selection) { _, newValue in
+            if let g = newValue?.game { player.load(game: g) }
+            player.setPlayInterval(uiMoveDelay)
+            player.seek(to: 0)
+            if player.isPlaying { player.togglePlay() } // normalize to paused
+            player.togglePlay()                         // then play
+            nextTimer?.cancel()
+            scheduleAutoNextIfNeeded()
+        }
+        .onChange(of: player.currentIndex) { _, _ in
+            scheduleAutoNextIfNeeded()
+        }
+        .onChange(of: player.isPlaying) { _, _ in
+            scheduleAutoNextIfNeeded()
+        }
+        .onAppear {
+            if randomOnStart, app.selection == nil { pickRandomGame() }
+            if let g = app.selection?.game { player.load(game: g) }
+            if autoNext && !player.isPlaying { player.togglePlay() }
+            scheduleAutoNextIfNeeded()
+
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                handleKey(event)
+                return event
+            }
+            
+            mouseMonitor = NSEvent.addLocalMonitorForEvents(
+                matching: [.mouseMoved, .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel]
+            ) { event in
+                bumpChromeActivity()
+                return event
+            }
+
+            // start the first hide countdown
+            scheduleChromeHide()
+            
+        }
+        .onDisappear {
+            if let m = keyMonitor { NSEvent.removeMonitor(m) }
+            keyMonitor = nil
+            nextTimer?.cancel()
+            nextTimer = nil
+            
+            if let m = mouseMonitor { NSEvent.removeMonitor(m) }
+            mouseMonitor = nil
+            chromeHideWork?.cancel()
+            chromeHideWork = nil
+        }
+        // Force a fresh size each launch and disable autosave of window frame
+        .background(
+            WindowConfigurator { w in
+                w.setFrameAutosaveName("") // disable autosave
+                let target = NSSize(width: 900, height: 640)
+                w.setContentSize(target)
+                w.center()
+            }
+        )
+    }
+
+    // MARK: - Left slide-out panel (files + controls)
+    private var sidePanel: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack(spacing: 12) {
+                Text("Settings").font(.title2.bold())
+                Spacer()
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { isPanelOpen = false }
+                } label: {
+                    Image(systemName: "xmark.circle.fill").imageScale(.large)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+            // Scrollable content
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+
+                    // Row of quick actions
+                    HStack(spacing: 10) {
+                        Button("Open folder…") { app.promptForFolder() }
+                            .buttonStyle(GlassPillButton(emphasis: .prominent))
+
+                        Button("Random game now") { pickRandomGame() }
+                            .buttonStyle(GlassPillButton())
+                    }
+
+                    Toggle("include subfolders", isOn: $includeSubfolders)
+
+                    // Folder hint capsule
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(.ultraThinMaterial)
+                        .frame(height: 110)
+                        .overlay(
+                            Text("Pick a folder of SGF files.")
+                                .foregroundStyle(.secondary)
+                        )
+
+                    // Games list – styled to look like the panel (no mismatched bg)
+                    List(app.games, selection: $app.selection) { item in
+                        let g = item.game
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(displayDate(g.info.date) ?? (g.info.event ?? ""))
+                                .font(.headline)
+                            HStack(spacing: 12) {
+                                Text("B: \(g.info.playerBlack ?? "?")")
+                                Text("W: \(g.info.playerWhite ?? "?")")
+                                if let re = g.info.result, !re.isEmpty { Text(re) }
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .listStyle(.sidebar)
+                    .scrollContentBackground(.hidden)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(.thinMaterial.opacity(0.25))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .frame(height: 7 * 44)
+
+                    // Move delay (log slider 0.2–10s)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Move delay: \(String(format: "%.1f", uiMoveDelay)) seconds")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.9))
+                        Slider(
+                            value: Binding(
+                                get: { normFromDelay(uiMoveDelay) },
+                                set: { t in
+                                    uiMoveDelay = delayFromNorm(t)
+                                    player.setPlayInterval(uiMoveDelay)
+                                }
+                            ),
+                            in: 0...1
+                        )
+                        .tint(.white)
+                        .controlSize(.large)
+                    }
+
+                    // Auto-next options
+                    HStack(spacing: 18) {
+                        Toggle("auto-next", isOn: $autoNext)
+                        Toggle("random next game", isOn: $randomNext)
+                        Toggle("random game on start", isOn: $randomOnStart)
+                    }
+
+                    // Move slider + readout
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Move: \(player.currentIndex)/\(player.maxIndex)")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.9))
+                        Slider(
+                            value: Binding(
+                                get: { Double(player.currentIndex) },
+                                set: { v in player.seek(to: Int(v.rounded())) }
+                            ),
+                            in: 0...Double(max(0, player.maxIndex))
+                        )
+                        .tint(.white)
+                        .controlSize(.large)
+                    }
+
+                    // Transport controls (in-panel)
+                    HStack(spacing: 10) {
+                        Button("<<") { stepBack(10) }.buttonStyle(GlassPillButton())
+                        Button("<")  { stepBack(1)  }.buttonStyle(GlassPillButton())
+                        Button(player.isPlaying ? "||" : ">") { player.togglePlay() }
+                            .buttonStyle(GlassPillButton(emphasis: .prominent))
+                        Button(">")  { stepForward(1)  }.buttonStyle(GlassPillButton())
+                        Button(">>") { stepForward(10) }.buttonStyle(GlassPillButton())
+                        Spacer()
+                    }
+
+                    // Panel appearance
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Appearance").font(.headline)
+
+                        HStack {
+                            Text("Tint opacity")
+                            Spacer()
+                            Text(String(format: "%.2f", panelTintAlpha)).monospacedDigit()
+                        }
+                        Slider(value: $panelTintAlpha, in: 0.0...0.60)
+                            .controlSize(.large)
+
+                        HStack {
+                            Text("Frostiness")
+                            Spacer()
+                            Text(String(format: "%.2f", panelFrost)).monospacedDigit()
+                        }
+                        Slider(value: $panelFrost, in: 0.0...1.0)
+                            .controlSize(.large)
+                    }
+                    .padding(.top, 6)
+
+                    // Advanced
+                    DisclosureGroup(isExpanded: $advancedExpanded) {
+                        VStack(alignment: .leading, spacing: 12) {
+
+                            // --- Stone eccentricity (0...5)
+                            Text("Stone eccentricity")
+                                .font(.subheadline.bold())
+                                .foregroundStyle(.white.opacity(0.9))
+
+                            HStack {
+                                Text("Eccentricity")
+                                Spacer()
+                                Text("\(String(format: "%.2fx", eccentricity))").monospacedDigit()
+                            }
+                            Slider(value: $eccentricity, in: 0.0...5.0, step: 0.01)
+                                .tint(.white)
+                                .controlSize(.large)
+
+                            HStack {
+                                Button("Reset to preset") { eccentricity = 1.0 }
+                                    .buttonStyle(GlassPillButton())
+                                Spacer()
+                            }
+
+                            // --- Board shadow
+                            Group {
+                                Text("Board shadow").font(.subheadline.bold())
+
+                                HStack { Text("Opacity"); Spacer(); Text(String(format: "%.2f", boardShadowOpacity)).monospacedDigit() }
+                                Slider(value: $boardShadowOpacity, in: 0...0.9).controlSize(.large)
+
+                                HStack { Text("Radius"); Spacer(); Text(String(format: "%.1f", boardShadowRadius)).monospacedDigit() }
+                                Slider(value: $boardShadowRadius, in: 0...40).controlSize(.large)
+
+                                HStack { Text("Offset X"); Spacer(); Text(String(format: "%.1f", boardShadowDX)).monospacedDigit() }
+                                Slider(value: $boardShadowDX, in: -20...20).controlSize(.large)
+
+                                HStack { Text("Offset Y"); Spacer(); Text(String(format: "%.1f", boardShadowDY)).monospacedDigit() }
+                                Slider(value: $boardShadowDY, in: -20...20).controlSize(.large)
+                            }
+
+                            // --- Stone shadow
+                            Group {
+                                Text("Stone shadow").font(.subheadline.bold())
+
+                                HStack { Text("Opacity"); Spacer(); Text(String(format: "%.2f", stoneShadowOpacity)).monospacedDigit() }
+                                Slider(value: $stoneShadowOpacity, in: 0...0.9).controlSize(.large)
+
+                                HStack { Text("Radius"); Spacer(); Text(String(format: "%.1f", stoneShadowRadius)).monospacedDigit() }
+                                Slider(value: $stoneShadowRadius, in: 0...20).controlSize(.large)
+
+                                HStack { Text("Offset X"); Spacer(); Text(String(format: "%.1f", stoneShadowDX)).monospacedDigit() }
+                                Slider(value: $stoneShadowDX, in: -8...8).controlSize(.large)
+
+                                HStack { Text("Offset Y"); Spacer(); Text(String(format: "%.1f", stoneShadowDY)).monospacedDigit() }
+                                Slider(value: $stoneShadowDY, in: -8...8).controlSize(.large)
+                            }
+
+                            // --- Grid aspect & lids (scale + per-lid offsets)
+                            Group {
+                                Text("Grid / Accessories").font(.subheadline.bold())
+
+                                HStack { Text("Cell aspect (H/W)"); Spacer(); Text(String(format: "%.3f", cellAspect)).monospacedDigit() }
+                                Slider(value: $cellAspect, in: 0.95...1.10).controlSize(.large)
+
+                                HStack { Text("Lid scale"); Spacer(); Text(String(format: "%.2f", lidScale)).monospacedDigit() }
+                                Slider(value: $lidScale, in: 0.12...0.60).controlSize(.large)
+
+                                HStack { Text("UL lid X"); Spacer(); Text(String(format: "%.3f", lidULX)).monospacedDigit() }
+                                Slider(value: $lidULX, in: -0.30...0.30).controlSize(.large)
+                                HStack { Text("UL lid Y"); Spacer(); Text(String(format: "%.3f", lidULY)).monospacedDigit() }
+                                Slider(value: $lidULY, in: -0.30...0.30).controlSize(.large)
+
+                                HStack { Text("LR lid X"); Spacer(); Text(String(format: "%.3f", lidLRX)).monospacedDigit() }
+                                Slider(value: $lidLRX, in: -0.30...0.30).controlSize(.large)
+                                HStack { Text("LR lid Y"); Spacer(); Text(String(format: "%.3f", lidLRY)).monospacedDigit() }
+                                Slider(value: $lidLRY, in: -0.30...0.30).controlSize(.large)
+                            }
+
+                            // --- Lid shadow (separate from board/stone)
+                            Group {
+                                Text("Lid shadow").font(.subheadline.bold())
+
+                                HStack { Text("Opacity"); Spacer(); Text(String(format: "%.2f", lidShadowOpacity)).monospacedDigit() }
+                                Slider(value: $lidShadowOpacity, in: 0...0.9).controlSize(.large)
+
+                                HStack { Text("Radius"); Spacer(); Text(String(format: "%.1f", lidShadowRadius)).monospacedDigit() }
+                                Slider(value: $lidShadowRadius, in: 0...40).controlSize(.large)
+
+                                HStack { Text("Offset X"); Spacer(); Text(String(format: "%.1f", lidShadowDX)).monospacedDigit() }
+                                Slider(value: $lidShadowDX, in: -20...20).controlSize(.large)
+
+                                HStack { Text("Offset Y"); Spacer(); Text(String(format: "%.1f", lidShadowDY)).monospacedDigit() }
+                                Slider(value: $lidShadowDY, in: -20...20).controlSize(.large)
+                            }
+                        }
+                        .padding(.top, 6)
+                    } label: {
+                        Text("Advanced").font(.headline)
+                    }
+                    .padding(.top, 6)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+            }
+        }
+        .frame(width: 360, alignment: .leading)
+        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .background(
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial).opacity(1 - panelFrost)
+                Rectangle().fill(.thinMaterial).opacity(panelFrost)
+                Rectangle().fill(panelTint.opacity(panelTintAlpha))
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.04)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                )
+            }
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(.white.opacity(0.12), lineWidth: 1)
+        )
+        .cornerRadius(16)
+        .padding(.vertical, 12)
+        .padding(.leading, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Main content: board with negative space + bottom metadata
+    private var detail: some View {
+        VStack(spacing: 0) {
+            GeometryReader { geo in
+                let L = boardLayout(for: geo.size)
+                
+                // Scale factor so board/lid shadows grow with board size.
+                // 900 matches your default window width; tweak if you prefer a different baseline.
+                let shadowScale = L.side / 900.0
+
+                if debugLayout {
+                    Path { p in
+                        let cx = geo.size.width / 2
+                        let cy = (geo.size.height - 44) / 2
+                        p.move(to: CGPoint(x: cx, y: cy - 200)); p.addLine(to: CGPoint(x: cx, y: cy + 200))
+                        p.move(to: CGPoint(x: cx - 200, y: cy)); p.addLine(to: CGPoint(x: cx + 200, y: cy))
+                    }
+                    .stroke(.red.opacity(0.6), lineWidth: 1)
+
+                    Rectangle()
+                        .stroke(Color.pink.opacity(0.6), lineWidth: 1)
+                        .frame(width: L.side, height: L.side)
+                        .position(x: geo.size.width / 2, y: (geo.size.height - 44) / 2)
+                }
+
+                ZStack {
+                    Image("tatami")
+                        .resizable()
+                        .scaledToFill()
+                        .ignoresSafeArea()
+                        .clipped()
+
+                    let boardCenterX = geo.size.width / 2
+                    let boardCenterY = L.topInset + L.side / 2
+
+                    // Scale factor for board/lid shadows to keep “look” across sizes
+     
+                    BoardViewport(
+                        boardSize: player.board.size,
+                        state: player.board,
+                        textures: Textures.default,
+                        marginPercent: marginPercent,
+                        eccentricity: CGFloat(eccentricity),
+                        cellAspect: CGFloat(cellAspect),
+                        stoneShadowOpacity: CGFloat(stoneShadowOpacity),
+                        stoneShadowRadius:  CGFloat(stoneShadowRadius),
+                        stoneShadowOffsetX: CGFloat(stoneShadowDX),
+                        stoneShadowOffsetY: CGFloat(stoneShadowDY)
+                    )
+                    .frame(width: L.side, height: L.side)
+                    .shadow(
+                        color: .black.opacity(boardShadowOpacity),
+                        radius: boardShadowRadius * shadowScale,
+                        x: boardShadowDX * shadowScale,
+                        y: boardShadowDY * shadowScale
+                    )
+
+                    // Bowl lids anchored to board corners (fixed relative to board)
+                    let lidSize = L.side * lidScale
+
+                    let ulCornerX = boardCenterX - L.side / 2
+                    let ulCornerY = boardCenterY - L.side / 2
+                    let lrCornerX = boardCenterX + L.side / 2
+                    let lrCornerY = boardCenterY + L.side / 2
+
+                    Image("go_lid_1")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: lidSize, height: lidSize)
+                        .shadow(
+                            color: .black.opacity(lidShadowOpacity),
+                            radius: lidShadowRadius * shadowScale,
+                            x: lidShadowDX * shadowScale,
+                            y: lidShadowDY * shadowScale
+                        )
+                        .position(
+                            x: ulCornerX + L.side * lidULX,
+                            y: ulCornerY + L.side * lidULY
+                        )
+
+                    Image("go_lid_2")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: lidSize, height: lidSize)
+                        .shadow(
+                            color: .black.opacity(lidShadowOpacity),
+                            radius: lidShadowRadius * shadowScale,
+                            x: lidShadowDX * shadowScale,
+                            y: lidShadowDY * shadowScale
+                        )
+                        .position(
+                            x: lrCornerX + L.side * lidLRX,
+                            y: lrCornerY + L.side * lidLRY
+                        )
+
+                    // Metadata label centered in the gap to bottom
+                    if let g = app.selection?.game {
+                        let usableH     = max(1, geo.size.height - L.bottomReserved - L.topInset)
+                        let boardCenter = L.topInset + usableH / 2
+                        let boardBottom = boardCenter + L.side / 2
+                        let safeBottom  = geo.size.height - 12
+                        let labelY      = (boardBottom + safeBottom) / 2
+
+                        // scale font with board size (but keep unobtrusive)
+                        let fontSize = max(11, min(18, L.side * 0.018))
+
+                        let dateOrEvent = displayDate(g.info.date) ?? (g.info.event ?? "")
+                        let parts: [String?] = [
+                            dateOrEvent,
+                            "B: \(g.info.playerBlack ?? "?")",
+                            "W: \(g.info.playerWhite ?? "?")",
+                            (g.info.result?.isEmpty == false ? g.info.result! : nil)
+                        ]
+                        let meta = parts.compactMap { $0 }.joined(separator: "    •    ")
+
+                        Text(meta)
+                            .font(.system(size: fontSize))
+                            .foregroundStyle(.white.opacity(0.9))
+                            .shadow(color: .black.opacity(0.35), radius: 1, x: 0, y: 1)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(maxWidth: geo.size.width * 0.94)
+                            .position(x: geo.size.width / 2, y: labelY)
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Utility
+    private func displayDate(_ s: String?) -> String? {
+        guard let s else { return nil }
+        if let comma = s.firstIndex(of: ",") { return String(s[..<comma]) }
+        return s
+    }
+
+    // MARK: - Auto-next (5s after game finishes)
+    private func scheduleAutoNextIfNeeded() {
+        nextTimer?.cancel()
+        nextTimer = nil
+
+        guard autoNext else { return }
+        let isAtEnd = player.currentIndex >= player.maxIndex
+        guard isAtEnd else { return }
+
+        let work = DispatchWorkItem { [weak app] in
+            advanceToNextGame()
+        }
+        nextTimer = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0, execute: work)
+    }
+
+    private func advanceToNextGame() {
+        nextTimer = nil
+        guard !app.games.isEmpty else { return }
+
+        if randomNext {
+            pickRandomGame()
+        } else {
+            if let cur = app.selection,
+               let idx = app.games.firstIndex(where: { ($0 as AnyObject) === (cur as AnyObject) }) {
+                let next = app.games.indices.contains(idx+1) ? app.games[idx+1] : app.games.first!
+                app.selection = next
+            } else {
+                app.selection = app.games.first
+            }
+        }
+
+        // Load & clean-start playback from move 0
+        if let g = app.selection?.game { player.load(game: g) }
+        player.setPlayInterval(uiMoveDelay)
+        player.seek(to: 0)
+        if player.isPlaying { player.togglePlay() } // normalize to paused
+        player.togglePlay()                         // then play
+    }
+
+    // MARK: - Keyboard handling
+    private func handleKey(_ event: NSEvent) {
+        if event.keyCode == 49 { player.togglePlay(); return } // space
+        let isShift = event.modifierFlags.contains(.shift)
+        if event.keyCode == 123 { stepBack(isShift ? 10 : 1); return }   // left
+        if event.keyCode == 124 { stepForward(isShift ? 10 : 1); return } // right
+    }
+
+    private func stepForward(_ n: Int) {
+        let target = min(player.currentIndex + n, player.maxIndex)
+        player.seek(to: target)
+    }
+    private func stepBack(_ n: Int) {
+        let target = max(player.currentIndex - n, 0)
+        player.seek(to: target)
+    }
+
+    private func pickRandomGame() {
+        guard let item = app.games.randomElement() else { return }
+        app.selection = item
+        player.load(game: item.game)
+        if autoNext && !player.isPlaying { player.togglePlay() }
+    }
+
+    // MARK: - Log slider mapping (0.2s ... 10.0s)
+    private let delayMin: Double = 0.20
+    private let delayMax: Double = 10.0
+    private var delayRangeRatio: Double { delayMax / delayMin }
+
+    private func normFromDelay(_ s: Double) -> Double {
+        return log(s / delayMin) / log(delayRangeRatio)
+    }
+    private func delayFromNorm(_ t: Double) -> Double {
+        return delayMin * pow(delayRangeRatio, t)
+    }
+
+    // MARK: - Layout math (symmetric top/bottom)
+    private func boardLayout(for size: CGSize)
+    -> (padH: CGFloat, padTop: CGFloat, padBottom: CGFloat, side: CGFloat, bottomReserved: CGFloat, topInset: CGFloat) {
+        let w = size.width
+        let h = size.height
+        let bottomReserved: CGFloat = 0
+
+        // SAME minimal gap above and below
+        let minGap: CGFloat = 44
+
+        // space remaining after reserving symmetric gaps
+        let usableH = max(1, h - bottomReserved - 2 * minGap)
+
+        // board side (keep your 0.92 aesthetic scale)
+        let side = max(1, min(w, usableH) * 0.92)
+
+        // symmetric placement
+        let extra = max(0, usableH - side)
+        let topInset  = minGap + extra / 2
+        let padBottom = minGap + extra / 2
+
+        // aesthetics-only
+        let padH  = max(12, (w - side) / 2)
+        let padTop = topInset
+
+        return (padH, padTop, padBottom, side, bottomReserved, topInset)
+    }
+}
