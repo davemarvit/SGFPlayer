@@ -251,15 +251,15 @@ struct ContentView: View {
                         Image(systemName: "gearshape.fill")
                             .imageScale(.large)
                             .padding(10)
-                            .background(.ultraThinMaterial, in: Circle())
                     }
+                    .buttonStyle(PlainButtonStyle())
                     .disabled(app.games.isEmpty)
                     .opacity(app.games.isEmpty ? 0.5 : 1.0)
 
                     Spacer()
                 }
                 .padding(.leading, 12)
-                .padding(.top, 40)
+                .padding(.top, 20)
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -278,11 +278,11 @@ struct ContentView: View {
                         Image(systemName: "arrow.up.left.and.arrow.down.right")
                             .imageScale(.large)
                             .padding(10)
-                            .background(.ultraThinMaterial, in: Circle())
                     }
+                    .buttonStyle(PlainButtonStyle())
                 }
                 .padding(.trailing, 12)
-                .padding(.top, 40)
+                .padding(.top, 20)
                 Spacer()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
