@@ -16,17 +16,21 @@ final class SGFPlayer: ObservableObject {
     @Published var playInterval: Double = 0.75          // seconds per move (configurable)
     var maxIndex: Int { max(0, moves.count) }
 
+    // Public access to move data for capture counting
+    var moves: [(Stone,(Int,Int)?)] { _moves }
+    var baseSetup: [(Stone,Int,Int)] { _baseSetup }
+
     // Internal model snapshot for the current game
-    private var moves: [(Stone,(Int,Int)?)] = []        // pass = nil
+    private var _moves: [(Stone,(Int,Int)?)] = []       // pass = nil
     private var baseSize: Int = 19
-    private var baseSetup: [(Stone,Int,Int)] = []       // AB/AW
+    private var _baseSetup: [(Stone,Int,Int)] = []      // AB/AW
     private var timer: AnyCancellable?
 
     // Load a new SGF game
     func load(game: SGFGame) {
         baseSize = game.boardSize
-        baseSetup = game.setup
-        moves = game.moves
+        _baseSetup = game.setup
+        _moves = game.moves
         reset()
     }
 
@@ -35,7 +39,7 @@ final class SGFPlayer: ObservableObject {
         pause()
         currentIndex = 0
         var grid = Array(repeating: Array(repeating: Stone?.none, count: baseSize), count: baseSize)
-        for (stone, x, y) in baseSetup where x < baseSize && y < baseSize {
+        for (stone, x, y) in _baseSetup where x < baseSize && y < baseSize {
             grid[y][x] = stone
         }
         board = .init(size: baseSize, grid: grid)
@@ -62,7 +66,7 @@ final class SGFPlayer: ObservableObject {
     }
 
     func stepForward() {
-        guard currentIndex < moves.count else {
+        guard currentIndex < _moves.count else {
             pause()
             return
         }
@@ -82,7 +86,7 @@ final class SGFPlayer: ObservableObject {
     }
 
     func seek(to idx: Int) {
-        let clamped = max(0, min(idx, moves.count))
+        let clamped = max(0, min(idx, _moves.count))
         reset()
         if clamped > 0 {
             for i in 0..<clamped { apply(moveAt: i) }
@@ -99,7 +103,7 @@ final class SGFPlayer: ObservableObject {
     // Apply a single move: place stone, capture opponent groups without liberties,
     // then (if needed) remove own group if it has no liberties (supports suicide SGFs).
     private func apply(moveAt i: Int) {
-        let (color, coord) = moves[i]
+        let (color, coord) = _moves[i]
         guard let (x, y) = coord,
               x >= 0, y >= 0,
               x < board.size, y < board.size else {

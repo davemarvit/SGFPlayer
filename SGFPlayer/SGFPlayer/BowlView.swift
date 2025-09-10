@@ -61,8 +61,9 @@ struct BowlView: View {
                 let p = layout[s.id] ?? s.offset
                 Image(s.imageName)
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .aspectRatio(1.0, contentMode: .fit)  // Force 1:1 aspect ratio
                     .frame(width: stoneDiameter, height: stoneDiameter)
+                    .clipped()  // Ensure consistent bounds
                     .shadow(color: .black.opacity(stoneShadowOpacity),
                             radius: stoneShadowRadius,
                             x: stoneShadowDX, y: stoneShadowDY)
@@ -100,8 +101,9 @@ struct BowlView: View {
         }
 
         // Base timing comes from the slider; keep sensible floors so it never snaps.
-        let long  = max(0.06, animDuration)           // for bigger moves
-        let short = max(0.03, animDuration * 0.60)    // for tiny moves
+        // Increased durations for more natural, slower stone movements
+        let long  = max(0.4, animDuration * 3.0)      // for bigger moves - much slower
+        let short = max(0.2, animDuration * 2.0)      // for tiny moves - slower
 
         withAnimation(.easeOut(duration: anyBigMove ? long : short)) {
             layout = newLayout
@@ -110,6 +112,16 @@ struct BowlView: View {
     
     // Compute a size-aware relaxed layout from current inputs
     private func relaxedLayout() -> [UUID: CGPoint] {
+        // If relaxIterations is very low (like 5-10), assume we're using external physics (Physics 4/5)
+        // and just use the provided positions directly
+        if relaxIterations <= 10 {
+            print("🎯 BowlView: Using external physics positions (relaxIterations=\(relaxIterations), stoneCount=\(stones.count))")
+            let result = stones.reduce(into: [UUID: CGPoint]()) { $0[$1.id] = $1.offset }
+            print("🎯 BowlView: External stone positions: \(result.values.map { "(\($0.x), \($0.y))" }.joined(separator: ", "))")
+            return result
+        }
+        
+        // Otherwise use BowlView's internal physics
         let lidRadius = lidSize * 0.46                // conservative inner radius
         let rStone    = stoneDiameter * 0.5           // board-matched radius
         let desiredD  = max(0.0, targetSpacingXRadius) * rStone
