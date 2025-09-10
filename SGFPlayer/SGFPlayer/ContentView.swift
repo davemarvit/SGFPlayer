@@ -19,8 +19,22 @@ struct WindowConfigurator: NSViewRepresentable {
 struct CapturedStone: Identifiable {
     let id = UUID()
     let isWhite: Bool
-    let imageName: String  // "stone_black" or "clam_0X"
-    var pos: CGPoint       // relative to lid center, in points of the view
+    let imageName: String     // "stone_black" or "clam_0X"
+    var pos: CGPoint          // absolute position in current view coordinates
+    var normalizedPos: CGPoint // scale-independent position (-1.0 to 1.0 relative to bowl)
+    
+    init(isWhite: Bool, imageName: String, pos: CGPoint = .zero, normalizedPos: CGPoint = .zero) {
+        self.isWhite = isWhite
+        self.imageName = imageName
+        self.pos = pos
+        self.normalizedPos = normalizedPos
+    }
+}
+
+// MARK: - Scale-Independent Position Cache
+struct LidLayout: Codable {
+    let blackStones: [CGPoint]  // normalized positions (-1.0 to 1.0)
+    let whiteStones: [CGPoint]  // normalized positions (-1.0 to 1.0)
 }
 
 struct ContentView: View {
@@ -32,7 +46,7 @@ struct ContentView: View {
     @State private var marginPercent: CGFloat = 0.041
     
     // Version tracking for physics changes
-    private let physicsVersion = "v1.4.3-scaling"
+    private let physicsVersion = "v1.7.2-debug-logging"
 
     // Settings
     @AppStorage("includeSubfolders") private var includeSubfolders = true
@@ -236,6 +250,9 @@ struct ContentView: View {
     @State private var tallyBByW: Int = 0   // black stones captured by white
     @State private var tallyAtMove: [Int:(w:Int,b:Int)] = [0:(0,0)]
     @State private var gridAtMove: [Int : [[Stone?]]] = [:]   // cached canonical boards by move
+    @State private var layoutAtMove: [Int: LidLayout] = [:]   // cached normalized stone positions by move
+    @State private var isRestoringFromCache: Bool = false  // flag to skip physics when restoring cache
+    @State private var currentBowlRadius: CGFloat = 100.0  // store actual bowl radius from rendering
     @State private var lastIndex: Int = 0
     @State private var previousMoveIndex: Int = 0
 
@@ -273,6 +290,51 @@ struct ContentView: View {
                 .opacity(configuration.isPressed ? 0.85 : 1)
                 .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
         }
+    }
+
+    // MARK: - Scaling Helper Function
+    private func rescaleStonePositionsIfNeeded(newBowlRadius: CGFloat) -> Bool {
+        let needsScaling = abs(newBowlRadius - currentBowlRadius) > 0.1 && currentBowlRadius > 0
+        
+        // Always log bowl radius changes for debugging
+        print("🔍 BOWL RADIUS: current=\(currentBowlRadius), new=\(newBowlRadius), diff=\(abs(newBowlRadius - currentBowlRadius))")
+        
+        if needsScaling {
+            let scaleRatio = newBowlRadius / currentBowlRadius
+            print("🔄 SCALING: TRIGGERED! Bowl radius changed from \(currentBowlRadius) to \(newBowlRadius), scaling ratio: \(scaleRatio)")
+            
+            // Log current stone positions before scaling
+            if capUL.count > 0 {
+                print("🔄 SCALING: Before - First UL stone at (\(capUL[0].pos.x), \(capUL[0].pos.y))")
+            }
+            
+            // CRITICAL: Clear position cache to prevent restoration from overriding our scaling
+            print("🔄 SCALING: Clearing position cache to prevent override")
+            layoutAtMove.removeAll()
+            
+            // Rescale all stone positions
+            for i in 0..<capUL.count {
+                capUL[i].pos.x *= scaleRatio
+                capUL[i].pos.y *= scaleRatio
+            }
+            for i in 0..<capLR.count {
+                capLR[i].pos.x *= scaleRatio
+                capLR[i].pos.y *= scaleRatio
+            }
+            
+            // Log stone positions after scaling
+            if capUL.count > 0 {
+                print("🔄 SCALING: After - First UL stone at (\(capUL[0].pos.x), \(capUL[0].pos.y))")
+            }
+            
+            print("🔄 SCALING: Rescaled \(capUL.count) UL + \(capLR.count) LR stone positions")
+        } else {
+            print("🔍 SCALING: No scaling needed (needsScaling=false)")
+        }
+        
+        // Always update the bowl radius for cache restoration
+        currentBowlRadius = newBowlRadius
+        return needsScaling
     }
 
     var body: some View {
@@ -368,14 +430,25 @@ struct ContentView: View {
             tallyAtMove = [0:(0,0)]
             gridAtMove.removeAll()
             gridAtMove[0] = player.board.grid
+            layoutAtMove.removeAll()
+            layoutAtMove[0] = LidLayout(blackStones: [], whiteStones: [])
 
             // NEW: seed bowls deterministically for the newly-selected game
             bowls.refresh(using: player, gameFingerprint: currentFingerprint())
         }
-        .onChange(of: player.currentIndex) { _, _ in
-            // If we’ve seen this move before, restore exact tallies + grid and sync lids.
+        .onChange(of: player.currentIndex) { oldIndex, newIndex in
+            print("🔄 MOVE CHANGE: \(oldIndex) → \(newIndex)")
+            print("🔄 Current tallies - WByB: \(tallyWByB), BByW: \(tallyBByW)")
+            print("🔄 Current stone counts - UL: \(capUL.count), LR: \(capLR.count)")
+            
+            // If we've seen this move before, restore exact tallies + grid + stone positions.
             if let t = tallyAtMove[player.currentIndex],
-               let g = gridAtMove[player.currentIndex] {
+               let g = gridAtMove[player.currentIndex],
+               let layout = layoutAtMove[player.currentIndex] {
+
+                print("🔄 CACHE HIT in move change: Found cached move \(player.currentIndex)")
+                print("🔄 Cached tallies - WByB: \(t.w), BByW: \(t.b)")
+                print("🔄 Cached layout - black: \(layout.blackStones.count), white: \(layout.whiteStones.count)")
 
                 // Update direction tracking even for cached moves
                 previousMoveIndex = player.currentIndex
@@ -384,17 +457,19 @@ struct ContentView: View {
                 tallyBByW = t.b
                 lastGrid = g
 
-                // quick geometry guess; true sizes will be reapplied next render pass
-                let boardSideGuess: CGFloat = 640
-                let lidSizeGuess = boardSideGuess * lidScale
-                let bowlR = lidSizeGuess * 0.46
-                let stoneSize = lidSizeGuess * 0.58
-                let stoneR = stoneSize * 0.5
-                let pull = lidSizeGuess * CGFloat(cfg.centerPullK)
-                syncLidsToTallies(bowlRadius: bowlR, stoneRadius: stoneR, centerPull: pull)
-
+                // Directly restore stone arrays from cache without running capture detection
+                print("🔄 CACHE HIT: Directly restoring stone arrays from cache")
+                
+                // Use actual bowl radius from rendering instead of estimates
+                let bowlR = currentBowlRadius
+                
+                print("🔄 CACHE HIT: Using actual bowl radius \(bowlR) for restoration (stored from rendering)")
+                
+                // Restore stone positions directly
+                restoreStonePositionsFromCache(layout: layout, bowlRadius: bowlR)
+                
                 scheduleAutoNextIfNeeded()
-                bowls.refresh(using: player, gameFingerprint: currentFingerprint())
+                print("🔄 CACHE HIT: Completed move change to cached move")
                 return
             }
 
@@ -407,6 +482,11 @@ struct ContentView: View {
 
             scheduleAutoNextIfNeeded()
             bowls.refresh(using: player, gameFingerprint: currentFingerprint())
+            
+            print("🔄 CACHE MISS: Completed move change to new move \(player.currentIndex)")
+            print("🔄 Final tallies - WByB: \(tallyWByB), BByW: \(tallyBByW)")
+            print("🔄 Final stone counts - UL: \(capUL.count), LR: \(capLR.count)")
+            // NOTE: Position caching now happens in syncLidsToTallies with proper bowl radius
         }
         .onChange(of: player.isPlaying) { _, _ in
             scheduleAutoNextIfNeeded()
@@ -1020,6 +1100,10 @@ struct ContentView: View {
 
                     // Bowl lids anchored to board corners (fixed relative to board)
                     let lidSize = L.side * lidScale
+                    let actualBowlRadius = lidSize * 0.46
+                    
+                    // SCALING FIX: Check for bowl size changes and rescale stones
+                    let _ = rescaleStonePositionsIfNeeded(newBowlRadius: actualBowlRadius)
                     let ulCornerX = boardCenterX - L.side / 2
                     let ulCornerY = boardCenterY - L.side / 2
                     let lrCornerX = boardCenterX + L.side / 2
@@ -1293,18 +1377,7 @@ struct Physics1: LidPhysics {
         bowlRadius: CGFloat,
         stoneRadius: CGFloat
     ) {
-        // SCALING FIX: Store previous bowl size and rescale stone positions if changed
-        @AppStorage("lastBowlRadius") var lastBowlRadius: Double = 0.0
-        if lastBowlRadius > 0 && abs(Double(bowlRadius) - lastBowlRadius) > 1.0 {
-            // Bowl size changed significantly - rescale all stone positions
-            let scaleRatio = CGFloat(Double(bowlRadius) / lastBowlRadius)
-            for i in 0..<stones.count {
-                stones[i].pos.x *= scaleRatio
-                stones[i].pos.y *= scaleRatio
-            }
-            print("🔥 Scaling: Bowl changed from \(lastBowlRadius) to \(bowlRadius), scaled positions by \(scaleRatio)")
-        }
-        lastBowlRadius = Double(bowlRadius)
+        // NOTE: Window scaling is now handled universally before physics simulation
         
         // NEW: Natural dropping behavior - only the last stone is newly dropped
         let newStoneIndex = stones.count > 0 ? stones.count - 1 : -1
@@ -2325,6 +2398,35 @@ extension ContentView {
         let targetUL = tallyBByW   // black stones captured by white → UL lid (black bowl - contains black stones)
         let targetLR = tallyWByB   // white stones captured by black → LR lid (white bowl - contains white stones)
         
+        // DIAGNOSTIC: Check what we expect vs what we have
+        print("🔍 DIAGNOSTIC: syncLidsToTallies called for move \(player.currentIndex)")
+        print("🔍 Expected counts - UL (black): \(targetUL), LR (white): \(targetLR)")
+        print("🔍 Current counts - UL: \(capUL.count), LR: \(capLR.count)")
+        print("🔍 Bowl radius: \(bowlRadius)")
+        print("🔍 Cache available: \(layoutAtMove[player.currentIndex] != nil)")
+        
+        // Check if we have cached positions for this move - if so, restore them instead of running physics
+        if let layout = layoutAtMove[player.currentIndex] {
+            print("🔄 CACHE HIT: Restoring cached positions for move \(player.currentIndex)")
+            print("🔄 Cached counts - black: \(layout.blackStones.count), white: \(layout.whiteStones.count)")
+            restoreStonePositionsFromCache(layout: layout, bowlRadius: bowlRadius)
+            print("🔄 After restore - UL: \(capUL.count), LR: \(capLR.count)")
+            return
+        }
+        
+        // Also check if we're being called during a cache restore operation - restore from cache but skip physics
+        if isRestoringFromCache {
+            print("🔄 CACHE RESTORE MODE: Looking for cache to restore positions")
+            if let layout = layoutAtMove[player.currentIndex] {
+                print("🔄 CACHE RESTORE MODE: Restoring cached positions")
+                restoreStonePositionsFromCache(layout: layout, bowlRadius: bowlRadius)
+                return
+            } else {
+                print("🔄 CACHE RESTORE MODE: No cache found, skipping")
+                return
+            }
+        }
+        
         // Get game seed for consistent randomization
         let hashValue = currentFingerprint().hashValue
         let gameSeed = UInt64(hashValue >= 0 ? hashValue : hashValue == Int.min ? Int.max : -hashValue)
@@ -2332,6 +2434,8 @@ extension ContentView {
         // Apply physics based on activeModel
         let oldULCount = capUL.count
         let oldLRCount = capLR.count
+        
+        // NOTE: Running physics simulation for new move
         
         // Debug logging
         print("🔥 Physics Debug: Using \(activeModel) (raw=\(activePhysicsModelRaw)), UL: \(oldULCount)→\(targetUL), LR: \(oldLRCount)→\(targetLR)")
@@ -2489,6 +2593,11 @@ extension ContentView {
             )
         }
         
+        // Cache the positions after physics simulation (using the actual bowl radius!)
+        print("🔥 PHYSICS COMPLETE: Final counts after physics - UL: \(capUL.count), LR: \(capLR.count)")
+        print("🔥 PHYSICS COMPLETE: Expected - UL: \(targetUL), LR: \(targetLR)")
+        cacheCurrentStonePositions(bowlRadius: bowlRadius)
+        
         // Note: Animation is handled by BowlView's internal layout system
         // No explicit animation needed here since stones are added directly to the arrays
     }
@@ -2591,5 +2700,97 @@ extension ContentView {
         let padTop = topInset
 
         return (padH, padTop, padBottom, side, bottomReserved, topInset)
+    }
+    
+    // MARK: - Scale-Independent Position Management
+    
+    /// Cache the current stone positions in normalized form (scale-independent)
+    private func cacheCurrentStonePositions(bowlRadius: CGFloat) {
+        guard bowlRadius > 0 else { 
+            print("❌ CACHE ERROR: Invalid bowl radius \(bowlRadius)")
+            return 
+        }
+        
+        print("💾 CACHE: Starting cache for move \(player.currentIndex) with bowlRadius=\(bowlRadius)")
+        print("💾 CACHE: Current stone counts - UL: \(capUL.count), LR: \(capLR.count)")
+        
+        // Convert absolute positions to normalized positions (-1.0 to 1.0)
+        let normalizedBlackStones = capUL.map { stone in
+            let normalized = CGPoint(x: stone.pos.x / bowlRadius, y: stone.pos.y / bowlRadius)
+            print("💾 CACHE: Black stone absolute(\(stone.pos.x), \(stone.pos.y)) → normalized(\(normalized.x), \(normalized.y))")
+            return normalized
+        }
+        let normalizedWhiteStones = capLR.map { stone in
+            let normalized = CGPoint(x: stone.pos.x / bowlRadius, y: stone.pos.y / bowlRadius)
+            print("💾 CACHE: White stone absolute(\(stone.pos.x), \(stone.pos.y)) → normalized(\(normalized.x), \(normalized.y))")
+            return normalized
+        }
+        
+        let layout = LidLayout(blackStones: normalizedBlackStones, whiteStones: normalizedWhiteStones)
+        layoutAtMove[player.currentIndex] = layout
+        
+        // Also update the normalized positions in the stone objects
+        for i in 0..<capUL.count {
+            capUL[i].normalizedPos = normalizedBlackStones[i]
+        }
+        for i in 0..<capLR.count {
+            capLR[i].normalizedPos = normalizedWhiteStones[i]
+        }
+        
+        print("💾 CACHE: Completed caching \(normalizedBlackStones.count) black + \(normalizedWhiteStones.count) white stone positions")
+        print("💾 CACHE: Cache now has \(layoutAtMove.count) moves cached")
+    }
+    
+    /// Restore stone positions from cached normalized positions (scale-independent)
+    private func restoreStonePositionsFromCache(layout: LidLayout, bowlRadius: CGFloat) {
+        guard bowlRadius > 0 else { 
+            print("❌ RESTORE ERROR: Invalid bowl radius \(bowlRadius)")
+            return 
+        }
+        
+        print("🔄 RESTORE: Starting restore with bowlRadius=\(bowlRadius)")
+        print("🔄 RESTORE: Target counts - black: \(layout.blackStones.count), white: \(layout.whiteStones.count)")
+        print("🔄 RESTORE: Current counts - UL: \(capUL.count), LR: \(capLR.count)")
+        
+        // Ensure we have the right number of stones
+        while capUL.count < layout.blackStones.count {
+            let stone = CapturedStone(isWhite: false, imageName: "stone_black")
+            capUL.append(stone)
+            print("🔄 RESTORE: Added black stone, now \(capUL.count) total")
+        }
+        while capUL.count > layout.blackStones.count {
+            capUL.removeLast()
+            print("🔄 RESTORE: Removed black stone, now \(capUL.count) total")
+        }
+        
+        while capLR.count < layout.whiteStones.count {
+            let imageName = "clam_\(String(format: "%02d", Int.random(in: 1...14)))"
+            let stone = CapturedStone(isWhite: true, imageName: imageName)
+            capLR.append(stone)
+            print("🔄 RESTORE: Added white stone, now \(capLR.count) total")
+        }
+        while capLR.count > layout.whiteStones.count {
+            capLR.removeLast()
+            print("🔄 RESTORE: Removed white stone, now \(capLR.count) total")
+        }
+        
+        // Convert normalized positions back to absolute positions
+        for i in 0..<layout.blackStones.count {
+            let normalized = layout.blackStones[i]
+            let absolutePos = CGPoint(x: normalized.x * bowlRadius, y: normalized.y * bowlRadius)
+            capUL[i].pos = absolutePos
+            capUL[i].normalizedPos = normalized
+            print("🔄 RESTORE: Black stone \(i): normalized(\(normalized.x), \(normalized.y)) → absolute(\(absolutePos.x), \(absolutePos.y))")
+        }
+        
+        for i in 0..<layout.whiteStones.count {
+            let normalized = layout.whiteStones[i]
+            let absolutePos = CGPoint(x: normalized.x * bowlRadius, y: normalized.y * bowlRadius)
+            capLR[i].pos = absolutePos
+            capLR[i].normalizedPos = normalized
+            print("🔄 RESTORE: White stone \(i): normalized(\(normalized.x), \(normalized.y)) → absolute(\(absolutePos.x), \(absolutePos.y))")
+        }
+        
+        print("🔄 RESTORE: Completed. Final counts - UL: \(capUL.count), LR: \(capLR.count)")
     }
 }
