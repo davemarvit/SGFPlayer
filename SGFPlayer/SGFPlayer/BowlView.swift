@@ -131,7 +131,7 @@ struct BowlView: View {
                      desiredCenterDistance: desiredD,
                      repulsion: repulsion,
                      pullPerIter: pullDist,
-                     keepWithin: lidRadius - rStone,
+                     keepWithin: lidRadius * 0.7,  // Keep stones in inner 70% of bowl
                      iterations: relaxIterations)
     }
     

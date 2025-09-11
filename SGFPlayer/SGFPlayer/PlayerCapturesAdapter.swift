@@ -15,22 +15,35 @@ final class PlayerCapturesAdapter: ObservableObject {
 
     /// Rebuild any internal state for the current move/game. Safe to call often.
     func refresh(using player: SGFPlayer, gameFingerprint: String) {
+        print("🎯🎯🎯 PlayerCapturesAdapter.refresh() CALLED")
+        print("🎯 Current move: \(player.currentIndex)")
+        print("🎯 Game fingerprint: \(gameFingerprint)")
+        
         // Update seed whenever the game changes (simple stable hash)
         let newSeed = Self.hash64(gameFingerprint)
         if newSeed != gameSeed {
             gameSeed = newSeed
             lastMoveIndex = -1
+            print("🎯 Game seed updated: \(gameSeed)")
+        } else {
+            print("🎯 Game seed unchanged: \(gameSeed)")
         }
 
         // Only recompute once per move index
         let idx = player.currentIndex
-        guard idx != lastMoveIndex else { return }
+        if idx == lastMoveIndex {
+            print("🎯 EARLY RETURN - Move index unchanged: \(idx)")
+            return
+        }
         lastMoveIndex = idx
+        print("🎯 Move index updated: \(idx)")
 
         // NOTE:
-        // We’re not deriving captured counts here because ContentView already computes/animates
+        // We're not deriving captured counts here because ContentView already computes/animates
         // bowl stones on each capture. If/when you want this adapter to be the single source of truth,
         // move that logic here and bind ContentView to `stonesUL` / `stonesLR`.
+        print("🎯 PlayerCapturesAdapter.refresh() COMPLETED - NO PHYSICS RECALCULATION DONE!")
+        print("🎯 ❌ THIS FUNCTION DOES NOT UPDATE STONE POSITIONS!")
     }
 
     // MARK: - Utilities

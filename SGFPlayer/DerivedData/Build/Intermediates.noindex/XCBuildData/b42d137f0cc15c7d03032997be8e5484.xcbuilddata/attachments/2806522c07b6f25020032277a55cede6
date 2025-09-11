@@ -1,0 +1,118 @@
+{
+  "" : {
+    "diagnostics" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer-master.dia",
+    "emit-module-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer-master-emit-module.dia",
+    "swift-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer-master.swiftdeps"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "const-values" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftconstvalues",
+    "dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GeneratedAssetSymbols.d",
+    "diagnostics" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GeneratedAssetSymbols.dia",
+    "index-unit-output-path" : "/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "swift-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GeneratedAssetSymbols.swiftdeps",
+    "swiftmodule" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GeneratedAssetSymbols~partial.swiftmodule"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/AppModel.swift" : {
+    "const-values" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/AppModel.swiftconstvalues",
+    "dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/AppModel.d",
+    "diagnostics" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/AppModel.dia",
+    "index-unit-output-path" : "/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/AppModel.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/AppModel.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/AppModel.o",
+    "swift-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/AppModel.swiftdeps",
+    "swiftmodule" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/AppModel~partial.swiftmodule"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/BoardViewport.swift" : {
+    "const-values" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BoardViewport.swiftconstvalues",
+    "dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BoardViewport.d",
+    "diagnostics" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BoardViewport.dia",
+    "index-unit-output-path" : "/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BoardViewport.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BoardViewport.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BoardViewport.o",
+    "swift-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BoardViewport.swiftdeps",
+    "swiftmodule" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BoardViewport~partial.swiftmodule"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/BowlPhysics.swift" : {
+    "const-values" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BowlPhysics.swiftconstvalues",
+    "dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BowlPhysics.d",
+    "diagnostics" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BowlPhysics.dia",
+    "index-unit-output-path" : "/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BowlPhysics.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BowlPhysics.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BowlPhysics.o",
+    "swift-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BowlPhysics.swiftdeps",
+    "swiftmodule" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BowlPhysics~partial.swiftmodule"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/BowlView.swift" : {
+    "const-values" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BowlView.swiftconstvalues",
+    "dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BowlView.d",
+    "diagnostics" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BowlView.dia",
+    "index-unit-output-path" : "/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BowlView.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BowlView.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BowlView.o",
+    "swift-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BowlView.swiftdeps",
+    "swiftmodule" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/BowlView~partial.swiftmodule"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ContentView.swift" : {
+    "const-values" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentView.swiftconstvalues",
+    "dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentView.d",
+    "diagnostics" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentView.dia",
+    "index-unit-output-path" : "/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentView.o",
+    "swift-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentView.swiftdeps",
+    "swiftmodule" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentView~partial.swiftmodule"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/PlayerCapturesAdapter.swift" : {
+    "const-values" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PlayerCapturesAdapter.swiftconstvalues",
+    "dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PlayerCapturesAdapter.d",
+    "diagnostics" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PlayerCapturesAdapter.dia",
+    "index-unit-output-path" : "/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PlayerCapturesAdapter.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PlayerCapturesAdapter.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PlayerCapturesAdapter.o",
+    "swift-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PlayerCapturesAdapter.swiftdeps",
+    "swiftmodule" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PlayerCapturesAdapter~partial.swiftmodule"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/SGFKit.swift" : {
+    "const-values" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFKit.swiftconstvalues",
+    "dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFKit.d",
+    "diagnostics" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFKit.dia",
+    "index-unit-output-path" : "/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFKit.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFKit.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFKit.o",
+    "swift-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFKit.swiftdeps",
+    "swiftmodule" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFKit~partial.swiftmodule"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/SGFPlayerApp.swift" : {
+    "const-values" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerApp.swiftconstvalues",
+    "dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerApp.d",
+    "diagnostics" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerApp.dia",
+    "index-unit-output-path" : "/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerApp.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerApp.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerApp.o",
+    "swift-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerApp.swiftdeps",
+    "swiftmodule" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerApp~partial.swiftmodule"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/SGFPlayerEngine.swift" : {
+    "const-values" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerEngine.swiftconstvalues",
+    "dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerEngine.d",
+    "diagnostics" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerEngine.dia",
+    "index-unit-output-path" : "/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerEngine.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerEngine.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerEngine.o",
+    "swift-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerEngine.swiftdeps",
+    "swiftmodule" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerEngine~partial.swiftmodule"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/StoneJitter.swift" : {
+    "const-values" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/StoneJitter.swiftconstvalues",
+    "dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/StoneJitter.d",
+    "diagnostics" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/StoneJitter.dia",
+    "index-unit-output-path" : "/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/StoneJitter.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/StoneJitter.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/StoneJitter.o",
+    "swift-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/StoneJitter.swiftdeps",
+    "swiftmodule" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/DerivedData/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/StoneJitter~partial.swiftmodule"
+  }
+}

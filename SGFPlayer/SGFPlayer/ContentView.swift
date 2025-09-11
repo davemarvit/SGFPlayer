@@ -46,7 +46,7 @@ struct ContentView: View {
     @State private var marginPercent: CGFloat = 0.041
     
     // Version tracking for physics changes
-    private let physicsVersion = "v1.7.2-debug-logging"
+    private let physicsVersion = "v1.7.3-normalized-scaling"
 
     // Settings
     @AppStorage("includeSubfolders") private var includeSubfolders = true
@@ -253,6 +253,7 @@ struct ContentView: View {
     @State private var layoutAtMove: [Int: LidLayout] = [:]   // cached normalized stone positions by move
     @State private var isRestoringFromCache: Bool = false  // flag to skip physics when restoring cache
     @State private var currentBowlRadius: CGFloat = 100.0  // store actual bowl radius from rendering
+    @State private var lastWindowSize: CGSize = CGSize.zero  // track window size for scaling detection
     @State private var lastIndex: Int = 0
     @State private var previousMoveIndex: Int = 0
 
@@ -292,49 +293,118 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Scaling Helper Function
-    private func rescaleStonePositionsIfNeeded(newBowlRadius: CGFloat) -> Bool {
-        let needsScaling = abs(newBowlRadius - currentBowlRadius) > 0.1 && currentBowlRadius > 0
+    // MARK: - Natural Stone Positioning
+    private func generateNaturalStonePosition(index: Int, totalStones: Int, bowlRadius: CGFloat, isWhite: Bool) -> CGPoint {
+        guard totalStones > 0 else { return CGPoint.zero }
         
-        // Always log bowl radius changes for debugging
-        print("🔍 BOWL RADIUS: current=\(currentBowlRadius), new=\(newBowlRadius), diff=\(abs(newBowlRadius - currentBowlRadius))")
+        // Ensure proper stone separation with multiple strategies
+        let stoneRadius = bowlRadius * 0.15 // Approximate stone radius
+        let minSeparation = stoneRadius * 2.2 // Minimum distance between stone centers
         
-        if needsScaling {
-            let scaleRatio = newBowlRadius / currentBowlRadius
-            print("🔄 SCALING: TRIGGERED! Bowl radius changed from \(currentBowlRadius) to \(newBowlRadius), scaling ratio: \(scaleRatio)")
-            
-            // Log current stone positions before scaling
-            if capUL.count > 0 {
-                print("🔄 SCALING: Before - First UL stone at (\(capUL[0].pos.x), \(capUL[0].pos.y))")
-            }
-            
-            // CRITICAL: Clear position cache to prevent restoration from overriding our scaling
-            print("🔄 SCALING: Clearing position cache to prevent override")
-            layoutAtMove.removeAll()
-            
-            // Rescale all stone positions
-            for i in 0..<capUL.count {
-                capUL[i].pos.x *= scaleRatio
-                capUL[i].pos.y *= scaleRatio
-            }
-            for i in 0..<capLR.count {
-                capLR[i].pos.x *= scaleRatio
-                capLR[i].pos.y *= scaleRatio
-            }
-            
-            // Log stone positions after scaling
-            if capUL.count > 0 {
-                print("🔄 SCALING: After - First UL stone at (\(capUL[0].pos.x), \(capUL[0].pos.y))")
-            }
-            
-            print("🔄 SCALING: Rescaled \(capUL.count) UL + \(capLR.count) LR stone positions")
-        } else {
-            print("🔍 SCALING: No scaling needed (needsScaling=false)")
+        // Strategy 1: Spiral placement for deterministic separation
+        if totalStones <= 12 {
+            return generateSpiralPosition(index: index, totalStones: totalStones, bowlRadius: bowlRadius, minSeparation: minSeparation, isWhite: isWhite)
         }
         
-        // Always update the bowl radius for cache restoration
+        // Strategy 2: Grid-based placement for larger counts
+        return generateGridPosition(index: index, totalStones: totalStones, bowlRadius: bowlRadius, isWhite: isWhite, minSeparation: minSeparation)
+    }
+    
+    private func generateSpiralPosition(index: Int, totalStones: Int, bowlRadius: CGFloat, minSeparation: CGFloat, isWhite: Bool) -> CGPoint {
+        // Create an Archimedean spiral with proper spacing, but offset for different colors
+        let spiralTightness = minSeparation / (2.0 * Double.pi) // Space between spiral arms
+        let t = Double(index) * 0.8 // Parameter along spiral
+        
+        // Offset spiral starting angle based on stone color for separation
+        let colorOffset = isWhite ? Double.pi * 0.4 : 0.0 // 72° offset for white stones
+        
+        let radius = min(spiralTightness * t, Double(bowlRadius) * 0.35) // Keep within 35% of bowl
+        let angle = t * 2.0 * Double.pi + colorOffset
+        
+        let x = radius * cos(angle)
+        let y = radius * sin(angle)
+        
+        return CGPoint(x: x, y: y)
+    }
+    
+    private func generateGridPosition(index: Int, totalStones: Int, bowlRadius: CGFloat, isWhite: Bool, minSeparation: CGFloat) -> CGPoint {
+        // Use game fingerprint for consistent but varied positioning
+        let gameHash = currentFingerprint().hashValue
+        let colorSeed = isWhite ? 104729 : 104743 // Large primes for color separation
+        let indexSeed = index * (isWhite ? 104759 : 104773) // Different primes for each color
+        let seed = abs(gameHash) + colorSeed + indexSeed
+        
+        // Create hex grid-like placement with proper spacing
+        let gridSpacing = minSeparation * 1.1 // Add 10% buffer
+        let maxRadius = Double(bowlRadius) * 0.32 // Keep stones within bowl
+        
+        // Calculate how many stones fit in concentric rings
+        var ring = 0
+        var positionInRing = index
+        var stonesInPreviousRings = 0
+        
+        while positionInRing >= (ring == 0 ? 1 : 6 * ring) {
+            let stonesInThisRing = ring == 0 ? 1 : 6 * ring
+            positionInRing -= stonesInThisRing
+            stonesInPreviousRings += stonesInThisRing
+            ring += 1
+        }
+        
+        if ring == 0 {
+            // Center stone
+            return CGPoint.zero
+        }
+        
+        // Position in ring
+        let ringRadius = Double(ring) * gridSpacing
+        let angularStep = 2.0 * Double.pi / Double(6 * ring)
+        let baseAngle = Double(positionInRing) * angularStep
+        
+        // Add controlled randomness to break up the rigid grid
+        let rng1 = Double((seed &* 982451653) % 982451669) / 982451669.0
+        let rng2 = Double((seed &* 982451687) % 982451703) / 982451703.0
+        
+        let angleJitter = (rng1 - 0.5) * angularStep * 0.3 // ±30% of angular step
+        let radiusJitter = (rng2 - 0.5) * gridSpacing * 0.4 // ±40% of grid spacing
+        
+        let finalAngle = baseAngle + angleJitter
+        let finalRadius = min(ringRadius + radiusJitter, maxRadius)
+        
+        let x = finalRadius * cos(finalAngle)
+        let y = finalRadius * sin(finalAngle)
+        
+        return CGPoint(x: x, y: y)
+    }
+    
+    // MARK: - Scaling Helper Function
+    private func rescaleStonePositionsIfNeeded(newBowlRadius: CGFloat) -> Bool {
+        let radiusChanged = abs(newBowlRadius - currentBowlRadius) > 10.0 && currentBowlRadius > 0  // Larger threshold
+        
+        print("🔍 BOWL RADIUS: current=\(currentBowlRadius), new=\(newBowlRadius), changed=\(radiusChanged)")
+        
+        if radiusChanged {
+            print("🔄 SAFE SCALING: Bowl radius changed significantly")
+            
+            // Use simple ratio scaling - no cache operations to avoid infinite loops
+            let scaleFactor = newBowlRadius / currentBowlRadius
+            print("🔄 SAFE SCALING: Scale factor = \(scaleFactor)")
+            
+            // Scale existing stone positions directly
+            for i in 0..<capUL.count {
+                let oldPos = capUL[i].pos
+                capUL[i].pos = CGPoint(x: oldPos.x * scaleFactor, y: oldPos.y * scaleFactor)
+            }
+            
+            for i in 0..<capLR.count {
+                let oldPos = capLR[i].pos  
+                capLR[i].pos = CGPoint(x: oldPos.x * scaleFactor, y: oldPos.y * scaleFactor)
+            }
+            
+            print("🔄 SAFE SCALING: Scaled \(capUL.count) UL + \(capLR.count) LR stones by \(scaleFactor)")
+        }
+        
         currentBowlRadius = newBowlRadius
-        return needsScaling
+        return radiusChanged
     }
 
     var body: some View {
@@ -497,7 +567,16 @@ struct ContentView: View {
         .onChange(of: m1_repel) { _, _ in bowls.refresh(using: player, gameFingerprint: currentFingerprint()) }
         .onChange(of: m1_spacing) { _, _ in bowls.refresh(using: player, gameFingerprint: currentFingerprint()) }
         .onChange(of: m1_damping) { _, _ in bowls.refresh(using: player, gameFingerprint: currentFingerprint()) }
-        .onChange(of: activePhysicsModelRaw) { _, _ in bowls.refresh(using: player, gameFingerprint: currentFingerprint()) }
+        .onChange(of: activePhysicsModelRaw) { _, _ in 
+            // Clear ALL cached results when physics model changes
+            tallyAtMove = [0:(0,0)]
+            gridAtMove.removeAll()
+            gridAtMove[0] = player.board.grid
+            layoutAtMove.removeAll()
+            layoutAtMove[0] = LidLayout(blackStones: [], whiteStones: [])
+            print("🔄 CACHE CLEARED: Physics model changed, cleared all cached results and reset to initial state")
+            bowls.refresh(using: player, gameFingerprint: currentFingerprint()) 
+        }
         .onAppear {
             if randomOnStart, app.selection == nil { pickRandomGame() }
             if let g = app.selection?.game { player.load(game: g) }
@@ -1034,6 +1113,12 @@ struct ContentView: View {
         VStack(spacing: 0) {
             GeometryReader { geo in
                 let L = boardLayout(for: geo.size)
+                
+                // DISABLED: Window scaling causing crashes - focus on fixing basic positioning first
+                let _ = {
+                    lastWindowSize = geo.size
+                    print("🪟 Window size: \(geo.size) (scaling disabled for stability)")
+                }()
 
                 // Diameter for a stone drawn on the board at the current size.
                 // Matches the tile used by BoardViewport (min(stepX, stepY)).
@@ -1048,6 +1133,8 @@ struct ContentView: View {
 
                 // Final diameter used for BOTH board and bowl stones:
                 let boardStoneDiameter = min(stepX, stepY)
+                
+                // REMOVED: Bowl radius update moved to after lidSize calculation
 
                 // Scale factor so board/lid shadows grow with board size.
                 let shadowScale = L.side / 900.0
@@ -1102,7 +1189,13 @@ struct ContentView: View {
                     let lidSize = L.side * lidScale
                     let actualBowlRadius = lidSize * 0.46
                     
-                    // SCALING FIX: Check for bowl size changes and rescale stones
+                    // UPDATE currentBowlRadius with actual rendered value
+                    let _ = {
+                        currentBowlRadius = actualBowlRadius
+                        print("🔧 UPDATED currentBowlRadius to \(actualBowlRadius) (lidSize=\(lidSize))")
+                    }()
+                    
+                    // SAFE SCALING: Re-enabled with improved logic
                     let _ = rescaleStonePositionsIfNeeded(newBowlRadius: actualBowlRadius)
                     let ulCornerX = boardCenterX - L.side / 2
                     let ulCornerY = boardCenterY - L.side / 2
@@ -1119,67 +1212,118 @@ struct ContentView: View {
                     )
 
                     // Map your ContentView.CapturedStone → BowlView.Stone
-                    let ulStones = capUL.map { s in
-                        BowlView.LidStone(id: s.id, imageName: s.imageName, offset: s.pos)
+                    // DIAGNOSTIC: Stone positioning analysis
+                    let _ = {
+                        print("🔍 STONE POSITIONING DIAGNOSTIC:")
+                        print("🔍 Bowl radius: \(actualBowlRadius)")
+                        print("🔍 Lid size: \(lidSize)")
+                        print("🔍 UL center: \(ulCenter), LR center: \(lrCenter)")
+                    }()
+                    
+                    // SIMPLIFIED: Use algorithmic stone placement instead of complex physics
+                    let ulStones = capUL.enumerated().map { (index, s) in
+                        // Generate natural-looking position algorithmically
+                        let naturalPos = generateNaturalStonePosition(
+                            index: index, 
+                            totalStones: capUL.count, 
+                            bowlRadius: actualBowlRadius,
+                            isWhite: false
+                        )
+                        let distance = sqrt(naturalPos.x*naturalPos.x + naturalPos.y*naturalPos.y)
+                        print("🔍 UL Stone \(index): algorithmic pos=(\(String(format: "%.1f", naturalPos.x)), \(String(format: "%.1f", naturalPos.y))), distance=\(String(format: "%.1f", distance))")
+                        return BowlView.LidStone(id: s.id, imageName: s.imageName, offset: naturalPos)
                     }
-                    let lrStones = capLR.map { s in
-                        BowlView.LidStone(id: s.id, imageName: s.imageName, offset: s.pos)
+                    let lrStones = capLR.enumerated().map { (index, s) in
+                        // Generate natural-looking position algorithmically  
+                        let naturalPos = generateNaturalStonePosition(
+                            index: index,
+                            totalStones: capLR.count,
+                            bowlRadius: actualBowlRadius, 
+                            isWhite: true
+                        )
+                        let distance = sqrt(naturalPos.x*naturalPos.x + naturalPos.y*naturalPos.y)
+                        print("🔍 LR Stone \(index): algorithmic pos=(\(String(format: "%.1f", naturalPos.x)), \(String(format: "%.1f", naturalPos.y))), distance=\(String(format: "%.1f", distance))")
+                        return BowlView.LidStone(id: s.id, imageName: s.imageName, offset: naturalPos)
                     }
 
-                    // UL bowl with tunables from ACTIVE physics model
-                    BowlView(
-                        lidImageName: "go_lid_1",
-                        center: ulCenter,
-                        lidSize: lidSize,
-                        stones: ulStones,
-                        lidShadowOpacity: CGFloat(lidShadowOpacity),
-                        lidShadowRadius:  CGFloat(lidShadowRadius) * shadowScale,
-                        lidShadowDX:      CGFloat(lidShadowDX)     * shadowScale,
-                        lidShadowDY:      CGFloat(lidShadowDY)     * shadowScale,
-                        stoneShadowOpacity: CGFloat(stoneShadowOpacity),
-                        stoneShadowRadius:  CGFloat(stoneShadowRadius) * shadowScale,
-                        stoneShadowDX:      CGFloat(stoneShadowDX)     * shadowScale,
-                        stoneShadowDY:      CGFloat(stoneShadowDY)     * shadowScale,
-                        stoneDiameter: boardStoneDiameter,
-                        repulsion: CGFloat(cfg.repel),
-                        targetSpacingXRadius: CGFloat(cfg.spacing),
-                        centerPullPerLid: CGFloat(cfg.centerPullK),
-                        relaxIterations: cfg.relaxIters,
-                        // spread/squish
-                        pressureRadiusXR: CGFloat(cfg.pressureRadiusXR),
-                        pressureKFactor:  CGFloat(cfg.pressureKFactor),
-                        maxStepXR:        CGFloat(cfg.maxStepXR),
-                        damping:          CGFloat(cfg.damping),
-                        wallK:            CGFloat(cfg.wallK),
-                        animDuration:     cfg.anim
-                    )
+                    // UL bowl with tunables from ACTIVE physics model + stone count display
+                    ZStack {
+                        BowlView(
+                            lidImageName: "go_lid_1",
+                            center: ulCenter,
+                            lidSize: lidSize,
+                            stones: ulStones,
+                            lidShadowOpacity: CGFloat(lidShadowOpacity),
+                            lidShadowRadius:  CGFloat(lidShadowRadius) * shadowScale,
+                            lidShadowDX:      CGFloat(lidShadowDX)     * shadowScale,
+                            lidShadowDY:      CGFloat(lidShadowDY)     * shadowScale,
+                            stoneShadowOpacity: CGFloat(stoneShadowOpacity),
+                            stoneShadowRadius:  CGFloat(stoneShadowRadius) * shadowScale,
+                            stoneShadowDX:      CGFloat(stoneShadowDX)     * shadowScale,
+                            stoneShadowDY:      CGFloat(stoneShadowDY)     * shadowScale,
+                            stoneDiameter: boardStoneDiameter,
+                            repulsion: CGFloat(cfg.repel),
+                            targetSpacingXRadius: CGFloat(cfg.spacing),
+                            centerPullPerLid: CGFloat(cfg.centerPullK),
+                            relaxIterations: 5, // Force external physics to use our algorithmic positioning
+                            // spread/squish
+                            pressureRadiusXR: CGFloat(cfg.pressureRadiusXR),
+                            pressureKFactor:  CGFloat(cfg.pressureKFactor),
+                            maxStepXR:        CGFloat(cfg.maxStepXR),
+                            damping:          CGFloat(cfg.damping),
+                            wallK:            CGFloat(cfg.wallK),
+                            animDuration:     cfg.anim
+                        )
+                        
+                        // Stone count display for black bowl (UL)
+                        Text("\(capUL.count)")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.black.opacity(0.8))
+                            .cornerRadius(6)
+                            .position(x: ulCenter.x - lidSize/2 + 25, y: ulCenter.y - lidSize/2 + 20)
+                    }
 
-                    // LR bowl with same ACTIVE physics model
-                    BowlView(
-                        lidImageName: "go_lid_2",
-                        center: lrCenter,
-                        lidSize: lidSize,
-                        stones: lrStones,
-                        lidShadowOpacity: CGFloat(lidShadowOpacity),
-                        lidShadowRadius:  CGFloat(lidShadowRadius) * shadowScale,
-                        lidShadowDX:      CGFloat(lidShadowDX)     * shadowScale,
-                        lidShadowDY:      CGFloat(lidShadowDY)     * shadowScale,
-                        stoneShadowOpacity: CGFloat(stoneShadowOpacity),
-                        stoneShadowRadius:  CGFloat(stoneShadowRadius) * shadowScale,
-                        stoneShadowDX:      CGFloat(stoneShadowDX)     * shadowScale,
-                        stoneShadowDY:      CGFloat(stoneShadowDY)     * shadowScale,
-                        stoneDiameter: boardStoneDiameter,
-                        repulsion: CGFloat(cfg.repel),
-                        targetSpacingXRadius: CGFloat(cfg.spacing),
-                        centerPullPerLid: CGFloat(cfg.centerPullK),
-                        relaxIterations: cfg.relaxIters,
-                        pressureRadiusXR: CGFloat(cfg.pressureRadiusXR),
-                        pressureKFactor:  CGFloat(cfg.pressureKFactor),
-                        maxStepXR:        CGFloat(cfg.maxStepXR),
-                        damping:          CGFloat(cfg.damping),
-                        wallK:            CGFloat(cfg.wallK),
-                        animDuration:     cfg.anim
-                    )
+                    // LR bowl with same ACTIVE physics model + stone count display
+                    ZStack {
+                        BowlView(
+                            lidImageName: "go_lid_2",
+                            center: lrCenter,
+                            lidSize: lidSize,
+                            stones: lrStones,
+                            lidShadowOpacity: CGFloat(lidShadowOpacity),
+                            lidShadowRadius:  CGFloat(lidShadowRadius) * shadowScale,
+                            lidShadowDX:      CGFloat(lidShadowDX)     * shadowScale,
+                            lidShadowDY:      CGFloat(lidShadowDY)     * shadowScale,
+                            stoneShadowOpacity: CGFloat(stoneShadowOpacity),
+                            stoneShadowRadius:  CGFloat(stoneShadowRadius) * shadowScale,
+                            stoneShadowDX:      CGFloat(stoneShadowDX)     * shadowScale,
+                            stoneShadowDY:      CGFloat(stoneShadowDY)     * shadowScale,
+                            stoneDiameter: boardStoneDiameter,
+                            repulsion: CGFloat(cfg.repel),
+                            targetSpacingXRadius: CGFloat(cfg.spacing),
+                            centerPullPerLid: CGFloat(cfg.centerPullK),
+                            relaxIterations: 5, // Force external physics to use our algorithmic positioning
+                            pressureRadiusXR: CGFloat(cfg.pressureRadiusXR),
+                            pressureKFactor:  CGFloat(cfg.pressureKFactor),
+                            maxStepXR:        CGFloat(cfg.maxStepXR),
+                            damping:          CGFloat(cfg.damping),
+                            wallK:            CGFloat(cfg.wallK),
+                            animDuration:     cfg.anim
+                        )
+                        
+                        // Stone count display for white bowl (LR)
+                        Text("\(capLR.count)")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.black)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.white.opacity(0.9))
+                            .cornerRadius(6)
+                            .position(x: lrCenter.x + lidSize/2 - 25, y: lrCenter.y - lidSize/2 + 20)
+                    }
 
                     // Metadata label centered in the gap to bottom
                     if let g = app.selection?.game {
@@ -1670,7 +1814,7 @@ struct Physics1: LidPhysics {
     }
 }
 
-// Physics Model 2: Natural stone placement with minimal disruption
+// Physics Model 2: Group Drop + Tilted Surface Physics
 struct Physics2: LidPhysics {
     func simulateStones(
         stones: inout [CapturedStone], 
@@ -1681,179 +1825,190 @@ struct Physics2: LidPhysics {
         animDuration: Double,
         isWhiteStones: Bool
     ) {
-            if stones.count > targetCount {
-                stones.removeLast(stones.count - targetCount)
-            } else if stones.count < targetCount {
-                // Generate ideal positions for ALL stones (existing + new)
-                let idealPositions = generateIdealPositions(
-                    count: targetCount, 
-                    bowlRadius: bowlRadius, 
-                    stoneRadius: stoneRadius, 
-                    seed: gameSeed
-                )
-                
-                // Find minimal-motion assignment of existing stones to ideal positions
-                assignStonesToPositions(&stones, idealPositions: idealPositions, targetCount: targetCount, isWhiteStones: isWhiteStones, seed: gameSeed)
-            }
+        if stones.count > targetCount {
+            stones.removeLast(stones.count - targetCount)
+        } else if stones.count < targetCount {
+            let newStoneCount = targetCount - stones.count
+            print("🪨 Physics2: Dropping \(newStoneCount) stones as a group (existing: \(stones.count))")
+            
+            // Group drop: all new stones land together, then settle
+            dropStoneGroup(
+                stones: &stones,
+                newCount: newStoneCount,
+                bowlRadius: bowlRadius,
+                stoneRadius: stoneRadius,
+                gameSeed: gameSeed,
+                isWhiteStones: isWhiteStones
+            )
+        }
+    }
+    
+    // MARK: - Group Drop Physics Implementation
+    
+    private func dropStoneGroup(
+        stones: inout [CapturedStone],
+        newCount: Int,
+        bowlRadius: CGFloat,
+        stoneRadius: CGFloat,
+        gameSeed: UInt64,
+        isWhiteStones: Bool
+    ) {
+        var rng = SimpleRNG(seed: gameSeed &+ (isWhiteStones ? 0x77777777 : 0x33333333))
+        
+        // 1. Choose drop location (random spot within bowl)
+        let dropAngle = 2 * CGFloat.pi * CGFloat(rng.nextUnit())
+        let dropRadiusFactor = pow(rng.nextUnit(), 1.2) // slight center bias
+        let dropRadius = bowlRadius * 0.6 * CGFloat(dropRadiusFactor) // avoid extreme edges
+        let dropCenter = CGPoint(
+            x: cos(dropAngle) * dropRadius,
+            y: sin(dropAngle) * dropRadius
+        )
+        
+        // 2. Drop all new stones near the drop center with small random spread
+        var newStones: [CapturedStone] = []
+        for i in 0..<newCount {
+            let imageName = isWhiteStones ? "clam_\(String(format: "%02d", (i % 14) + 1))" : "stone_black"
+            
+            // Small spread around drop center
+            let spreadAngle = 2 * CGFloat.pi * CGFloat(rng.nextUnit())
+            let spreadRadius = stoneRadius * 0.8 * CGFloat(rng.nextUnit()) // tight clustering
+            let initialPos = CGPoint(
+                x: dropCenter.x + cos(spreadAngle) * spreadRadius,
+                y: dropCenter.y + sin(spreadAngle) * spreadRadius
+            )
+            
+            let stone = CapturedStone(isWhite: isWhiteStones, imageName: imageName, pos: initialPos)
+            newStones.append(stone)
         }
         
-        // Generate ideal positions for stones using a natural, stable pattern with better edge avoidance
-        private func generateIdealPositions(count: Int, bowlRadius: CGFloat, stoneRadius: CGFloat, seed: UInt64) -> [CGPoint] {
-            guard count > 0 else { return [] }
+        // 3. Settle all stones (existing + new) using tilted surface physics
+        stones.append(contentsOf: newStones)
+        settleStones(&stones, bowlRadius: bowlRadius, stoneRadius: stoneRadius)
+    }
+    
+    private func settleStones(_ stones: inout [CapturedStone], bowlRadius: CGFloat, stoneRadius: CGFloat) {
+        guard stones.count > 1 else { return }
+        
+        let maxIterations = 15
+        let tiltStrength: CGFloat = 0.008 // constant inward force (tilted surface)
+        let transmissionCoeff: CGFloat = 0.7 // energy loss in contact propagation
+        
+        for iteration in 0..<maxIterations {
+            var anyMoved = false
+            var forces: [CGPoint] = Array(repeating: .zero, count: stones.count)
             
-            var positions: [CGPoint] = []
-            var rng = SimpleRNG(seed: seed)
-            
-            if count == 1 {
-                // Single stone near center with slight randomness
-                let angle = 2 * CGFloat.pi * CGFloat(rng.nextUnit())
-                let radius = bowlRadius * 0.05 * CGFloat(rng.nextUnit())  // even closer to center
-                positions.append(CGPoint(x: cos(angle) * radius, y: sin(angle) * radius))
-                return positions
-            }
-            
-            // Use purely random placement with center bias - no patterns
-            let effectiveRadius = bowlRadius * 0.65  // avoid edges
-            let minSpacing = stoneRadius * 1.4  // minimum distance between stones
-            
-            // Generate all positions randomly with center bias
-            for _ in 0..<count {
-                var attempts = 0
-                var placed = false
-                
-                while !placed && attempts < 100 {
-                    // Random angle
-                    let angle = 2 * CGFloat.pi * CGFloat(rng.nextUnit())
-                    
-                    // Center-biased radius using power distribution
-                    // Higher power = stronger center bias
-                    let powerBias: Double = 1.8  // adjust for center preference
-                    let randomRadius = pow(rng.nextUnit(), powerBias)
-                    let radius = effectiveRadius * CGFloat(randomRadius)
-                    
-                    let candidate = CGPoint(
-                        x: cos(angle) * radius,
-                        y: sin(angle) * radius
-                    )
-                    
-                    // Check minimum spacing only if we have existing stones
-                    var tooClose = false
-                    if positions.count > 0 {
-                        for existing in positions {
-                            let dx = candidate.x - existing.x
-                            let dy = candidate.y - existing.y
-                            let distance = sqrt(dx*dx + dy*dy)
-                            if distance < minSpacing {
-                                tooClose = true
-                                break
-                            }
-                        }
-                    }
-                    
-                    if !tooClose {
-                        positions.append(candidate)
-                        placed = true
-                    }
-                    
-                    attempts += 1
-                }
-                
-                // Fallback: place at center if we can't find a good spot
-                if !placed {
-                    let fallbackAngle = 2 * CGFloat.pi * CGFloat(rng.nextUnit())
-                    let fallbackRadius = effectiveRadius * 0.2 * CGFloat(rng.nextUnit())
-                    positions.append(CGPoint(
-                        x: cos(fallbackAngle) * fallbackRadius,
-                        y: sin(fallbackAngle) * fallbackRadius
-                    ))
+            // 1. Apply constant center bias (tilted surface - not gravity well)
+            for i in 0..<stones.count {
+                let pos = stones[i].pos
+                let distance = sqrt(pos.x * pos.x + pos.y * pos.y)
+                if distance > 0.001 {
+                    let centerForce = tiltStrength
+                    forces[i].x -= (pos.x / distance) * centerForce
+                    forces[i].y -= (pos.y / distance) * centerForce
                 }
             }
             
-            return positions
-        }
-        
-        // Assign existing stones to new positions with minimal total movement
-        private func assignStonesToPositions(_ stones: inout [CapturedStone], idealPositions: [CGPoint], targetCount: Int, isWhiteStones: Bool, seed: UInt64) {
-            let existingCount = stones.count
-            let newStonesCount = targetCount - existingCount
-            
-            // Create assignment using greedy nearest-neighbor (good enough for small numbers)
-            var usedPositions = Set<Int>()
-            var assignments: [(stoneIndex: Int, positionIndex: Int)] = []
-            
-            // Assign existing stones to closest available positions
-            for i in 0..<existingCount {
-                var bestDistance: CGFloat = CGFloat.greatestFiniteMagnitude
-                var bestPositionIndex = 0
-                
-                for j in 0..<idealPositions.count {
-                    if usedPositions.contains(j) { continue }
-                    
-                    let dx = stones[i].pos.x - idealPositions[j].x
-                    let dy = stones[i].pos.y - idealPositions[j].y
+            // 2. Apply biconvex overlap penalties
+            for i in 0..<stones.count {
+                for j in (i+1)..<stones.count {
+                    let posA = stones[i].pos
+                    let posB = stones[j].pos
+                    let dx = posB.x - posA.x
+                    let dy = posB.y - posA.y
                     let distance = sqrt(dx*dx + dy*dy)
                     
-                    if distance < bestDistance {
-                        bestDistance = distance
-                        bestPositionIndex = j
-                    }
-                }
-                
-                assignments.append((stoneIndex: i, positionIndex: bestPositionIndex))
-                usedPositions.insert(bestPositionIndex)
-            }
-            
-            // Apply assignments - move existing stones to their assigned positions
-            for assignment in assignments {
-                let newPos = idealPositions[assignment.positionIndex]
-                // Move gradually to reduce visual jump (25% of the way each update)
-                let currentPos = stones[assignment.stoneIndex].pos
-                let dx = newPos.x - currentPos.x
-                let dy = newPos.y - currentPos.y
-                stones[assignment.stoneIndex].pos = CGPoint(
-                    x: currentPos.x + dx * 0.25, 
-                    y: currentPos.y + dy * 0.25
-                )
-            }
-            
-            // Add new stones: if multiple stones being added, they all "drop" at the same random spot
-            if newStonesCount > 0 {
-                var rng = SimpleRNG(seed: seed + UInt64(existingCount))
-                
-                // Pick a single random "drop point" biased toward center
-                let dropAngle = 2 * CGFloat.pi * CGFloat(rng.nextUnit())
-                let dropRadiusRandom = pow(rng.nextUnit(), 1.5)  // center bias
-                let maxRadius = min(idealPositions.map { sqrt($0.x*$0.x + $0.y*$0.y) }.max() ?? 50, 50)
-                let dropRadius = maxRadius * 0.3 * CGFloat(dropRadiusRandom)
-                let dropPoint = CGPoint(
-                    x: cos(dropAngle) * dropRadius,
-                    y: sin(dropAngle) * dropRadius
-                )
-                
-                // Add all new stones at or near the drop point with small random variations
-                for i in 0..<idealPositions.count {
-                    if !usedPositions.contains(i) && stones.count < targetCount {
-                        // Small random offset from drop point for each stone
-                        let offsetAngle = 2 * CGFloat.pi * CGFloat(rng.nextUnit())
-                        let offsetRadius = 8.0 * CGFloat(rng.nextUnit())  // small spread in points
-                        let stonePos = CGPoint(
-                            x: dropPoint.x + cos(offsetAngle) * offsetRadius,
-                            y: dropPoint.y + sin(offsetAngle) * offsetRadius
+                    if distance < stoneRadius * 2.4 { // interaction radius
+                        let overlapPenalty = calculateBiconvexOverlapForce(
+                            centerDistance: distance,
+                            stoneRadius: stoneRadius
                         )
                         
-                        if isWhiteStones {
-                            let pick = 1 + Int(rng.nextRaw() % 5)
-                            stones.append(CapturedStone(isWhite: true, imageName: String(format: "clam_%02d", pick), pos: stonePos))
-                        } else {
-                            stones.append(CapturedStone(isWhite: false, imageName: "stone_black", pos: stonePos))
+                        if distance > 0.001 {
+                            let ux = dx / distance
+                            let uy = dy / distance
+                            let force = overlapPenalty * 0.3 // scale force
+                            
+                            forces[i].x -= ux * force
+                            forces[i].y -= uy * force
+                            forces[j].x += ux * force
+                            forces[j].y += uy * force
                         }
                     }
                 }
+            }
+            
+            // 3. Apply forces with contact propagation
+            for i in 0..<stones.count {
+                let force = forces[i]
+                let forceMagnitude = sqrt(force.x * force.x + force.y * force.y)
+                
+                if forceMagnitude > 0.001 {
+                    // Reduce force based on how many contacts this stone has (friction)
+                    let contactCount = countContacts(stoneIndex: i, stones: stones, stoneRadius: stoneRadius)
+                    let frictionReduction = pow(transmissionCoeff, CGFloat(contactCount))
+                    
+                    let dampedForce = CGPoint(
+                        x: force.x * frictionReduction * 0.8, // additional damping
+                        y: force.y * frictionReduction * 0.8
+                    )
+                    
+                    stones[i].pos.x += dampedForce.x
+                    stones[i].pos.y += dampedForce.y
+                    
+                    // Keep stones within bowl
+                    let distance = sqrt(stones[i].pos.x * stones[i].pos.x + stones[i].pos.y * stones[i].pos.y)
+                    let maxDistance = bowlRadius * 0.75
+                    if distance > maxDistance {
+                        stones[i].pos.x *= maxDistance / distance
+                        stones[i].pos.y *= maxDistance / distance
+                    }
+                    
+                    if forceMagnitude > 0.01 {
+                        anyMoved = true
+                    }
+                }
+            }
+            
+            if !anyMoved {
+                print("🪨 Physics2: Converged after \(iteration + 1) iterations")
+                break
             }
         }
     }
+    
+    private func calculateBiconvexOverlapForce(centerDistance: CGFloat, stoneRadius: CGFloat) -> CGFloat {
+        let overlapPercent = max(0, (2 * stoneRadius - centerDistance) / (2 * stoneRadius))
+        
+        // Biconvex stone curve: gentle at start, steep in middle, gentle at extreme overlap
+        // Modeling 1/8 sphere on each side
+        if overlapPercent < 0.2 {
+            return overlapPercent * 0.1 // very gentle for natural resting
+        } else if overlapPercent < 0.8 {
+            return pow(overlapPercent, 3) * 2.0 // steep exponential growth
+        } else {
+            // Extreme overlap becomes "possible but costly"
+            return pow(overlapPercent, 2) * 3.0
+        }
+    }
+    
+    private func countContacts(stoneIndex: Int, stones: [CapturedStone], stoneRadius: CGFloat) -> Int {
+        let contactDistance = stoneRadius * 2.1
+        var count = 0
+        let targetPos = stones[stoneIndex].pos
+        
+        for i in 0..<stones.count {
+            if i == stoneIndex { continue }
+            let otherPos = stones[i].pos
+            let distance = sqrt(pow(targetPos.x - otherPos.x, 2) + pow(targetPos.y - otherPos.y, 2))
+            if distance < contactDistance {
+                count += 1
+            }
+        }
+        return count
+    }
+}
 
-// Physics Models 3 & 4: Use enhanced BowlPhysics system
+// Physics Models 4, 5, 6 continue below...
 struct Physics3: LidPhysics {
     func simulateStones(
         stones: inout [CapturedStone], 
@@ -1864,77 +2019,205 @@ struct Physics3: LidPhysics {
         animDuration: Double,
         isWhiteStones: Bool
     ) {
-            if stones.count > targetCount {
-                stones.removeLast(stones.count - targetCount)
-            } else if stones.count < targetCount {
-                // Note: Physics 3 no longer uses BowlPhysics.layout - it preserves existing stones
+        if stones.count > targetCount {
+            stones.removeLast(stones.count - targetCount)
+        } else if stones.count < targetCount {
+            let newStoneCount = targetCount - stones.count
+            print("🪨 Physics3: Adding \(newStoneCount) stones using energy minimization (existing: \(stones.count))")
+            
+            // Energy minimization approach with group drop
+            energyMinimizationDrop(
+                stones: &stones,
+                newCount: newStoneCount,
+                bowlRadius: bowlRadius,
+                stoneRadius: stoneRadius,
+                gameSeed: gameSeed,
+                isWhiteStones: isWhiteStones
+            )
+        }
+    }
+    
+    // MARK: - Energy Minimization Implementation
+    
+    private func energyMinimizationDrop(
+        stones: inout [CapturedStone],
+        newCount: Int,
+        bowlRadius: CGFloat,
+        stoneRadius: CGFloat,
+        gameSeed: UInt64,
+        isWhiteStones: Bool
+    ) {
+        var rng = SimpleRNG(seed: gameSeed)
+        
+        // 1. Group drop: place new stones near each other
+        let dropAngle = 2 * CGFloat.pi * CGFloat(rng.nextUnit())
+        let dropRadiusFactor = pow(rng.nextUnit(), 1.3) // center bias
+        let dropRadius = bowlRadius * 0.5 * CGFloat(dropRadiusFactor)
+        let dropCenter = CGPoint(
+            x: cos(dropAngle) * dropRadius,
+            y: sin(dropAngle) * dropRadius
+        )
+        
+        // 2. Add new stones with tight clustering
+        for i in 0..<newCount {
+            let imageName = isWhiteStones ? "clam_\(String(format: "%02d", (i % 14) + 1))" : "stone_black"
+            
+            let clusterAngle = 2 * CGFloat.pi * CGFloat(rng.nextUnit())
+            let clusterRadius = stoneRadius * 0.6 * CGFloat(rng.nextUnit())
+            let initialPos = CGPoint(
+                x: dropCenter.x + cos(clusterAngle) * clusterRadius,
+                y: dropCenter.y + sin(clusterAngle) * clusterRadius
+            )
+            
+            let stone = CapturedStone(isWhite: isWhiteStones, imageName: imageName, pos: initialPos)
+            stones.append(stone)
+        }
+        
+        // 3. Energy minimization with simulated annealing
+        minimizeSystemEnergy(&stones, bowlRadius: bowlRadius, stoneRadius: stoneRadius)
+    }
+    
+    private func minimizeSystemEnergy(_ stones: inout [CapturedStone], bowlRadius: CGFloat, stoneRadius: CGFloat) {
+        guard stones.count > 1 else { return }
+        
+        let maxIterations = 20
+        let initialTemperature: CGFloat = 1.0
+        let coolingRate: CGFloat = 0.85
+        let tiltConstant: CGFloat = 0.01 // tilted surface constant
+        
+        var temperature = initialTemperature
+        
+        for iteration in 0..<maxIterations {
+            var totalEnergyChange: CGFloat = 0
+            
+            // Calculate forces for all stones based on current energy state
+            for i in 0..<stones.count {
+                let currentEnergy = calculateStoneEnergy(stoneIndex: i, stones: stones, bowlRadius: bowlRadius, stoneRadius: stoneRadius, tiltConstant: tiltConstant)
                 
-                let existingCount = stones.count
-                let newStonesCount = targetCount - existingCount
+                // Try small perturbations in different directions
+                let originalPos = stones[i].pos
+                let stepSize: CGFloat = temperature * stoneRadius * 0.2
                 
-                // NEVER remove existing stones - only add new ones!
-                print("🪨 Physics 3: Adding \(newStonesCount) stones to existing \(existingCount) stones")
+                var bestMove = CGPoint.zero
+                var bestEnergyChange: CGFloat = 0
                 
-                // For new stones: if adding multiple stones at once, they "drop" together
-                var rng = SimpleRNG(seed: gameSeed + UInt64(existingCount))
+                // Test 8 directions + no movement
+                let directions = [
+                    CGPoint(x: stepSize, y: 0),
+                    CGPoint(x: -stepSize, y: 0),
+                    CGPoint(x: 0, y: stepSize),
+                    CGPoint(x: 0, y: -stepSize),
+                    CGPoint(x: stepSize * 0.707, y: stepSize * 0.707),
+                    CGPoint(x: -stepSize * 0.707, y: stepSize * 0.707),
+                    CGPoint(x: stepSize * 0.707, y: -stepSize * 0.707),
+                    CGPoint(x: -stepSize * 0.707, y: -stepSize * 0.707),
+                ]
                 
-                // Pick a single random "drop point" biased toward center
-                let dropAngle = 2 * CGFloat.pi * CGFloat(rng.nextUnit())
-                let dropRadiusRandom = pow(rng.nextUnit(), 1.6)  // strong center bias
-                let dropRadius = bowlRadius * 0.25 * CGFloat(dropRadiusRandom)
-                let dropPoint = CGPoint(
-                    x: cos(dropAngle) * dropRadius,
-                    y: sin(dropAngle) * dropRadius
-                )
-                
-                // Add all new stones near the drop point with small variations
-                for _ in 0..<newStonesCount {
-                    var stonePos: CGPoint
-                    var attempts = 0
-                    
-                    repeat {
-                        // Small random offset from drop point
-                        let offsetAngle = 2 * CGFloat.pi * CGFloat(rng.nextUnit())
-                        let offsetRadius = 12.0 * CGFloat(rng.nextUnit())  // small spread in points
-                        stonePos = CGPoint(
-                            x: dropPoint.x + cos(offsetAngle) * offsetRadius,
-                            y: dropPoint.y + sin(offsetAngle) * offsetRadius
-                        )
-                        
-                        // Check if too close to existing stones
-                        var tooClose = false
-                        for existingStone in stones {
-                            let dx = stonePos.x - existingStone.pos.x
-                            let dy = stonePos.y - existingStone.pos.y
-                            let distance = sqrt(dx*dx + dy*dy)
-                            if distance < 20.0 { // minimum spacing
-                                tooClose = true
-                                break
-                            }
-                        }
-                        
-                        if !tooClose { break }
-                        attempts += 1
-                    } while attempts < 30
+                for direction in directions {
+                    let testPos = CGPoint(
+                        x: originalPos.x + direction.x,
+                        y: originalPos.y + direction.y
+                    )
                     
                     // Keep within bowl bounds
-                    let maxRadius = bowlRadius * 0.8
-                    let currentRadius = sqrt(stonePos.x*stonePos.x + stonePos.y*stonePos.y)
-                    if currentRadius > maxRadius {
-                        stonePos.x *= maxRadius / currentRadius
-                        stonePos.y *= maxRadius / currentRadius
-                    }
+                    let distance = sqrt(testPos.x * testPos.x + testPos.y * testPos.y)
+                    if distance > bowlRadius * 0.8 { continue }
                     
-                    if isWhiteStones {
-                        let pick = 1 + Int(rng.nextRaw() % 5)
-                        stones.append(CapturedStone(isWhite: true, imageName: String(format: "clam_%02d", pick), pos: stonePos))
-                    } else {
-                        stones.append(CapturedStone(isWhite: false, imageName: "stone_black", pos: stonePos))
+                    stones[i].pos = testPos
+                    let newEnergy = calculateStoneEnergy(stoneIndex: i, stones: stones, bowlRadius: bowlRadius, stoneRadius: stoneRadius, tiltConstant: tiltConstant)
+                    let energyChange = newEnergy - currentEnergy
+                    
+                    // Accept if energy decreases, or with probability based on temperature
+                    let acceptProbability = energyChange <= 0 ? 1.0 : exp(-energyChange / temperature)
+                    if acceptProbability > 0.5 && energyChange < bestEnergyChange {
+                        bestEnergyChange = energyChange
+                        bestMove = direction
                     }
                 }
+                
+                // Apply best move
+                if bestEnergyChange < 0 {
+                    stones[i].pos = CGPoint(
+                        x: originalPos.x + bestMove.x,
+                        y: originalPos.y + bestMove.y
+                    )
+                    totalEnergyChange += abs(bestEnergyChange)
+                } else {
+                    stones[i].pos = originalPos // restore if no improvement
+                }
+            }
+            
+            // Cool temperature
+            temperature *= coolingRate
+            
+            if totalEnergyChange < 0.001 {
+                print("🪨 Physics3: Energy minimization converged after \(iteration + 1) iterations")
+                break
             }
         }
     }
+    
+    private func calculateStoneEnergy(stoneIndex: Int, stones: [CapturedStone], bowlRadius: CGFloat, stoneRadius: CGFloat, tiltConstant: CGFloat) -> CGFloat {
+        let pos = stones[stoneIndex].pos
+        var totalEnergy: CGFloat = 0
+        
+        // 1. Gravitational potential energy (tilted surface - constant gradient)
+        let distanceFromCenter = sqrt(pos.x * pos.x + pos.y * pos.y)
+        totalEnergy += tiltConstant * distanceFromCenter
+        
+        // 2. Biconvex overlap energy (repulsion)
+        for j in 0..<stones.count {
+            if j == stoneIndex { continue }
+            
+            let otherPos = stones[j].pos
+            let dx = pos.x - otherPos.x
+            let dy = pos.y - otherPos.y
+            let distance = sqrt(dx*dx + dy*dy)
+            
+            if distance < stoneRadius * 2.5 { // interaction range
+                let overlapEnergy = calculateBiconvexOverlapEnergy(
+                    centerDistance: distance,
+                    stoneRadius: stoneRadius
+                )
+                totalEnergy += overlapEnergy
+            }
+        }
+        
+        // 3. Group cohesion energy (recently dropped stones prefer proximity)
+        // For simplicity, assume last N stones were dropped together
+        let groupSize = min(3, stones.count) // last 3 stones form a group
+        if stoneIndex >= stones.count - groupSize {
+            for j in max(0, stones.count - groupSize)..<stones.count {
+                if j == stoneIndex { continue }
+                
+                let otherPos = stones[j].pos
+                let dx = pos.x - otherPos.x
+                let dy = pos.y - otherPos.y
+                let distance = sqrt(dx*dx + dy*dy)
+                
+                // Weak attraction for group cohesion
+                totalEnergy += 0.02 * distance
+            }
+        }
+        
+        return totalEnergy
+    }
+    
+    private func calculateBiconvexOverlapEnergy(centerDistance: CGFloat, stoneRadius: CGFloat) -> CGFloat {
+        let overlapPercent = max(0, (2 * stoneRadius - centerDistance) / (2 * stoneRadius))
+        
+        // Energy function (higher than force for stability)
+        if overlapPercent < 0.2 {
+            return overlapPercent * 0.2 // gentle energy increase
+        } else if overlapPercent < 0.8 {
+            return pow(overlapPercent, 4) * 5.0 // steep energy barrier
+        } else {
+            return pow(overlapPercent, 3) * 8.0 // very high but finite energy
+        }
+    }
+}
+
+// Physics Models 4, 5, 6 continue below...
 
 struct Physics4: LidPhysics {
     func simulateStones(
@@ -1952,126 +2235,35 @@ struct Physics4: LidPhysics {
             let existingCount = stones.count
             let newStonesCount = targetCount - existingCount
             
+            // Add new stones: if multiple stones being added, they all "drop" at the same random spot
             if newStonesCount > 0 {
-                // Natural stone placement algorithm - mimics real physics
-                print("🪨 Physics 4: Adding \(newStonesCount) stones to existing \(existingCount) stones, stoneRadius=\(stoneRadius), bowlRadius=\(bowlRadius)")
-                var rng = SimpleRNG(seed: gameSeed &+ UInt64(existingCount) &+ (isWhiteStones ? 77777 : 33333))
+                var rng = SimpleRNG(seed: gameSeed + UInt64(existingCount))
                 
-                // If adding multiple stones at once, they "drop" together
+                // Pick a single random "drop point" biased toward center
                 let dropAngle = 2 * CGFloat.pi * CGFloat(rng.nextUnit())
-                let dropRadiusRandom = pow(rng.nextUnit(), 1.8 + CGFloat(rng.nextUnit()) * 0.4)  // variable center bias
-                let dropRadius = bowlRadius * (0.1 + CGFloat(rng.nextUnit()) * 0.4) * CGFloat(dropRadiusRandom) // wider range for less clustering
-                let baseDropPoint = CGPoint(
+                let dropRadiusRandom = pow(rng.nextUnit(), 1.5)  // center bias
+                let maxRadius = bowlRadius * 0.7
+                let dropRadius = maxRadius * 0.3 * CGFloat(dropRadiusRandom)
+                let dropPoint = CGPoint(
                     x: cos(dropAngle) * dropRadius,
                     y: sin(dropAngle) * dropRadius
                 )
                 
-                // Add new stones with natural settling behavior
+                // Add all new stones at or near the drop point with small random variations
                 for _ in 0..<newStonesCount {
-                    var finalPos: CGPoint
+                    // Small random offset from drop point for each stone
+                    let offsetAngle = 2 * CGFloat.pi * CGFloat(rng.nextUnit())
+                    let offsetRadius = 8.0 * CGFloat(rng.nextUnit())  // small spread in points
+                    let stonePos = CGPoint(
+                        x: dropPoint.x + cos(offsetAngle) * offsetRadius,
+                        y: dropPoint.y + sin(offsetAngle) * offsetRadius
+                    )
                     
-                    if newStonesCount == 1 || stones.isEmpty {
-                        // Single stone: different strategies for black vs white
-                        let angle = 2 * CGFloat.pi * CGFloat(rng.nextUnit())
-                        if isWhiteStones {
-                            // White stones: more uniform distribution but smaller radius
-                            let radius = bowlRadius * 0.3 * CGFloat(rng.nextUnit())
-                            finalPos = CGPoint(x: cos(angle) * radius, y: sin(angle) * radius)
-                        } else {
-                            // Black stones: stronger center bias and smaller radius
-                            let radius = bowlRadius * 0.2 * sqrt(CGFloat(rng.nextUnit()))
-                            finalPos = CGPoint(x: cos(angle) * radius, y: sin(angle) * radius)
-                        }
-                    } else {
-                        // Multiple stones: different approaches for each color
-                        if isWhiteStones {
-                            // White stones: more spread out from drop point
-                            let offsetAngle = 2 * CGFloat.pi * CGFloat(rng.nextUnit())
-                            let offsetRadius = (15.0 + 20.0 * CGFloat(rng.nextUnit())) * CGFloat(rng.nextUnit())  // Much wider spread
-                            finalPos = CGPoint(
-                                x: baseDropPoint.x + cos(offsetAngle) * offsetRadius,
-                                y: baseDropPoint.y + sin(offsetAngle) * offsetRadius
-                            )
-                        } else {
-                            // Black stones: wider than before but still more clustered than white
-                            let offsetAngle = 2 * CGFloat.pi * CGFloat(rng.nextUnit())
-                            let offsetRadius = (10.0 + 15.0 * CGFloat(rng.nextUnit())) * CGFloat(rng.nextUnit())  // Wider spread than before
-                            finalPos = CGPoint(
-                                x: baseDropPoint.x + cos(offsetAngle) * offsetRadius,
-                                y: baseDropPoint.y + sin(offsetAngle) * offsetRadius
-                            )
-                        }
-                    }
-                    
-                    // Natural settling: avoid overlaps with simple physics
-                    var settled = false
-                    var attempts = 0
-                    while !settled && attempts < 10 {  // Reduced to 10 attempts - rely more on fallback
-                        var needsAdjustment = false
-                        
-                        // Check against existing stones - but DON'T move them!
-                        for existingStone in stones {
-                            let dx = finalPos.x - existingStone.pos.x
-                            let dy = finalPos.y - existingStone.pos.y
-                            let distance = sqrt(dx*dx + dy*dy)
-                            // Use stricter collision for black stones to prevent stacking
-                            let collisionMultiplier = isWhiteStones ? 1.6 : 2.2  // stricter for black stones
-                            let minDistance = max(stoneRadius * collisionMultiplier, 20.0) // prevent stacking
-                            
-                            if distance < minDistance {
-                                // Push NEW stone away gently, but leave existing stones alone
-                                let pushStrength: CGFloat = 0.3  // Much gentler push
-                                let pushAngle = atan2(dy, dx)
-                                let pushDistance = (minDistance - distance) * pushStrength
-                                // Add some randomness to push direction to avoid clustering
-                                let randomAngleOffset = (CGFloat(rng.nextUnit()) - 0.5) * 0.5
-                                let adjustedAngle = pushAngle + randomAngleOffset
-                                finalPos.x += cos(adjustedAngle) * pushDistance
-                                finalPos.y += sin(adjustedAngle) * pushDistance
-                                needsAdjustment = true
-                            }
-                        }
-                        
-                        // Gentle center attraction (like gravity in a bowl)
-                        let currentRadius = sqrt(finalPos.x*finalPos.x + finalPos.y*finalPos.y)
-                        if currentRadius > bowlRadius * 0.5 {
-                            let pullStrength: CGFloat = 0.2
-                            finalPos.x *= (1 - pullStrength)
-                            finalPos.y *= (1 - pullStrength)
-                            needsAdjustment = true
-                        }
-                        
-                        // Keep within bounds - much stricter to ensure visibility
-                        let maxRadius = bowlRadius * 0.5  // Reduced from 0.8 to 0.5
-                        let finalRadius = sqrt(finalPos.x*finalPos.x + finalPos.y*finalPos.y)
-                        if finalRadius > maxRadius {
-                            finalPos.x *= maxRadius / finalRadius
-                            finalPos.y *= maxRadius / finalRadius
-                        }
-                        
-                        settled = !needsAdjustment
-                        attempts += 1
-                    }
-                    
-                    // If we failed to find a good spot, place randomly across entire bowl area
-                    if attempts >= 10 {
-                        let fallbackAngle = 2 * CGFloat.pi * CGFloat(rng.nextUnit())
-                        // Use wider distribution - less center bias for fallback
-                        let fallbackRadius = bowlRadius * 0.7 * CGFloat(rng.nextUnit())  // Much wider, more uniform spread
-                        finalPos = CGPoint(
-                            x: cos(fallbackAngle) * fallbackRadius,
-                            y: sin(fallbackAngle) * fallbackRadius
-                        )
-                        print("🪨 Physics 4: Using fallback random position after \(attempts) attempts")
-                    }
-                    
-                    // Create the stone
-                    print("🪨 Physics 4: Placing stone at (\(finalPos.x), \(finalPos.y)) after \(attempts) attempts")
                     if isWhiteStones {
                         let pick = 1 + Int(rng.nextRaw() % 5)
-                        stones.append(CapturedStone(isWhite: true, imageName: String(format: "clam_%02d", pick), pos: finalPos))
+                        stones.append(CapturedStone(isWhite: true, imageName: String(format: "clam_%02d", pick), pos: stonePos))
                     } else {
-                        stones.append(CapturedStone(isWhite: false, imageName: "stone_black", pos: finalPos))
+                        stones.append(CapturedStone(isWhite: false, imageName: "stone_black", pos: stonePos))
                     }
                 }
             }
@@ -2381,13 +2573,12 @@ extension ContentView {
         // Cache the canonical board for this move (run once per move)
         gridAtMove[player.currentIndex] = currentBoard
 
-        // Quick geometry guess (true sizes will be reapplied next render pass)
-        let boardSideGuess: CGFloat = 640
-        let lidSizeGuess = boardSideGuess * lidScale
-        let bowlR = lidSizeGuess * 0.46
-        let stoneSize = lidSizeGuess * 0.58
-        let stoneR = stoneSize * 0.5
-        let pull = lidSizeGuess * CGFloat(cfg.centerPullK)
+        // Use actual bowl radius if available, otherwise fall back to reasonable guess
+        let bowlR = currentBowlRadius > 0 ? currentBowlRadius : 64.0  // much smaller fallback
+        let stoneR = bowlR * 0.3  // stone radius proportional to bowl
+        let pull = bowlR * CGFloat(cfg.centerPullK) * 0.5
+        
+        print("🔧 PHYSICS CALL: Using bowlR=\(bowlR) (currentBowlRadius=\(currentBowlRadius))")
 
         // Bring lids to the exact target counts
         syncLidsToTallies(bowlRadius: bowlR, stoneRadius: stoneR, centerPull: pull)

@@ -1,0 +1,600 @@
+{
+  "source": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ContentView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Settings",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 637
+        }
+      },
+      {
+        "comment": "",
+        "key": "include subfolders",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 662
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open folder…",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 655
+        }
+      },
+      {
+        "comment": "",
+        "key": "Random game now",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 658
+        }
+      },
+      {
+        "comment": "",
+        "key": "B: %@",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 672
+        }
+      },
+      {
+        "comment": "",
+        "key": "W: %@",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 673
+        }
+      },
+      {
+        "comment": "",
+        "key": "Move delay: %@ seconds",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 700
+        }
+      },
+      {
+        "comment": "",
+        "key": "auto-next",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 719
+        }
+      },
+      {
+        "comment": "",
+        "key": "random next game",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 720
+        }
+      },
+      {
+        "comment": "",
+        "key": "random game on start",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 721
+        }
+      },
+      {
+        "comment": "",
+        "key": "Move: %lld/%lld",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 726
+        }
+      },
+      {
+        "comment": "",
+        "key": "<<",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 742
+        }
+      },
+      {
+        "comment": "",
+        "key": "<",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 743
+        }
+      },
+      {
+        "comment": "",
+        "key": ">",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 749
+        }
+      },
+      {
+        "comment": "",
+        "key": ">>",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 750
+        }
+      },
+      {
+        "comment": "",
+        "key": "Appearance",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 756
+        }
+      },
+      {
+        "comment": "",
+        "key": "Tint opacity",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 759
+        }
+      },
+      {
+        "comment": "",
+        "key": "Frostiness",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 767
+        }
+      },
+      {
+        "comment": "",
+        "key": "Stones",
+        "location": {
+          "startingColumn": 45,
+          "startingLine": 781
+        }
+      },
+      {
+        "comment": "",
+        "key": "Grid & Lids",
+        "location": {
+          "startingColumn": 45,
+          "startingLine": 803
+        }
+      },
+      {
+        "comment": "",
+        "key": "Shadows",
+        "location": {
+          "startingColumn": 45,
+          "startingLine": 828
+        }
+      },
+      {
+        "comment": "",
+        "key": "Lid and stone physics",
+        "location": {
+          "startingColumn": 45,
+          "startingLine": 868
+        }
+      },
+      {
+        "comment": "",
+        "key": "Eccentricity",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 784
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 786
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reset to preset",
+        "location": {
+          "startingColumn": 48,
+          "startingLine": 793
+        }
+      },
+      {
+        "comment": "",
+        "key": "Upper-left lid",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 811
+        }
+      },
+      {
+        "comment": "",
+        "key": "Lower-right lid",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 817
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cell aspect (H/W)",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 805
+        }
+      },
+      {
+        "comment": "",
+        "key": "Lid scale",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 808
+        }
+      },
+      {
+        "comment": "",
+        "key": "X",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 812
+        }
+      },
+      {
+        "comment": "",
+        "key": "Y",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 814
+        }
+      },
+      {
+        "comment": "",
+        "key": "X",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 818
+        }
+      },
+      {
+        "comment": "",
+        "key": "Y",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 820
+        }
+      },
+      {
+        "comment": "",
+        "key": "Board",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 831
+        }
+      },
+      {
+        "comment": "",
+        "key": "Stones",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 842
+        }
+      },
+      {
+        "comment": "",
+        "key": "Lids",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 853
+        }
+      },
+      {
+        "comment": "",
+        "key": "Opacity",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 832
+        }
+      },
+      {
+        "comment": "",
+        "key": "Radius",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 834
+        }
+      },
+      {
+        "comment": "",
+        "key": "Offset X",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 836
+        }
+      },
+      {
+        "comment": "",
+        "key": "Offset Y",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 838
+        }
+      },
+      {
+        "comment": "",
+        "key": "Opacity",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 843
+        }
+      },
+      {
+        "comment": "",
+        "key": "Radius",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 845
+        }
+      },
+      {
+        "comment": "",
+        "key": "Offset X",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 847
+        }
+      },
+      {
+        "comment": "",
+        "key": "Offset Y",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 849
+        }
+      },
+      {
+        "comment": "",
+        "key": "Opacity",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 854
+        }
+      },
+      {
+        "comment": "",
+        "key": "Radius",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 856
+        }
+      },
+      {
+        "comment": "",
+        "key": "Offset X",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 858
+        }
+      },
+      {
+        "comment": "",
+        "key": "Offset Y",
+        "location": {
+          "startingColumn": 51,
+          "startingLine": 860
+        }
+      },
+      {
+        "comment": "",
+        "key": "Active model",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 873
+        }
+      },
+      {
+        "comment": "",
+        "key": "Active model",
+        "location": {
+          "startingColumn": 48,
+          "startingLine": 875
+        }
+      },
+      {
+        "comment": "",
+        "key": "Advanced",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 985
+        }
+      },
+      {
+        "comment": "",
+        "key": "Active",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1104
+        }
+      },
+      {
+        "comment": "",
+        "key": "Repulsion",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 1047
+        }
+      },
+      {
+        "comment": "",
+        "key": "Target spacing (× radius)",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 1050
+        }
+      },
+      {
+        "comment": "",
+        "key": "Center pull (× lid size)",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 1053
+        }
+      },
+      {
+        "comment": "",
+        "key": "Pressure radius (× r)",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 1059
+        }
+      },
+      {
+        "comment": "",
+        "key": "Pressure strength (× Repel)",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 1062
+        }
+      },
+      {
+        "comment": "",
+        "key": "Max step (× r / iter)",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 1065
+        }
+      },
+      {
+        "comment": "",
+        "key": "Damping",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 1068
+        }
+      },
+      {
+        "comment": "",
+        "key": "Wall softness",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 1071
+        }
+      },
+      {
+        "comment": "",
+        "key": "Settle animation (s)",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 1076
+        }
+      },
+      {
+        "comment": "",
+        "key": "Relax iterations",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1080
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 1081
+        }
+      },
+      {
+        "comment": "",
+        "key": "Stone-stone friction",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 1094
+        }
+      },
+      {
+        "comment": "",
+        "key": "Stone-lid friction",
+        "location": {
+          "startingColumn": 35,
+          "startingLine": 1099
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1279
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 1318
+        }
+      },
+      {
+        "comment": "",
+        "key": "•",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 1357
+        }
+      },
+      {
+        "comment": "",
+        "key": "•",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 1403
+        }
+      },
+      {
+        "comment": "",
+        "key": "Captures:",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 1363
+        }
+      },
+      {
+        "comment": "",
+        "key": "  ",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 1368
+        }
+      },
+      {
+        "comment": "",
+        "key": "  ",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 1384
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 1377
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 1393
+        }
+      }
+    ]
+  },
+  "version": 1
+}
