@@ -44,6 +44,7 @@ struct ContentView: View {
 
     @State private var isPanelOpen: Bool = false
     @State private var marginPercent: CGFloat = 0.041
+    @State private var showPhysicsDemo: Bool = false
     
     // Version tracking for physics changes
     private let physicsVersion = "v1.7.3-normalized-scaling"
@@ -481,6 +482,31 @@ struct ContentView: View {
                 .zIndex(4)
         }
         .frame(minWidth: 550, minHeight: 410)
+        .overlay(
+            // Physics Demo Overlay - Testing new architecture
+            Group {
+                if showPhysicsDemo {
+                    ZStack {
+                        // Semi-transparent background
+                        Color.black.opacity(0.7)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                    showPhysicsDemo = false
+                                }
+                            }
+                        
+                        // Demo component
+                        PhysicsIntegrationDemo()
+                            .frame(width: 800, height: 900)
+                            .background(Color(NSColor.windowBackgroundColor))
+                            .cornerRadius(12)
+                            .shadow(radius: 20)
+                    }
+                    .zIndex(100)
+                }
+            }
+        )
 
         // Start new selection at move 0 and auto-play
         .onChange(of: app.selection) { _, newValue in
@@ -657,6 +683,19 @@ struct ContentView: View {
 
                         Button("Random game now") { pickRandomGame() }
                             .buttonStyle(GlassPillButton())
+                    }
+                    
+                    // Physics Demo Test Button
+                    HStack(spacing: 10) {
+                        Button("🧪 Test Physics Demo") { 
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                showPhysicsDemo = true
+                                isPanelOpen = false // Close settings panel
+                            }
+                        }
+                        .buttonStyle(GlassPillButton(emphasis: .normal))
+                        
+                        Spacer()
                     }
 
                     Toggle("include subfolders", isOn: $includeSubfolders)
