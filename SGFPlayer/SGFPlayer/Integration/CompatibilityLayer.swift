@@ -14,16 +14,20 @@ struct CompatibilityLayer {
     ) -> [LegacyCapturedStone] {
         
         return uiStones.map { uiStone in
+            // uiStone.position is already relative to bowl center from the physics engine
+            // GameBoardView expects stone.pos to be offset from bowl center
+            let relativePos = uiStone.position
+            
             // Create normalized position (relative to bowl center, -1.0 to 1.0)
             let normalizedPos = CGPoint(
-                x: uiStone.position.x / bowlRadius,
-                y: uiStone.position.y / bowlRadius
+                x: relativePos.x / bowlRadius,
+                y: relativePos.y / bowlRadius
             )
             
             return LegacyCapturedStone(
                 isWhite: uiStone.imageName.contains("clam"),
                 imageName: uiStone.imageName,
-                pos: uiStone.position,
+                pos: relativePos,  // Use relative position for bowl offset
                 normalizedPos: normalizedPos
             )
         }
@@ -58,8 +62,9 @@ class PhysicsReplacement: ObservableObject {
                 guard let self = self else { return }
                 self.capUL = CompatibilityLayer.convertToLegacyFormat(
                     uiStones: uiStones,
-                    bowlRadius: 100.0 // Will be updated with actual radius
+                    bowlRadius: self.currentBowlRadius
                 )
+                print("🔄 PhysicsReplacement: Updated black stones: \(uiStones.count), radius: \(self.currentBowlRadius)")
             }
             .store(in: &cancellables)
         
@@ -68,8 +73,9 @@ class PhysicsReplacement: ObservableObject {
                 guard let self = self else { return }
                 self.capLR = CompatibilityLayer.convertToLegacyFormat(
                     uiStones: uiStones,
-                    bowlRadius: 100.0 // Will be updated with actual radius  
+                    bowlRadius: self.currentBowlRadius
                 )
+                print("🔄 PhysicsReplacement: Updated white stones: \(uiStones.count), radius: \(self.currentBowlRadius)")
             }
             .store(in: &cancellables)
         

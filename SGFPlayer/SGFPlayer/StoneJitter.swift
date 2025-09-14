@@ -12,7 +12,7 @@ final class StoneJitter {
     struct Preset {
         var sigma:  CGFloat = 0.08   // std-dev of random offset (~8% of radius)
         var clamp:  CGFloat = 0.22   // hard clamp per-axis (radius units)
-        var contact:CGFloat = 0.98   // min center distance / (2r). 1.0 = kissing
+        var contact:CGFloat = 0.85   // min center distance / (2r). 1.0 = kissing, reduced to prevent unnecessary movement
         var relaxIters: Int = 6      // how many smoothing passes when placed
     }
 
@@ -28,8 +28,10 @@ final class StoneJitter {
     private var preset = Preset()
 
     // 2D per-intersection offsets (in radius units)
-    // offsets[y][x] = CGPoint(ox, oy)
-    private var offsets: [[CGPoint?]] = []
+    // initialJitter[y][x] = CGPoint(ox, oy) - the base random jitter, stable per position
+    // finalOffsets[y][x] = CGPoint(ox, oy) - after relaxation, calculated fresh each time
+    private var initialJitter: [[CGPoint?]] = []
+    private var finalOffsets: [[CGPoint?]] = []
     private var size: Int = 0
 
     // Cache key lets us invalidate when the SGF move changes
@@ -44,9 +46,10 @@ final class StoneJitter {
 
     // Call whenever board size changes (19, 13, 9…)
     func resizeIfNeeded(_ newSize: Int) {
-        guard newSize != size || offsets.isEmpty else { return }
+        guard newSize != size || initialJitter.isEmpty else { return }
         size = newSize
-        offsets = Array(repeating: Array(repeating: nil, count: size), count: size)
+        initialJitter = Array(repeating: Array(repeating: nil, count: size), count: size)
+        finalOffsets = Array(repeating: Array(repeating: nil, count: size), count: size)
         lastPreparedMove = .min
     }
 
@@ -55,12 +58,17 @@ final class StoneJitter {
     func prepare(forMove moveIndex: Int, boardSize: Int, occupied: [[Bool]]) {
         resizeIfNeeded(boardSize)
         if moveIndex != lastPreparedMove {
-            // Clear offsets for *future* stones (we keep offsets for stones that exist)
+            // Clear initial jitter for positions that are no longer occupied
+            // This preserves stable base jitter for existing stones
             for y in 0..<size {
                 for x in 0..<size {
-                    if !occupied[y][x] { offsets[y][x] = nil }
+                    if !occupied[y][x] {
+                        initialJitter[y][x] = nil
+                    }
                 }
             }
+            // Always clear final offsets to recalculate relaxation
+            finalOffsets = Array(repeating: Array(repeating: nil, count: size), count: size)
             lastPreparedMove = moveIndex
         }
     }
@@ -76,28 +84,49 @@ final class StoneJitter {
                 moveIndex: Int,
                 radius r: CGFloat,
                 occupied: [[Bool]]) -> CGPoint {
-        // If we already have an offset (was placed before), reuse it.
-        if let o = offsets[safe: y]?[safe: x] ?? nil { return o }
+        // If we already have a final offset calculated, return it
+        if let finalOffset = finalOffsets[safe: y]?[safe: x] ?? nil {
+            return finalOffset
+        }
 
-        // Draw a fresh jitter offset (gaussian in radius units, clamped)
-        var s = seedFor(x: x, y: y, move: moveIndex)
-        let g = gaussian2D(&s)
-        var ox = clampValue(g.gx * sigma, maxAbs: clamp)
-        var oy = clampValue(g.gy * sigma, maxAbs: clamp)
+        // Get or create stable initial jitter for this position
+        if initialJitter[safe: y]?[safe: x] == nil {
+            // Draw a fresh jitter offset (gaussian in radius units, clamped)
+            var s = seedFor(x: x, y: y, move: moveIndex)
+            let g = gaussian2D(&s)
 
-        // Save it
-        let p = CGPoint(x: ox, y: oy)
-        offsets[y][x] = p
+            // Apply random sign assignment based on position to ensure natural distribution
+            let signSeedX = seedFor(x: x * 3, y: y, move: moveIndex)
+            let signSeedY = seedFor(x: x, y: y * 3, move: moveIndex)
+            let signX: CGFloat = (signSeedX % 2 == 0) ? 1.0 : -1.0
+            let signY: CGFloat = (signSeedY % 2 == 0) ? 1.0 : -1.0
 
-        // Light local relaxation to avoid overlaps with neighbors
+            let ox = clampValue(abs(g.gx) * sigma * signX, maxAbs: clamp)
+            let oy = clampValue(abs(g.gy) * sigma * signY, maxAbs: clamp)
+
+            initialJitter[y][x] = CGPoint(x: ox, y: oy)
+        }
+
+        // Start with initial jitter
+        guard let initialOffset = initialJitter[y][x] else {
+            // This shouldn't happen since we just created it above, but safety first
+            return .zero
+        }
+        finalOffsets[y][x] = initialOffset
+
+        // Apply relaxation if needed
         relaxAround(cx: x, cy: y, r: r, occupied: occupied)
 
-        // Return possibly-updated value
-        let out = offsets[y][x] ?? p
-        ox = clampValue(out.x, maxAbs: clamp)
-        oy = clampValue(out.y, maxAbs: clamp)
-        offsets[y][x] = CGPoint(x: ox, y: oy)
-        return offsets[y][x]!
+        // Return final relaxed position, clamped
+        guard let finalOffset = finalOffsets[y][x] else {
+            return .zero // Safety fallback
+        }
+        let clampedOffset = CGPoint(
+            x: clampValue(finalOffset.x, maxAbs: clamp),
+            y: clampValue(finalOffset.y, maxAbs: clamp)
+        )
+        finalOffsets[y][x] = clampedOffset
+        return clampedOffset
     }
 
     // MARK: - Internals
@@ -115,8 +144,8 @@ final class StoneJitter {
         guard size > 0 else { return }
         let minD = 2.0 * r * contact
 
-        let xmin = max(0, cx - 2), xmax = min(size - 1, cx + 2)
-        let ymin = max(0, cy - 2), ymax = min(size - 1, cy + 2)
+        let xmin = max(0, cx - 1), xmax = min(size - 1, cx + 1)
+        let ymin = max(0, cy - 1), ymax = min(size - 1, cy + 1)
 
         guard xmin <= xmax && ymin <= ymax else { return }
 
@@ -125,16 +154,18 @@ final class StoneJitter {
                 for x in xmin...xmax {
                     guard occupied[y][x] else { continue }
 
-                    // Check a small set of neighbors to avoid double work
-                    for (nx, ny) in [(x+1,y),(x,y+1),(x+1,y+1),(x-1,y+1)] {
+                    // Check only orthogonal neighbors to avoid unnecessary diagonal interactions
+                    for (nx, ny) in [(x+1,y),(x,y+1)] {
                         guard nx >= xmin, nx <= xmax, ny >= ymin, ny <= ymax else { continue }
                         guard nx >= 0, ny >= 0, nx < size, ny < size else { continue }
                         guard occupied[ny][nx] else { continue }
 
-                        let ax = CGFloat(x) + (offsets[y][x]?.x ?? 0)
-                        let ay = CGFloat(y) + (offsets[y][x]?.y ?? 0)
-                        let bx = CGFloat(nx) + (offsets[ny][nx]?.x ?? 0)
-                        let by = CGFloat(ny) + (offsets[ny][nx]?.y ?? 0)
+                        // Use positions based on grid coordinates + initial jitter only
+                        // This prevents cascading movement during relaxation
+                        let ax = CGFloat(x) + (finalOffsets[y][x]?.x ?? 0)
+                        let ay = CGFloat(y) + (finalOffsets[y][x]?.y ?? 0)
+                        let bx = CGFloat(nx) + (finalOffsets[ny][nx]?.x ?? 0)
+                        let by = CGFloat(ny) + (finalOffsets[ny][nx]?.y ?? 0)
 
                         var dx = (bx - ax) * r
                         var dy = (by - ay) * r
@@ -149,8 +180,8 @@ final class StoneJitter {
                             let ux = dx / dist
                             let uy = dy / dist
 
-                            var A = offsets[y][x] ?? .zero
-                            var B = offsets[ny][nx] ?? .zero
+                            var A = finalOffsets[y][x] ?? .zero
+                            var B = finalOffsets[ny][nx] ?? .zero
 
                             // convert pixel correction to radius units
                             A.x -= (need * ux) / r
@@ -163,8 +194,8 @@ final class StoneJitter {
                             B.x = clampValue(B.x, maxAbs: clamp)
                             B.y = clampValue(B.y, maxAbs: clamp)
 
-                            offsets[y][x]   = A
-                            offsets[ny][nx] = B
+                            finalOffsets[y][x]   = A
+                            finalOffsets[ny][nx] = B
                         }
                     }
                 }
@@ -179,9 +210,14 @@ final class StoneJitter {
     // MARK: RNG (deterministic)
 
     private func seedFor(x: Int, y: Int, move: Int) -> UInt32 {
-        var s = UInt32(bitPattern: Int32((x+11))) &* 73856093
-        s ^= UInt32(bitPattern: Int32((y+17))) &* 19349663
-        s ^= UInt32(bitPattern: Int32((move+23))) &* 83492791
+        // Take absolute values to prevent negative value crashes
+        let safeX = abs(x + 11)
+        let safeY = abs(y + 17)
+        let safeMove = abs(move + 23)
+
+        var s = UInt32(safeX) &* 73856093
+        s ^= UInt32(safeY) &* 19349663
+        s ^= UInt32(safeMove) &* 83492791
         s = s == 0 ? 0x9e3779b9 : s
         return s
     }

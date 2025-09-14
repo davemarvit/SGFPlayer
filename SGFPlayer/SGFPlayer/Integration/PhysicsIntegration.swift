@@ -21,6 +21,12 @@ class PhysicsIntegration: ObservableObject {
     @Published var physicsStatus: String = ""
     @Published var isReady: Bool = false
     
+    // Batching mechanism to prevent multiple UI updates during physics calculations
+    private var isPhysicsInProgress = false
+    private var pendingBlackStones: [LegacyCapturedStone] = []
+    private var pendingWhiteStones: [LegacyCapturedStone] = []
+    private var physicsUpdateTimer: Timer?
+    
     // MARK: - Physics Model Selection (compatible with ContentView)
     @Published var activePhysicsModel: Int = 1 {
         didSet {
@@ -40,22 +46,16 @@ class PhysicsIntegration: ObservableObject {
     }
     
     private func setupNewPhysicsBindings() {
-        // Monitor new physics results
+        // Monitor new physics results with batching to prevent UI oscillation
         physicsReplacement.$capUL
             .sink { [weak self] stones in
-                self?.blackStones = stones
-                if self?.debugMode == true {
-                    print("🚀 PhysicsIntegration: Updated black stones: \(stones.count)")
-                }
+                self?.updateBlackStonesBatched(stones)
             }
             .store(in: &cancellables)
         
         physicsReplacement.$capLR
             .sink { [weak self] stones in
-                self?.whiteStones = stones
-                if self?.debugMode == true {
-                    print("🚀 PhysicsIntegration: Updated white stones: \(stones.count)")
-                }
+                self?.updateWhiteStonesBatched(stones)
             }
             .store(in: &cancellables)
         
@@ -64,6 +64,46 @@ class PhysicsIntegration: ObservableObject {
                 self?.physicsStatus = "New: \(info)"
             }
             .store(in: &cancellables)
+    }
+    
+    private func updateBlackStonesBatched(_ stones: [LegacyCapturedStone]) {
+        pendingBlackStones = stones
+        scheduleBatchUpdate()
+        
+        if debugMode {
+            print("🚀 PhysicsIntegration: Batched black stones: \(stones.count)")
+        }
+    }
+    
+    private func updateWhiteStonesBatched(_ stones: [LegacyCapturedStone]) {
+        pendingWhiteStones = stones
+        scheduleBatchUpdate()
+        
+        if debugMode {
+            print("🚀 PhysicsIntegration: Batched white stones: \(stones.count)")
+        }
+    }
+    
+    private func scheduleBatchUpdate() {
+        // Cancel any pending update
+        physicsUpdateTimer?.invalidate()
+        
+        // Schedule a batched update after 50ms to let physics settle
+        physicsUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: false) { [weak self] _ in
+            self?.executeBatchUpdate()
+        }
+    }
+    
+    private func executeBatchUpdate() {
+        // Apply the final stone positions to UI
+        blackStones = pendingBlackStones
+        whiteStones = pendingWhiteStones
+        
+        if debugMode {
+            print("🚀 PhysicsIntegration: ✅ FINAL UPDATE - Black: \(pendingBlackStones.count), White: \(pendingWhiteStones.count)")
+        }
+        
+        isPhysicsInProgress = false
     }
     
     // MARK: - Public Interface (compatible with ContentView)

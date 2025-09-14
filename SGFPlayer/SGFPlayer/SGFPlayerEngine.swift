@@ -2,6 +2,10 @@
 import Foundation
 import Combine
 
+extension Notification.Name {
+    static let gameDidFinish = Notification.Name("gameDidFinish")
+}
+
 // Reference to the last played move (kept for engine/UI coordination)
 struct MoveRef: Equatable { let color: Stone; let x: Int; let y: Int }
 
@@ -68,6 +72,8 @@ final class SGFPlayer: ObservableObject {
     func stepForward() {
         guard currentIndex < _moves.count else {
             pause()
+            // Notify that game has finished
+            NotificationCenter.default.post(name: .gameDidFinish, object: nil)
             return
         }
         apply(moveAt: currentIndex)

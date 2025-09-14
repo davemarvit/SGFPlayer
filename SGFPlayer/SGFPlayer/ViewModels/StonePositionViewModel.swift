@@ -18,6 +18,10 @@ class StonePositionViewModel: ObservableObject {
     @Published var isComputingPhysics: Bool = false
     @Published var physicsInfo: String = ""
     
+    // Internal state tracking for physics continuity
+    private var currentBlackStoneCount: Int = 0
+    private var currentWhiteStoneCount: Int = 0
+    
     // Configuration
     @Published var activePhysicsModelIndex: Int = 1 {
         didSet {
@@ -60,6 +64,8 @@ class StonePositionViewModel: ObservableObject {
         cacheManager.initializeWithBaseState(grid: boardGrid)
         blackStonePositions = []
         whiteStonePositions = []
+        currentBlackStoneCount = 0
+        currentWhiteStoneCount = 0
         physicsInfo = "Initialized with \(physicsEngine.activeModel.name)"
     }
     
@@ -77,6 +83,8 @@ class StonePositionViewModel: ObservableObject {
             print("🔄 ViewModel: Cache hit for move \(currentMove)")
             blackStonePositions = cachedLayout.blackStones
             whiteStonePositions = cachedLayout.whiteStones
+            currentBlackStoneCount = cachedLayout.blackStones.count
+            currentWhiteStoneCount = cachedLayout.whiteStones.count
             physicsInfo = "Cache hit: \(cachedLayout.physicsModel)"
             return
         }
@@ -90,7 +98,7 @@ class StonePositionViewModel: ObservableObject {
             
             // Compute black stones (captured by white, in upper-left bowl)
             let blackResult = self.physicsEngine.computeStonePositions(
-                currentStoneCount: self.blackStonePositions.count,
+                currentStoneCount: self.currentBlackStoneCount,
                 targetStoneCount: blackStoneCount,
                 bowlRadius: bowlRadius,
                 stoneRadius: stoneRadius,
@@ -98,9 +106,11 @@ class StonePositionViewModel: ObservableObject {
                 isWhiteBowl: false
             )
             
+            print("🔍 ViewModel: Black stones - current: \(self.currentBlackStoneCount), target: \(blackStoneCount), result: \(blackResult.stones.count)")
+            
             // Compute white stones (captured by black, in lower-right bowl)  
             let whiteResult = self.physicsEngine.computeStonePositions(
-                currentStoneCount: self.whiteStonePositions.count,
+                currentStoneCount: self.currentWhiteStoneCount,
                 targetStoneCount: whiteStoneCount,
                 bowlRadius: bowlRadius,
                 stoneRadius: stoneRadius,
@@ -108,10 +118,14 @@ class StonePositionViewModel: ObservableObject {
                 isWhiteBowl: true
             )
             
+            print("🔍 ViewModel: White stones - current: \(self.currentWhiteStoneCount), target: \(whiteStoneCount), result: \(whiteResult.stones.count)")
+            
             // Update UI on main thread
             DispatchQueue.main.async {
                 self.blackStonePositions = blackResult.stones
                 self.whiteStonePositions = whiteResult.stones
+                self.currentBlackStoneCount = blackResult.stones.count
+                self.currentWhiteStoneCount = whiteResult.stones.count
                 self.isComputingPhysics = false
                 
                 let info = [blackResult.convergenceInfo, whiteResult.convergenceInfo]
@@ -142,11 +156,8 @@ class StonePositionViewModel: ObservableObject {
         let positions = bowlType == .upperLeft ? blackStonePositions : whiteStonePositions
         
         return positions.enumerated().map { index, stonePos in
-            // Convert from physics coordinates (bowl-relative) to UI coordinates (screen-relative)
-            let uiPosition = CGPoint(
-                x: bowlCenter.x + stonePos.position.x,
-                y: bowlCenter.y + stonePos.position.y
-            )
+            // Keep position relative to bowl center - GameBoardView will add bowl center
+            let relativePosition = stonePos.position
             
             // Choose appropriate image
             let imageName: String
@@ -159,7 +170,7 @@ class StonePositionViewModel: ObservableObject {
             
             return UIStone(
                 id: stonePos.id,
-                position: uiPosition,
+                position: relativePosition,  // Keep relative to bowl center
                 imageName: imageName
             )
         }

@@ -86,8 +86,8 @@ class ContentViewBridge: ObservableObject {
         lastBowlCenters = bowlCenters
         lastBowlRadius = bowlRadius
         
-        // Calculate stone radius (approximately 15% of bowl radius)
-        let stoneRadius = bowlRadius * 0.15
+        // Calculate stone radius (approximately 18% of bowl radius, matching new visual stone size)
+        let stoneRadius = bowlRadius * 0.18
         
         // Update physics with new stone counts
         stoneViewModel.updateStonePositions(

@@ -10,6 +10,9 @@ final class AppModel: ObservableObject {
     @Published var games: [SGFGameWrapper] = []
     @Published var selection: SGFGameWrapper? = nil
 
+    // Game cache manager for pre-calculated states
+    @Published var gameCacheManager = GameCacheManager()
+
     private let folderKey = "sgfplayer.folderURL"
     private var cancellables: Set<AnyCancellable> = []
 
@@ -32,6 +35,23 @@ final class AppModel: ObservableObject {
 
     func reload() {
         if let url = folderURL { loadFolder(url) }
+    }
+
+    func selectGame(_ gameWrapper: SGFGameWrapper) {
+        selection = gameWrapper
+        gameCacheManager.loadGame(gameWrapper.game, fingerprint: gameWrapper.fingerprint)
+
+        // Pre-calculate nearby games in background (limited to prevent crashes)
+        if let currentIndex = games.firstIndex(where: { $0.id == gameWrapper.id }) {
+            // Pre-calculate only next 2 games to avoid overloading with large folders
+            for i in 1...min(2, games.count - currentIndex - 1) {
+                let nextIndex = currentIndex + i
+                if nextIndex < games.count {
+                    let nextGame = games[nextIndex]
+                    gameCacheManager.preCalculateGame(nextGame.game, fingerprint: nextGame.fingerprint)
+                }
+            }
+        }
     }
 
     private func loadFolder(_ url: URL) {
@@ -57,7 +77,21 @@ final class AppModel: ObservableObject {
             }
         }
         games = parsed
-        selection = parsed.first
+
+        // Pre-calculate upcoming games in background while setting current selection
+        if let first = parsed.first {
+            selection = first
+            gameCacheManager.loadGame(first.game, fingerprint: first.fingerprint)
+
+            // Start pre-calculating other games in background (limit to prevent crashes with large folders)
+            let maxPreCalculate = min(3, parsed.count) // Only pre-calculate first 3 games max
+            for index in 1..<maxPreCalculate {
+                let gameWrapper = parsed[index]
+                gameCacheManager.preCalculateGame(gameWrapper.game, fingerprint: gameWrapper.fingerprint)
+            }
+        } else {
+            selection = nil
+        }
     }
 
     private func persistFolderURL() {
@@ -91,6 +125,11 @@ struct SGFGameWrapper: Identifiable, Hashable {
     let id = UUID()
     let url: URL
     let game: SGFGame
+
+    // Generate a stable fingerprint for caching
+    var fingerprint: String {
+        return url.lastPathComponent + "_" + String(url.path.hashValue)
+    }
 
     static func == (lhs: SGFGameWrapper, rhs: SGFGameWrapper) -> Bool {
         lhs.id == rhs.id
