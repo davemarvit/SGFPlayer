@@ -41,80 +41,38 @@ struct SettingsPanelView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
+            // Header with gear icon
             HStack(spacing: 12) {
-                Text("Settings").font(.title2.bold())
+                Image(systemName: "gearshape.fill")
+                    .font(.title2)
+                    .foregroundColor(.white)
+
+                Text("Settings")
+                    .font(.title2.bold())
+                    .foregroundColor(.white)
+
                 Spacer()
+
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { 
-                        isPanelOpen = false 
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                        isPanelOpen = false
                     }
                 } label: {
-                    Image(systemName: "xmark.circle.fill").imageScale(.large)
+                    Image(systemName: "xmark")
+                        .font(.title3)
+                        .foregroundColor(.white.opacity(0.8))
                 }
+                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 10)
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 16)
 
             // Scrollable content
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    
-                    // Game Selection
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Game Folder")
-                            Spacer()
-                            Button("Choose Folder") {
-                                app.promptForFolder()
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                        
-                        if let folderURL = app.folderURL {
-                            Text("📁 \(folderURL.path)")
-                                .font(.caption)
-                                .foregroundColor(.blue)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        } else {
-                            Text("Select a folder containing SGF game files")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        // Games List & Selection
-                        if !app.games.isEmpty {
-                            Text("Games Found: \(app.games.count)")
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.green)
-                            
-                            // Game selection picker
-                            HStack {
-                                Text("Current:")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                
-                                Picker("Select Game", selection: Binding(
-                                    get: { app.selection?.id ?? UUID() },
-                                    set: { selectedId in
-                                        app.selection = app.games.first { $0.id == selectedId }
-                                    }
-                                )) {
-                                    ForEach(app.games) { gameWrapper in
-                                        let game = gameWrapper.game
-                                        let playerInfo = formatGameInfo(game.info)
-                                        Text(playerInfo)
-                                            .tag(gameWrapper.id)
-                                    }
-                                }
-                                .pickerStyle(MenuPickerStyle())
-                                .frame(maxWidth: 200)
-                            }
-                        }
-                    }
+                    FolderSelectionSection(app: app)
+                    GameSelectionSection(app: app)
                     .padding(.horizontal, 16)
                     
                     Divider()
@@ -414,6 +372,156 @@ struct SettingsPanelView: View {
         }
     }
 
+    private func formatGameDisplayText(_ info: SGFGame.Info) -> String {
+        let blackPlayer = info.playerBlack ?? "Unknown"
+        let whitePlayer = info.playerWhite ?? "Unknown"
+        let date = info.date ?? ""
+
+        if !date.isEmpty {
+            return "\(blackPlayer) vs \(whitePlayer) · \(date)"
+        } else {
+            return "\(blackPlayer) vs \(whitePlayer)"
+        }
+    }
+}
+
+// MARK: - Component Sections
+
+struct FolderSelectionSection: View {
+    @ObservedObject var app: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Folder selection buttons
+            HStack(spacing: 12) {
+                Button("Open folder...") {
+                    app.promptForFolder()
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.blue.opacity(0.8))
+                .cornerRadius(8)
+                .buttonStyle(.plain)
+
+                Button("Random game now") {
+                    if !app.games.isEmpty {
+                        app.selection = app.games.randomElement()
+                    }
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.green.opacity(0.8))
+                .cornerRadius(8)
+                .buttonStyle(.plain)
+            }
+
+            // Include subfolders toggle
+            Toggle("Include subfolders", isOn: .constant(true))
+                .foregroundColor(.white)
+                .toggleStyle(SwitchToggleStyle(tint: .blue))
+
+            // Folder path display
+            if app.folderURL != nil {
+                Text("Folder picker cancelled (NotAllowedError). Trying fallback...")
+                    .font(.caption)
+                    .foregroundColor(.orange.opacity(0.8))
+                    .lineLimit(2)
+            }
+        }
+    }
+}
+
+struct GameSelectionSection: View {
+    @ObservedObject var app: AppModel
+
+    var body: some View {
+        if let selection = app.selection {
+            VStack(alignment: .leading, spacing: 8) {
+                // Game list with dark styling
+                VStack(spacing: 4) {
+                    ForEach(Array(app.games.prefix(6).enumerated()), id: \.element.id) { index, gameWrapper in
+                        GameListItem(
+                            gameWrapper: gameWrapper,
+                            isSelected: gameWrapper.id == selection.id,
+                            onTap: { app.selection = gameWrapper }
+                        )
+                    }
+                }
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(.black.opacity(0.3))
+                        .stroke(.white.opacity(0.1), lineWidth: 1)
+                )
+
+                GameMetadataView(gameWrapper: selection)
+            }
+        }
+    }
+}
+
+struct GameListItem: View {
+    let gameWrapper: SGFGameWrapper
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        let playerInfo = formatGameDisplayText(gameWrapper.game.info)
+
+        HStack {
+            Text(playerInfo)
+                .font(.system(size: 13))
+                .foregroundColor(isSelected ? .black : .white.opacity(0.9))
+                .lineLimit(1)
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isSelected ? .white.opacity(0.9) : Color.clear)
+        )
+        .onTapGesture { onTap() }
+    }
+
+    private func formatGameDisplayText(_ info: SGFGame.Info) -> String {
+        let blackPlayer = info.playerBlack ?? "Unknown"
+        let whitePlayer = info.playerWhite ?? "Unknown"
+        let date = info.date ?? ""
+
+        if !date.isEmpty {
+            return "\(blackPlayer) vs \(whitePlayer) · \(date)"
+        } else {
+            return "\(blackPlayer) vs \(whitePlayer)"
+        }
+    }
+}
+
+struct GameMetadataView: View {
+    let gameWrapper: SGFGameWrapper
+
+    var body: some View {
+        let game = gameWrapper.game
+        let blackPlayer = game.info.playerBlack ?? "—"
+        let whitePlayer = game.info.playerWhite ?? "—"
+        let result = game.info.result ?? "B+3"
+        let filename = gameWrapper.url.lastPathComponent
+
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Date: — · Black: \(blackPlayer) · White: \(whitePlayer)")
+                .font(.system(size: 11))
+                .foregroundColor(.white.opacity(0.7))
+            Text("· Result: \(result) · File: \(filename)")
+                .font(.system(size: 11))
+                .foregroundColor(.white.opacity(0.7))
+        }
+    }
+}
+
+// Move these methods back to SettingsPanelView where they belong
+extension SettingsPanelView {
     private func exportDiagnostics() {
         let timestamp = DateFormatter().string(from: Date())
         let diagnosticData = generateDiagnosticReport()

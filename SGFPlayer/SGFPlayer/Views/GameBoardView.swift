@@ -110,7 +110,7 @@ struct GameBoardView: View {
                         .resizable()
                         .frame(width: boardWidth, height: boardHeight)
                         .clipShape(Rectangle())  // Right angles, no rounded corners
-                        .shadow(color: .black.opacity(0.3), radius: 8, x: 4, y: 4)
+                        .shadow(color: .black.opacity(0.4), radius: 15, x: 8, y: 8)
                         .overlay(
                             // Grid lines and hoshi points
                             GoGridView(
@@ -136,7 +136,7 @@ struct GameBoardView: View {
                         .resizable()
                         .aspectRatio(1.0, contentMode: .fit)
                         .frame(width: lidSize, height: lidSize)
-                        .shadow(color: .black.opacity(lidShadowOpacity), radius: CGFloat(lidShadowRadius) * shadowScale)
+                        .shadow(color: .black.opacity(0.35), radius: 5, x: 2.5, y: 2.5)
                         .position(ulCenter)
                     
                     // Black stone visualization with real images (traditional larger size)
@@ -146,7 +146,7 @@ struct GameBoardView: View {
                             .resizable()
                             .aspectRatio(1.0, contentMode: .fit)
                             .frame(width: blackBowlStoneSize, height: blackBowlStoneSize)
-                            .shadow(color: .black.opacity(stoneShadowOpacity), radius: CGFloat(stoneShadowRadius) * shadowScale)
+                            .shadow(color: .black.opacity(0.4), radius: 3, x: 1.5, y: 1.5)
                             .position(
                                 x: ulCenter.x + stone.normalizedPos.x * actualBowlRadius,
                                 y: ulCenter.y + stone.normalizedPos.y * actualBowlRadius
@@ -171,7 +171,7 @@ struct GameBoardView: View {
                         .resizable()
                         .aspectRatio(1.0, contentMode: .fit)
                         .frame(width: lidSize, height: lidSize)
-                        .shadow(color: .black.opacity(lidShadowOpacity), radius: CGFloat(lidShadowRadius) * shadowScale)
+                        .shadow(color: .black.opacity(0.35), radius: 5, x: 2.5, y: 2.5)
                         .position(lrCenter)
                     
                     // White stone visualization with clam images (traditional reference size)
@@ -181,7 +181,7 @@ struct GameBoardView: View {
                             .resizable()
                             .aspectRatio(1.0, contentMode: .fit)
                             .frame(width: whiteBowlStoneSize, height: whiteBowlStoneSize)
-                            .shadow(color: .black.opacity(stoneShadowOpacity), radius: CGFloat(stoneShadowRadius) * shadowScale)
+                            .shadow(color: .black.opacity(0.4), radius: 3, x: 1.5, y: 1.5)
                             .position(
                                 x: lrCenter.x + stone.normalizedPos.x * actualBowlRadius,
                                 y: lrCenter.y + stone.normalizedPos.y * actualBowlRadius
@@ -223,66 +223,12 @@ struct GameBoardView: View {
                     Spacer()
                 }
 
-                // Game info display below the board - centered
-                VStack(spacing: 8) {
-                    // Player names and date - centered
-                    if let gameWrapper = gameCacheManager?.currentGame {
-                        let game = gameWrapper.originalGame
-                        let blackPlayer = game.info.playerBlack ?? "Unknown"
-                        let whitePlayer = game.info.playerWhite ?? "Unknown"
-                        let date = game.info.date ?? ""
-
-                        VStack(spacing: 2) {
-                            Text("\(blackPlayer) (Black) vs \(whitePlayer) (White)")
-                                .font(.system(size: max(12, min(L.width * 0.015, 18))))
-                                .foregroundColor(.primary.opacity(0.8))
-
-                            if !date.isEmpty {
-                                Text(date)
-                                    .font(.system(size: max(10, min(L.width * 0.012, 14))))
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-
-                    // Game result and captured stones - centered, responsive layout
-                    HStack(spacing: 16) {
-                        // Game result
-                        if let gameWrapper = gameCacheManager?.currentGame,
-                           let result = gameWrapper.originalGame.info.result, !result.isEmpty {
-                            Text("Result: \(result)")
-                                .font(.system(size: max(10, min(L.width * 0.012, 14))))
-                                .foregroundColor(.secondary)
-                        }
-
-                        // Captured stones - always visible
-                        HStack(spacing: 8) {
-                            Text("Captured:")
-                                .font(.system(size: max(10, min(L.width * 0.012, 14))))
-                                .foregroundColor(.secondary)
-
-                            HStack(spacing: 4) {
-                                Text("\(blackCapturedCount)")
-                                    .font(.system(size: max(10, min(L.width * 0.012, 14))))
-                                    .foregroundColor(.primary)
-                                Image("stone_black")
-                                    .resizable()
-                                    .aspectRatio(1, contentMode: .fit)
-                                    .frame(width: max(8, min(L.width * 0.01, 16)), height: max(8, min(L.width * 0.01, 16)))
-                            }
-
-                            HStack(spacing: 4) {
-                                Text("\(whiteCapturedCount)")
-                                    .font(.system(size: max(10, min(L.width * 0.012, 14))))
-                                    .foregroundColor(.primary)
-                                Image("clam_01")
-                                    .resizable()
-                                    .aspectRatio(1, contentMode: .fit)
-                                    .frame(width: max(8, min(L.width * 0.01, 16)), height: max(8, min(L.width * 0.01, 16)))
-                            }
-                        }
-                    }
-                }
+                // Game info display below the board - single line with background
+                GameInfoBar(
+                    gameCacheManager: gameCacheManager,
+                    blackCapturedCount: blackCapturedCount,
+                    whiteCapturedCount: whiteCapturedCount
+                )
                 .position(x: L.width / 2, y: boardCenter.y + boardHeight/2 + min(40, actualNegativeSpace * 0.3))
             }
             .onAppear {
@@ -316,6 +262,74 @@ struct GameBoardView: View {
             }
         }
         return Color.clear
+    }
+}
+
+// MARK: - Game Info Bar Component
+struct GameInfoBar: View {
+    var gameCacheManager: GameCacheManager?
+    let blackCapturedCount: Int
+    let whiteCapturedCount: Int
+
+    var body: some View {
+        if let gameWrapper = gameCacheManager?.currentGame {
+            let game = gameWrapper.originalGame
+            let blackPlayer = game.info.playerBlack ?? "Unknown"
+            let whitePlayer = game.info.playerWhite ?? "Unknown"
+            let result = game.info.result ?? "B+3"
+
+            HStack(spacing: 12) {
+                Text("\(blackPlayer) vs \(whitePlayer)")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white)
+
+                Text("—")
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.6))
+
+                Text("\(result)")
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.8))
+
+                Text("·")
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.6))
+
+                Text("Captures")
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.8))
+
+                HStack(spacing: 6) {
+                    Text("B:\(blackCapturedCount)")
+                        .font(.system(size: 13))
+                        .foregroundColor(.white)
+
+                    Image("stone_black")
+                        .resizable()
+                        .aspectRatio(1.0, contentMode: .fit)
+                        .frame(width: 14, height: 14)
+
+                    Text("W:\(whiteCapturedCount)")
+                        .font(.system(size: 13))
+                        .foregroundColor(.white)
+
+                    Image("clam_01")
+                        .resizable()
+                        .aspectRatio(1.0, contentMode: .fit)
+                        .frame(width: 14, height: 14)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(.black.opacity(0.75))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(.white.opacity(0.1), lineWidth: 1)
+                    )
+            )
+        }
     }
 }
 
@@ -425,7 +439,7 @@ struct GoGridView: View {
                                 .aspectRatio(1.0, contentMode: .fit)
                                 .frame(width: blackStoneSize, height: blackStoneSize)
                                 .position(x: finalPosition.x, y: finalPosition.y)
-                                .shadow(color: .black.opacity(0.3), radius: 2, x: 1, y: 1)
+                                .shadow(color: .black.opacity(0.4), radius: 3, x: 1.5, y: 1.5)
                         case .white:
                             // Use clam image for white stones - deterministic selection based on position
                             let clamIndex = (row * 19 + col) % 5 + 1
@@ -435,7 +449,7 @@ struct GoGridView: View {
                                 .aspectRatio(1.0, contentMode: .fit)
                                 .frame(width: whiteStoneSize, height: whiteStoneSize)
                                 .position(x: finalPosition.x, y: finalPosition.y)
-                                .shadow(color: .black.opacity(0.3), radius: 2, x: 1, y: 1)
+                                .shadow(color: .black.opacity(0.4), radius: 3, x: 1.5, y: 1.5)
                         }
                     }
                 }
@@ -489,7 +503,7 @@ struct GoGridView: View {
 
             // For now, let's calculate jitter directly here instead of relying on cache
             // This gives us immediate jitter while we work on the caching system
-            let safeMoveIndex = max(0, currentMoveIndex)
+            let _ = max(0, currentMoveIndex)
 
             // Generate deterministic jitter based on position and game
             if let gameFingerprint = currentGame.gameFingerprint.isEmpty ? nil : currentGame.gameFingerprint {

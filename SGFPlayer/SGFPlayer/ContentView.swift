@@ -170,48 +170,59 @@ struct ContentView: View {
                 Spacer()
             }
             
-            // Settings panel
+            // Settings panel overlay
             if isPanelOpen {
-                HStack {
-                    SettingsPanelView(
-                        isPanelOpen: $isPanelOpen,
-                        activePhysicsModelRaw: $activePhysicsModelRaw,
-                        physicsIntegration: physicsIntegration,
-                        m1_repel: $m1_repel,
-                        m1_spacing: $m1_spacing,
-                        m1_centerPullK: $m1_centerPullK,
-                        m1_relaxIters: $m1_relaxIters,
-                        m1_pressureRadiusXR: $m1_pressureRadiusXR,
-                        m1_pressureKFactor: $m1_pressureKFactor,
-                        m1_maxStepXR: $m1_maxStepXR,
-                        m1_damping: $m1_damping,
-                        m1_wallK: $m1_wallK,
-                        m1_anim: $m1_anim,
-                        m1_stoneStoneK: $m1_stoneStoneK,
-                        m1_stoneLidK: $m1_stoneLidK,
-                        autoNext: $autoNext,
-                        randomNext: $randomNext,
-                        uiMoveDelay: $uiMoveDelay,
-                        player: player,
-                        app: app,
-                        onMoveChanged: { newIndex in
-                            player.seek(to: newIndex)
-                            updatePhysicsForMove(newIndex)
-                        },
-                        debugLayout: $debugLayout,
-                        advancedExpanded: $advancedExpanded,
-                        gameCacheManager: app.gameCacheManager
-                    )
-                    .transition(.move(edge: .leading))
-                    
-                    Spacer()
+                ZStack {
+                    // Backdrop with blur effect
+                    Color.clear
+                        .background(.ultraThinMaterial)
+                        .onTapGesture {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                isPanelOpen = false
+                            }
+                        }
+
+                    HStack(spacing: 0) {
+                        // Settings panel
+                        SettingsPanelView(
+                            isPanelOpen: $isPanelOpen,
+                            activePhysicsModelRaw: $activePhysicsModelRaw,
+                            physicsIntegration: physicsIntegration,
+                            m1_repel: $m1_repel,
+                            m1_spacing: $m1_spacing,
+                            m1_centerPullK: $m1_centerPullK,
+                            m1_relaxIters: $m1_relaxIters,
+                            m1_pressureRadiusXR: $m1_pressureRadiusXR,
+                            m1_pressureKFactor: $m1_pressureKFactor,
+                            m1_maxStepXR: $m1_maxStepXR,
+                            m1_damping: $m1_damping,
+                            m1_wallK: $m1_wallK,
+                            m1_anim: $m1_anim,
+                            m1_stoneStoneK: $m1_stoneStoneK,
+                            m1_stoneLidK: $m1_stoneLidK,
+                            autoNext: $autoNext,
+                            randomNext: $randomNext,
+                            uiMoveDelay: $uiMoveDelay,
+                            player: player,
+                            app: app,
+                            onMoveChanged: { newIndex in
+                                player.seek(to: newIndex)
+                                updatePhysicsForMove(newIndex)
+                            },
+                            debugLayout: $debugLayout,
+                            advancedExpanded: $advancedExpanded,
+                            gameCacheManager: app.gameCacheManager
+                        )
+                        .frame(width: 320)
+                        .frame(maxHeight: .infinity)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 0))
+                        .shadow(color: .black.opacity(0.2), radius: 20, x: 10, y: 0)
+                        .transition(.move(edge: .leading))
+
+                        Spacer()
+                    }
                 }
                 .zIndex(10)
-                .background(Color.black.opacity(0.3).onTapGesture {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                        isPanelOpen = false
-                    }
-                })
             }
             
             // Physics Demo overlay
