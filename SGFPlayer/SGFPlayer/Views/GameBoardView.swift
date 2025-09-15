@@ -110,7 +110,7 @@ struct GameBoardView: View {
                         .resizable()
                         .frame(width: boardWidth, height: boardHeight)
                         .clipShape(Rectangle())  // Right angles, no rounded corners
-                        .shadow(color: .black.opacity(0.4), radius: 15, x: 8, y: 8)
+                        .shadow(color: .black.opacity(0.9), radius: 35, x: 16, y: 16)
                         .overlay(
                             // Grid lines and hoshi points
                             GoGridView(
@@ -136,7 +136,7 @@ struct GameBoardView: View {
                         .resizable()
                         .aspectRatio(1.0, contentMode: .fit)
                         .frame(width: lidSize, height: lidSize)
-                        .shadow(color: .black.opacity(0.35), radius: 5, x: 2.5, y: 2.5)
+                        .shadow(color: .black.opacity(0.8), radius: 12, x: 6, y: 6)
                         .position(ulCenter)
                     
                     // Black stone visualization with real images (traditional larger size)
@@ -146,22 +146,22 @@ struct GameBoardView: View {
                             .resizable()
                             .aspectRatio(1.0, contentMode: .fit)
                             .frame(width: blackBowlStoneSize, height: blackBowlStoneSize)
-                            .shadow(color: .black.opacity(0.4), radius: 3, x: 1.5, y: 1.5)
+                            .shadow(color: .black.opacity(0.6), radius: 4, x: 2, y: 2)
                             .position(
                                 x: ulCenter.x + stone.normalizedPos.x * actualBowlRadius,
                                 y: ulCenter.y + stone.normalizedPos.y * actualBowlRadius
                             )
                     }
                     
-                    // Black stone count display (from calculated captures, not physics array)
-                    Text("\(blackCapturedCount)")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.black.opacity(0.7))
-                        .cornerRadius(8)
-                        .position(x: ulCenter.x, y: ulCenter.y - actualBowlRadius - 30)
+                    // Black stone count display (commented out for cleaner UI)
+                    // Text("\(blackCapturedCount)")
+                    //     .font(.system(size: 16, weight: .bold))
+                    //     .foregroundColor(.white)
+                    //     .padding(.horizontal, 8)
+                    //     .padding(.vertical, 4)
+                    //     .background(Color.black.opacity(0.7))
+                    //     .cornerRadius(8)
+                    //     .position(x: ulCenter.x, y: ulCenter.y - actualBowlRadius - 30)
                 }
                 
                 // LR bowl (white stones captured by black) - positioned lower right  
@@ -171,7 +171,7 @@ struct GameBoardView: View {
                         .resizable()
                         .aspectRatio(1.0, contentMode: .fit)
                         .frame(width: lidSize, height: lidSize)
-                        .shadow(color: .black.opacity(0.35), radius: 5, x: 2.5, y: 2.5)
+                        .shadow(color: .black.opacity(0.8), radius: 12, x: 6, y: 6)
                         .position(lrCenter)
                     
                     // White stone visualization with clam images (traditional reference size)
@@ -181,47 +181,25 @@ struct GameBoardView: View {
                             .resizable()
                             .aspectRatio(1.0, contentMode: .fit)
                             .frame(width: whiteBowlStoneSize, height: whiteBowlStoneSize)
-                            .shadow(color: .black.opacity(0.4), radius: 3, x: 1.5, y: 1.5)
+                            .shadow(color: .black.opacity(0.6), radius: 4, x: 2, y: 2)
                             .position(
                                 x: lrCenter.x + stone.normalizedPos.x * actualBowlRadius,
                                 y: lrCenter.y + stone.normalizedPos.y * actualBowlRadius
                             )
                     }
                     
-                    // White stone count display (from calculated captures, not physics array)
-                    Text("\(whiteCapturedCount)")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.white.opacity(0.9))
-                        .cornerRadius(8)
-                        .position(x: lrCenter.x, y: lrCenter.y + actualBowlRadius + 30)
+                    // White stone count display (commented out for cleaner UI)
+                    // Text("\(whiteCapturedCount)")
+                    //     .font(.system(size: 16, weight: .bold))
+                    //     .foregroundColor(.black)
+                    //     .padding(.horizontal, 8)
+                    //     .padding(.vertical, 4)
+                    //     .background(Color.white.opacity(0.9))
+                    //     .cornerRadius(8)
+                    //     .position(x: lrCenter.x, y: lrCenter.y + actualBowlRadius + 30)
                 }
                 
-                // Game info overlay
-                VStack {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Physics Model \(physicsIntegration.activePhysicsModel + 1)")
-                                .font(.caption)
-                                .foregroundColor(.white)
-                            Text("Move: \(player.currentIndex)")
-                                .font(.caption) 
-                                .foregroundColor(.white)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.black.opacity(0.6))
-                        .cornerRadius(8)
-                        
-                        Spacer()
-                    }
-                    .padding(.top, 20)
-                    .padding(.leading, 20)
-                    
-                    Spacer()
-                }
+                // Debug info removed - cleaner UI
 
                 // Game info display below the board - single line with background
                 GameInfoBar(
@@ -300,7 +278,7 @@ struct GameInfoBar: View {
                     .foregroundColor(.white.opacity(0.8))
 
                 HStack(spacing: 6) {
-                    Text("B:\(blackCapturedCount)")
+                    Text("\(blackCapturedCount)")
                         .font(.system(size: 13))
                         .foregroundColor(.white)
 
@@ -309,7 +287,10 @@ struct GameInfoBar: View {
                         .aspectRatio(1.0, contentMode: .fit)
                         .frame(width: 14, height: 14)
 
-                    Text("W:\(whiteCapturedCount)")
+                    Spacer()
+                        .frame(width: 12) // Add spacing between black and white stone sections
+
+                    Text("\(whiteCapturedCount)")
                         .font(.system(size: 13))
                         .foregroundColor(.white)
 
@@ -323,10 +304,10 @@ struct GameInfoBar: View {
             .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(.black.opacity(0.75))
+                    .fill(.black.opacity(0.3))
                     .overlay(
                         RoundedRectangle(cornerRadius: 20)
-                            .stroke(.white.opacity(0.1), lineWidth: 1)
+                            .stroke(.white.opacity(0.2), lineWidth: 1)
                     )
             )
         }
@@ -439,7 +420,7 @@ struct GoGridView: View {
                                 .aspectRatio(1.0, contentMode: .fit)
                                 .frame(width: blackStoneSize, height: blackStoneSize)
                                 .position(x: finalPosition.x, y: finalPosition.y)
-                                .shadow(color: .black.opacity(0.4), radius: 3, x: 1.5, y: 1.5)
+                                .shadow(color: .black.opacity(0.6), radius: 4, x: 2, y: 2)
                         case .white:
                             // Use clam image for white stones - deterministic selection based on position
                             let clamIndex = (row * 19 + col) % 5 + 1
@@ -449,7 +430,7 @@ struct GoGridView: View {
                                 .aspectRatio(1.0, contentMode: .fit)
                                 .frame(width: whiteStoneSize, height: whiteStoneSize)
                                 .position(x: finalPosition.x, y: finalPosition.y)
-                                .shadow(color: .black.opacity(0.4), radius: 3, x: 1.5, y: 1.5)
+                                .shadow(color: .black.opacity(0.6), radius: 4, x: 2, y: 2)
                         }
                     }
                 }

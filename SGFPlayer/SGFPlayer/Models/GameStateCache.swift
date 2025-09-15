@@ -269,6 +269,15 @@ final class EnhancedSGFGame: ObservableObject {
 final class GameCacheManager: ObservableObject {
     @Published var currentGame: EnhancedSGFGame?
 
+    // Default jitter multiplier for new games (persisted between sessions)
+    @Published var defaultJitterMultiplier: CGFloat = UserDefaults.standard.object(forKey: "defaultJitterMultiplier") as? CGFloat ?? 1.0 {
+        didSet {
+            UserDefaults.standard.set(defaultJitterMultiplier, forKey: "defaultJitterMultiplier")
+            // Update current game if it exists
+            currentGame?.jitterMultiplier = defaultJitterMultiplier
+        }
+    }
+
     private var gameCache: [String: EnhancedSGFGame] = [:]
     private let preCalculationQueue = DispatchQueue(label: "game.precalculation", qos: .background)
 
@@ -280,6 +289,8 @@ final class GameCacheManager: ObservableObject {
             enhancedGame = cached
         } else {
             enhancedGame = EnhancedSGFGame(game: game, fingerprint: fingerprint)
+            // Set default jitter multiplier for new games
+            enhancedGame.jitterMultiplier = defaultJitterMultiplier
             gameCache[fingerprint] = enhancedGame
 
             // Start background pre-calculation

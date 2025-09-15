@@ -95,15 +95,35 @@ class PhysicsIntegration: ObservableObject {
     }
     
     private func executeBatchUpdate() {
-        // Apply the final stone positions to UI
-        blackStones = pendingBlackStones
-        whiteStones = pendingWhiteStones
-        
+        // Apply the final stone positions to UI with smooth updates to prevent blinking
+        updateStonesIncremental(current: &blackStones, pending: pendingBlackStones)
+        updateStonesIncremental(current: &whiteStones, pending: pendingWhiteStones)
+
         if debugMode {
             print("🚀 PhysicsIntegration: ✅ FINAL UPDATE - Black: \(pendingBlackStones.count), White: \(pendingWhiteStones.count)")
         }
-        
+
         isPhysicsInProgress = false
+    }
+
+    private func updateStonesIncremental(current: inout [LegacyCapturedStone], pending: [LegacyCapturedStone]) {
+        // Only update if the count has changed or positions have changed significantly
+        if current.count != pending.count {
+            // Add new stones incrementally to prevent blinking
+            if pending.count > current.count {
+                // Adding stones: append the new ones
+                let newStones = Array(pending.suffix(pending.count - current.count))
+                current.append(contentsOf: newStones)
+            } else {
+                // Removing stones: keep the ones that still exist
+                current = Array(current.prefix(pending.count))
+            }
+        }
+
+        // Update positions of existing stones
+        for i in 0..<min(current.count, pending.count) {
+            current[i] = pending[i]
+        }
     }
     
     // MARK: - Public Interface (compatible with ContentView)
@@ -153,10 +173,24 @@ class PhysicsIntegration: ObservableObject {
         if useNewPhysics {
             physicsReplacement.reset()
         }
+
+        // Cancel any pending batch updates to prevent stale updates from executing
+        physicsUpdateTimer?.invalidate()
+        physicsUpdateTimer = nil
+
+        // Clear pending stone data to prevent batched updates from restoring stones
+        pendingBlackStones.removeAll()
+        pendingWhiteStones.removeAll()
+
+        // Clear current stone arrays
         blackStones.removeAll()
         whiteStones.removeAll()
+
+        // Reset physics state flags
+        isPhysicsInProgress = false
+
         physicsStatus = "Reset"
-        print("🚀 PhysicsIntegration: Reset")
+        print("🚀 PhysicsIntegration: Reset (cleared pending updates)")
     }
     
     /// Get available physics models

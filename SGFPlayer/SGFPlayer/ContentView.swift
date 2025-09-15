@@ -40,6 +40,8 @@ struct ContentView: View {
     @State private var isPanelOpen: Bool = false
     @State private var showFullscreen: Bool = false
     @State private var showPhysicsDemo: Bool = false
+    @State private var buttonsVisible: Bool = true
+    @State private var fadeTimer: Timer? = nil
     
     // Settings
     @AppStorage("randomOnStart") private var randomOnStart: Bool = false
@@ -75,7 +77,7 @@ struct ContentView: View {
     // UI state
     @State private var debugLayout = false
     @State private var advancedExpanded: Bool = false
-    @State private var uiMoveDelay: Double = 0.75
+    @AppStorage("uiMoveDelay") private var uiMoveDelay: Double = 0.75
     @State private var currentBowlRadius: CGFloat = 100.0
     
     // Bowl positioning - updated by GameBoardView
@@ -141,8 +143,8 @@ struct ContentView: View {
                 HStack {
                     // Settings button (upper left)
                     Button {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                            isPanelOpen = true
+                        withAnimation(.easeInOut(duration: 1.0)) {
+                            isPanelOpen.toggle()
                         }
                     } label: {
                         Image(systemName: "gearshape.fill")
@@ -151,9 +153,11 @@ struct ContentView: View {
                     }
                     .buttonStyle(GlassTopButton())
                     .padding(.leading, 20)
-                    
+                    .opacity(buttonsVisible ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: buttonsVisible ? 0.2 : 0.5), value: buttonsVisible)
+
                     Spacer()
-                    
+
                     // Fullscreen button (upper right)
                     Button {
                         toggleFullscreen()
@@ -164,26 +168,49 @@ struct ContentView: View {
                     }
                     .buttonStyle(GlassTopButton())
                     .padding(.trailing, 20)
+                    .opacity(buttonsVisible ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: buttonsVisible ? 0.2 : 0.5), value: buttonsVisible)
                 }
                 .padding(.top, 20)
-                
+
                 Spacer()
+            }
+            .background(
+                // Invisible layer to catch mouse movement
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(_):
+                            resetButtonFadeTimer()
+                        case .ended:
+                            break
+                        }
+                    }
+            )
+            .onAppear {
+                resetButtonFadeTimer()
             }
             
             // Settings panel overlay
             if isPanelOpen {
                 ZStack {
-                    // Backdrop with blur effect
-                    Color.clear
-                        .background(.ultraThinMaterial)
+                    // Backdrop - visible overlay to catch clicks outside panel
+                    Color.black.opacity(0.001) // Minimal but clickable background
+                        .ignoresSafeArea()
                         .onTapGesture {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            withAnimation(.easeInOut(duration: 1.0)) {
                                 isPanelOpen = false
                             }
                         }
 
                     HStack(spacing: 0) {
-                        // Settings panel
+                        // Add some negative space on the left
+                        Rectangle()
+                            .fill(Color.clear)
+                            .frame(width: 10)
+
+                        // Settings panel with translucent background
                         SettingsPanelView(
                             isPanelOpen: $isPanelOpen,
                             activePhysicsModelRaw: $activePhysicsModelRaw,
@@ -215,13 +242,16 @@ struct ContentView: View {
                         )
                         .frame(width: 320)
                         .frame(maxHeight: .infinity)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 0))
-                        .shadow(color: .black.opacity(0.2), radius: 20, x: 10, y: 0)
-                        .transition(.move(edge: .leading))
+                        .background(
+                            .thinMaterial.opacity(0.6),
+                            in: RoundedRectangle(cornerRadius: 0)
+                        )
+                        .shadow(color: .black.opacity(0.3), radius: 25, x: 10, y: 0)
 
                         Spacer()
                     }
                 }
+                .transition(.move(edge: .leading))
                 .zIndex(10)
             }
             
@@ -262,11 +292,18 @@ struct ContentView: View {
         }
         .onChange(of: app.selection) { _, newSelection in
             if let gameWrapper = newSelection {
+                // Clear all cached data BEFORE loading new game to prevent stale capture counts
+                tallyAtMove.removeAll()
+                physicsIntegration.reset()
+
+                // Now load the new game
                 player.load(game: gameWrapper.game)
                 // Load game into cache manager for jitter system
                 app.gameCacheManager.loadGame(gameWrapper.game, fingerprint: gameWrapper.fingerprint)
+
                 print("🎮 Loaded new game: \(gameWrapper.game.moves.count) moves, board size \(gameWrapper.game.boardSize)")
                 print("🎯 Game cache updated with fingerprint: \(gameWrapper.fingerprint)")
+                print("🧹 Physics integration and capture cache cleared before new game")
             }
         }
         .onChange(of: autoNext) { _, isAutoPlay in
@@ -287,9 +324,15 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .gameDidFinish)) { _ in
             if randomNext {
-                // Wait a brief moment, then pick the next random game
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                // Wait 5 seconds, then pick the next random game and restart if auto-play is on
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
                     pickRandomGame()
+                    // If auto-play is enabled, automatically start the new game
+                    if autoNext {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            player.play()
+                        }
+                    }
                 }
             }
         }
@@ -336,6 +379,12 @@ struct ContentView: View {
             // Space: Toggle auto-play
             autoNext.toggle()
             print("🎮 Keyboard: Toggled auto-play to \(autoNext)")
+        case .escape:
+            // Escape: Exit fullscreen mode
+            if let window = NSApplication.shared.windows.first, window.styleMask.contains(.fullScreen) {
+                window.toggleFullScreen(nil)
+                print("🎮 Keyboard: Exited fullscreen mode")
+            }
         default:
             return
         }
@@ -521,6 +570,18 @@ struct ContentView: View {
     private func toggleFullscreen() {
         if let window = NSApplication.shared.windows.first {
             window.toggleFullScreen(nil)
+        }
+    }
+
+    // Button fade timer management
+    private func resetButtonFadeTimer() {
+        fadeTimer?.invalidate()
+        buttonsVisible = true
+
+        fadeTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { _ in
+            withAnimation(.easeInOut(duration: 0.5)) {
+                buttonsVisible = false
+            }
         }
     }
     

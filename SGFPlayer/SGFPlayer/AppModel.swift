@@ -8,12 +8,15 @@ final class AppModel: ObservableObject {
         didSet { persistFolderURL() }
     }
     @Published var games: [SGFGameWrapper] = []
-    @Published var selection: SGFGameWrapper? = nil
+    @Published var selection: SGFGameWrapper? = nil {
+        didSet { persistLastGame() }
+    }
 
     // Game cache manager for pre-calculated states
     @Published var gameCacheManager = GameCacheManager()
 
     private let folderKey = "sgfplayer.folderURL"
+    private let lastGameKey = "sgfplayer.lastGame"
     private var cancellables: Set<AnyCancellable> = []
 
     init() {
@@ -80,8 +83,10 @@ final class AppModel: ObservableObject {
 
         // Pre-calculate upcoming games in background while setting current selection
         if let first = parsed.first {
-            selection = first
-            gameCacheManager.loadGame(first.game, fingerprint: first.fingerprint)
+            // Try to restore last selected game, otherwise use first game
+            let restoredSelection = restoreLastGame(from: parsed) ?? first
+            selection = restoredSelection
+            gameCacheManager.loadGame(restoredSelection.game, fingerprint: restoredSelection.fingerprint)
 
             // Start pre-calculating other games in background (limit to prevent crashes with large folders)
             let maxPreCalculate = min(3, parsed.count) // Only pre-calculate first 3 games max
@@ -118,6 +123,19 @@ final class AppModel: ObservableObject {
         } catch {
             print("❗️Failed to restore folder URL: \(error)")
         }
+    }
+
+    private func persistLastGame() {
+        guard let selectedGame = selection else {
+            UserDefaults.standard.removeObject(forKey: lastGameKey)
+            return
+        }
+        UserDefaults.standard.set(selectedGame.url.lastPathComponent, forKey: lastGameKey)
+    }
+
+    private func restoreLastGame(from games: [SGFGameWrapper]) -> SGFGameWrapper? {
+        guard let lastGameName = UserDefaults.standard.string(forKey: lastGameKey) else { return nil }
+        return games.first { $0.url.lastPathComponent == lastGameName }
     }
 }
 

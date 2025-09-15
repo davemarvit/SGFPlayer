@@ -120,10 +120,10 @@ class StonePositionViewModel: ObservableObject {
             
             print("🔍 ViewModel: White stones - current: \(self.currentWhiteStoneCount), target: \(whiteStoneCount), result: \(whiteResult.stones.count)")
             
-            // Update UI on main thread
+            // Update UI on main thread with incremental updates to prevent blinking
             DispatchQueue.main.async {
-                self.blackStonePositions = blackResult.stones
-                self.whiteStonePositions = whiteResult.stones
+                self.updateStonesIncremental(current: &self.blackStonePositions, pending: blackResult.stones)
+                self.updateStonesIncremental(current: &self.whiteStonePositions, pending: whiteResult.stones)
                 self.currentBlackStoneCount = blackResult.stones.count
                 self.currentWhiteStoneCount = whiteResult.stones.count
                 self.isComputingPhysics = false
@@ -181,6 +181,27 @@ class StonePositionViewModel: ObservableObject {
         let stats = cacheManager.getCacheStats()
         let modelInfo = "\(physicsEngine.activeModel.name) (\(physicsEngine.activeModelIndex))"
         return "Model: \(modelInfo), Cache: \(stats), Info: \(physicsInfo)"
+    }
+
+    /// Incremental update to prevent stone blinking in UI
+    private func updateStonesIncremental(current: inout [StonePosition], pending: [StonePosition]) {
+        // Only update if the count has changed or positions have changed significantly
+        if current.count != pending.count {
+            // Add new stones incrementally to prevent blinking
+            if pending.count > current.count {
+                // Adding stones: append the new ones
+                let newStones = Array(pending.suffix(pending.count - current.count))
+                current.append(contentsOf: newStones)
+            } else {
+                // Removing stones: keep the ones that still exist
+                current = Array(current.prefix(pending.count))
+            }
+        }
+
+        // Update positions of existing stones smoothly
+        for i in 0..<min(current.count, pending.count) {
+            current[i] = pending[i]
+        }
     }
 }
 

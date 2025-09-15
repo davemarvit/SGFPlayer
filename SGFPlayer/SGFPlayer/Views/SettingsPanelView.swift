@@ -43,9 +43,16 @@ struct SettingsPanelView: View {
         VStack(spacing: 0) {
             // Header with gear icon
             HStack(spacing: 12) {
-                Image(systemName: "gearshape.fill")
-                    .font(.title2)
-                    .foregroundColor(.white)
+                Button {
+                    withAnimation(.easeInOut(duration: 1.0)) {
+                        isPanelOpen = false
+                    }
+                } label: {
+                    Image(systemName: "gearshape.fill")
+                        .font(.title2)
+                        .foregroundColor(.white)
+                }
+                .buttonStyle(.plain)
 
                 Text("Settings")
                     .font(.title2.bold())
@@ -54,7 +61,7 @@ struct SettingsPanelView: View {
                 Spacer()
 
                 Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    withAnimation(.easeInOut(duration: 1.0)) {
                         isPanelOpen = false
                     }
                 } label: {
@@ -64,16 +71,18 @@ struct SettingsPanelView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
+            .padding(.leading, 32)
+            .padding(.trailing, 50)
+            .padding(.top, 32)
             .padding(.bottom, 16)
 
             // Scrollable content
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     FolderSelectionSection(app: app)
+                        .padding(.horizontal, 16)
                     GameSelectionSection(app: app)
-                    .padding(.horizontal, 16)
+                        .padding(.horizontal, 16)
                     
                     Divider()
                         .padding(.horizontal, 16)
@@ -111,13 +120,15 @@ struct SettingsPanelView: View {
                             .padding(.horizontal, 16)
                         
                         VStack(spacing: 12) {
-                            Toggle("Auto-play", isOn: $autoNext)
-                                .toggleStyle(SwitchToggleStyle(tint: .blue))
-                                .padding(.horizontal, 16)
+                            // Put both toggles on the same line with consistent blue color
+                            HStack(spacing: 20) {
+                                Toggle("Auto-play", isOn: $autoNext)
+                                    .toggleStyle(SwitchToggleStyle(tint: .blue))
 
-                            Toggle("Random next", isOn: $randomNext)
-                                .toggleStyle(SwitchToggleStyle(tint: .green))
-                                .padding(.horizontal, 16)
+                                Toggle("Random next", isOn: $randomNext)
+                                    .toggleStyle(SwitchToggleStyle(tint: .blue))
+                            }
+                            .padding(.horizontal, 16)
                             
                             if autoNext {
                                 VStack(alignment: .leading, spacing: 6) {
@@ -195,9 +206,8 @@ struct SettingsPanelView: View {
                         .padding(.horizontal, 16)
 
                     // Stone Jitter Controls
-                    if let gameCacheManager = gameCacheManager,
-                       let currentGame = gameCacheManager.currentGame {
-                        JitterControlsView(currentGame: currentGame)
+                    if let gameCacheManager = gameCacheManager {
+                        JitterControlsView(gameCacheManager: gameCacheManager)
                     }
 
                     Divider()
@@ -356,7 +366,6 @@ struct SettingsPanelView: View {
             }
         }
         .frame(width: 320)
-        .background(Color(NSColor.controlBackgroundColor))
     }
 
     // Helper function to format game info for display
@@ -412,7 +421,7 @@ struct FolderSelectionSection: View {
                 .foregroundColor(.white)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(.green.opacity(0.8))
+                .background(.blue.opacity(0.8))
                 .cornerRadius(8)
                 .buttonStyle(.plain)
             }
@@ -423,11 +432,11 @@ struct FolderSelectionSection: View {
                 .toggleStyle(SwitchToggleStyle(tint: .blue))
 
             // Folder path display
-            if app.folderURL != nil {
-                Text("Folder picker cancelled (NotAllowedError). Trying fallback...")
+            if let folderURL = app.folderURL {
+                Text("📁 \(folderURL.lastPathComponent)")
                     .font(.caption)
-                    .foregroundColor(.orange.opacity(0.8))
-                    .lineLimit(2)
+                    .foregroundColor(.white.opacity(0.7))
+                    .lineLimit(1)
             }
         }
     }
@@ -435,20 +444,57 @@ struct FolderSelectionSection: View {
 
 struct GameSelectionSection: View {
     @ObservedObject var app: AppModel
+    @State private var searchText: String = ""
+
+    var filteredGames: [SGFGameWrapper] {
+        if searchText.isEmpty {
+            return Array(app.games)
+        } else {
+            return app.games.filter { gameWrapper in
+                let info = gameWrapper.game.info
+                let blackPlayer = info.playerBlack?.lowercased() ?? ""
+                let whitePlayer = info.playerWhite?.lowercased() ?? ""
+                let searchLower = searchText.lowercased()
+                return blackPlayer.contains(searchLower) || whitePlayer.contains(searchLower)
+            }
+        }
+    }
 
     var body: some View {
         if let selection = app.selection {
             VStack(alignment: .leading, spacing: 8) {
-                // Game list with dark styling
-                VStack(spacing: 4) {
-                    ForEach(Array(app.games.prefix(6).enumerated()), id: \.element.id) { index, gameWrapper in
-                        GameListItem(
-                            gameWrapper: gameWrapper,
-                            isSelected: gameWrapper.id == selection.id,
-                            onTap: { app.selection = gameWrapper }
-                        )
+                // Search field
+                HStack {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.white.opacity(0.6))
+                        .font(.system(size: 14))
+                    TextField("Search players...", text: $searchText)
+                        .textFieldStyle(.plain)
+                        .foregroundColor(.white)
+                        .font(.system(size: 14))
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(.black.opacity(0.4))
+                        .stroke(.white.opacity(0.2), lineWidth: 1)
+                )
+
+                // Game list with dark styling (scrollable)
+                ScrollView {
+                    VStack(spacing: 4) {
+                        ForEach(Array(filteredGames.enumerated()), id: \.element.id) { index, gameWrapper in
+                            GameListItem(
+                                gameWrapper: gameWrapper,
+                                isSelected: gameWrapper.id == selection.id,
+                                onTap: { app.selection = gameWrapper }
+                            )
+                        }
                     }
                 }
+                .scrollIndicators(.visible) // Always show scrollbar when scrollable
+                .frame(maxHeight: 200)
                 .padding(.vertical, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
@@ -473,7 +519,7 @@ struct GameListItem: View {
         HStack {
             Text(playerInfo)
                 .font(.system(size: 13))
-                .foregroundColor(isSelected ? .black : .white.opacity(0.9))
+                .foregroundColor(isSelected ? Color.cyan.opacity(0.9) : .white.opacity(0.9))
                 .lineLimit(1)
             Spacer()
         }
@@ -481,7 +527,7 @@ struct GameListItem: View {
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(isSelected ? .white.opacity(0.9) : Color.clear)
+                .stroke(isSelected ? Color.cyan.opacity(0.8) : Color.clear, lineWidth: 1.5)
         )
         .onTapGesture { onTap() }
     }
@@ -595,7 +641,7 @@ extension SettingsPanelView {
 
 // Separate view for jitter controls with proper SwiftUI observation
 struct JitterControlsView: View {
-    @ObservedObject var currentGame: EnhancedSGFGame
+    @ObservedObject var gameCacheManager: GameCacheManager
     @State private var localMultiplier: Double = 1.0
 
     var body: some View {
@@ -623,8 +669,8 @@ struct JitterControlsView: View {
                 .controlSize(.regular)
                 .padding(.horizontal, 16)
                 .onChange(of: localMultiplier) { _, newValue in
-                    print("🎚️ Local Slider CHANGED: \(newValue)")
-                    currentGame.jitterMultiplier = CGFloat(newValue)
+                    print("🎚️ Global Jitter Slider CHANGED: \(newValue)")
+                    gameCacheManager.defaultJitterMultiplier = CGFloat(newValue)
                 }
 
                 Text("Adjusts how naturally stones are placed off intersections")
@@ -634,7 +680,10 @@ struct JitterControlsView: View {
             }
         }
         .onAppear {
-            localMultiplier = Double(currentGame.jitterMultiplier)
+            localMultiplier = Double(gameCacheManager.defaultJitterMultiplier)
+        }
+        .onChange(of: gameCacheManager.defaultJitterMultiplier) { _, newValue in
+            localMultiplier = Double(newValue)
         }
     }
 }
