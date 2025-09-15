@@ -445,6 +445,7 @@ struct FolderSelectionSection: View {
 struct GameSelectionSection: View {
     @ObservedObject var app: AppModel
     @State private var searchText: String = ""
+    @FocusState private var isSearchFocused: Bool
 
     var filteredGames: [SGFGameWrapper] {
         if searchText.isEmpty {
@@ -472,6 +473,10 @@ struct GameSelectionSection: View {
                         .textFieldStyle(.plain)
                         .foregroundColor(.white)
                         .font(.system(size: 14))
+                        .focused($isSearchFocused)
+                        .onTapGesture {
+                            isSearchFocused = true
+                        }
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
