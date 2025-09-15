@@ -135,10 +135,14 @@ class PhysicsReplacement: ObservableObject {
     
     /// Compatibility method for existing ContentView reset logic
     func reset() {
+        // Reset the underlying bridge and ViewModel first
+        bridge.reset()
+
+        // Clear our published arrays
         capUL.removeAll()
         capLR.removeAll()
         physicsInfo = "Reset"
-        print("🔄 PhysicsReplacement: Reset")
+        print("🔄 PhysicsReplacement: Complete reset (bridge + arrays)")
     }
     
     /// Get diagnostic info for debugging

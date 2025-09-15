@@ -203,6 +203,21 @@ class StonePositionViewModel: ObservableObject {
             current[i] = pending[i]
         }
     }
+
+    /// Reset ViewModel state for new game
+    func reset() {
+        // Clear all stone positions
+        blackStonePositions.removeAll()
+        whiteStonePositions.removeAll()
+
+        // Reset state tracking
+        currentBlackStoneCount = 0
+        currentWhiteStoneCount = 0
+        isComputingPhysics = false
+
+        physicsInfo = "ViewModel Reset"
+        print("🔄 StonePositionViewModel: Reset")
+    }
 }
 
 // MARK: - Supporting Types

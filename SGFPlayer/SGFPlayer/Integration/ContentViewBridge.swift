@@ -132,6 +132,22 @@ class ContentViewBridge: ObservableObject {
         // This could be used to force a recalculation
         physicsStatus = "Recalculating..."
     }
+
+    /// Reset bridge state for new game
+    func reset() {
+        // Clear UI positions immediately
+        blackStoneUIPositions.removeAll()
+        whiteStoneUIPositions.removeAll()
+
+        // Reset underlying ViewModel
+        stoneViewModel.reset()
+
+        // Clear bowl state
+        lastBowlCenters = (nil, nil)
+        lastBowlRadius = 100.0
+
+        physicsStatus = "Bridge Reset"
+    }
 }
 
 // MARK: - Combine Import
