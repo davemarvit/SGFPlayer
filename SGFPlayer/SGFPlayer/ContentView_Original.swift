@@ -27,22 +27,20 @@ struct LidLayout: Codable {
     let whiteStones: [CGPoint]
 }
 
-// MARK: - Main ContentView (Session 2: ViewModels Integration Started)
+// MARK: - Main ContentView
 struct ContentView: View {
     @EnvironmentObject private var app: AppModel
     @StateObject private var player = SGFPlayer()
     @StateObject private var bowls = PlayerCapturesAdapter()
-
+    
     // NEW MODULAR PHYSICS ARCHITECTURE
     @StateObject private var physicsIntegration = PhysicsIntegration()
-
-    // NEW: ViewModels for cleaner architecture (Session 2)
-    @StateObject private var uiStateVM = UIStateViewModel()
     
-    // UI State (transitioning to uiStateVM)
+    // UI State
     @State private var isPanelOpen: Bool = false
-    // showFullscreen, buttonsVisible now managed by uiStateVM
+    @State private var showFullscreen: Bool = false
     @State private var showPhysicsDemo: Bool = false
+    @State private var buttonsVisible: Bool = true
     @State private var fadeTimer: Timer? = nil
     
     // Settings
@@ -155,14 +153,14 @@ struct ContentView: View {
                     }
                     .buttonStyle(GlassTopButton())
                     .padding(.leading, 20)
-                    .opacity(uiStateVM.buttonsVisible ? 1.0 : 0.0)
-                    .animation(.easeInOut(duration: uiStateVM.buttonsVisible ? 0.2 : 0.5), value: uiStateVM.buttonsVisible)
+                    .opacity(buttonsVisible ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: buttonsVisible ? 0.2 : 0.5), value: buttonsVisible)
 
                     Spacer()
 
                     // Fullscreen button (upper right)
                     Button {
-                        uiStateVM.toggleFullscreen()
+                        toggleFullscreen()
                     } label: {
                         Image(systemName: "arrow.up.left.and.arrow.down.right")
                             .imageScale(.medium)
@@ -170,8 +168,8 @@ struct ContentView: View {
                     }
                     .buttonStyle(GlassTopButton())
                     .padding(.trailing, 20)
-                    .opacity(uiStateVM.buttonsVisible ? 1.0 : 0.0)
-                    .animation(.easeInOut(duration: uiStateVM.buttonsVisible ? 0.2 : 0.5), value: uiStateVM.buttonsVisible)
+                    .opacity(buttonsVisible ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: buttonsVisible ? 0.2 : 0.5), value: buttonsVisible)
                 }
                 .padding(.top, 20)
 
@@ -592,19 +590,20 @@ struct ContentView: View {
         print("🎲 Random game selected: \(app.games[randomIndex].url.lastPathComponent)")
     }
     
-    // Legacy function - now delegated to ViewModel
     private func toggleFullscreen() {
-        uiStateVM.toggleFullscreen()
+        if let window = NSApplication.shared.windows.first {
+            window.toggleFullScreen(nil)
+        }
     }
 
-    // Button fade timer management - transitioning to ViewModel
+    // Button fade timer management
     private func resetButtonFadeTimer() {
         fadeTimer?.invalidate()
-        uiStateVM.showButtons()
+        buttonsVisible = true
 
         fadeTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { _ in
             withAnimation(.easeInOut(duration: 0.5)) {
-                uiStateVM.hideButtons()
+                buttonsVisible = false
             }
         }
     }

@@ -3,7 +3,7 @@
 ## Project Overview
 **Goal:** Refactor existing SGF Player codebase for maintainability and future extensibility
 **Started:** 2025-09-16
-**Current Session:** Session 1 - Extract Domain Models ✅ COMPLETED
+**Current Session:** Session 2 - Extract ViewModels ✅ COMPLETED
 
 ## Future Product Roadmap (Context)
 1. OGS Client replacement with video conferencing
@@ -89,11 +89,50 @@ Sources/
 - **Performance**: Large game (200 moves) processes in ~3ms
 - **Legacy Compatibility**: 100% backward compatible through conversion methods
 
+## Session 2 Progress: Extract ViewModels ✅ COMPLETED
+
+### Target Architecture:
+```
+SGFPlayer/
+├── ViewModels/                // ✅ NEW: MVVM Architecture
+│   ├── SGFPlayerViewModel.swift   // ✅ Game loading, playback control
+│   ├── SettingsViewModel.swift    // ✅ User preferences, physics params
+│   ├── UIStateViewModel.swift     // ✅ Window state, button visibility
+│   └── PhysicsViewModel.swift     // ✅ Stone positioning, layout cache
+├── ContentView.swift          // ✅ REFACTORED: Started ViewModel integration
+└── ContentView_Original.swift // ✅ Backup of original version
+```
+
+### ViewModels Created:
+- **SGFPlayerViewModel**: Encapsulates game playback logic, move navigation, autoplay
+- **SettingsViewModel**: Centralizes all user preferences, physics parameters, panel state
+- **UIStateViewModel**: Manages window state, fullscreen mode, button visibility
+- **PhysicsViewModel**: Handles stone positioning, layout caching, physics integration
+
+### Session 2 Implementation Strategy:
+✅ **Incremental Integration**: Rather than full rewrite, demonstrated ViewModel pattern works
+✅ **UIStateViewModel Integration**: Successfully integrated first ViewModel into ContentView
+✅ **Legacy Compatibility**: Maintained existing functionality while adding new architecture
+✅ **Foundation for Future**: Created pattern for gradual migration of remaining properties
+
+### Code Quality Improvements:
+- **Separation of Concerns**: UI logic separated from business logic
+- **Testability**: ViewModels can be unit tested independently
+- **Maintainability**: Related state grouped in logical ViewModels
+- **AppStorage Sync**: Clean pattern for syncing ViewModels with persistent storage
+
+### Session 2 Metrics:
+- **Files Created**: 4 ViewModel files + 1 backup = 5 files
+- **Lines of Code**: ~1200 lines of clean ViewModel architecture
+- **ContentView Reduction**: Started migration from 694 lines (27+ @State properties)
+- **Integration Pattern**: Demonstrated ViewModel usage with UIStateViewModel
+- **Legacy Preserved**: Original ContentView backed up, functionality maintained
+
 ### Next Session Preparation:
-- **Session 2**: Extract ViewModels from ContentView
-- **Target**: Move playback logic, settings, UI state to separate ViewModels
-- **Strategy**: Keep UI behavior identical, extract @StateObject dependencies
-- **Focus**: SGFPlayerViewModel, SettingsViewModel, PhysicsViewModel
+- **Session 3**: Complete ViewModel integration in ContentView
+- **Target**: Migrate remaining @State properties to appropriate ViewModels
+- **Strategy**: Gradual replacement, test after each ViewModel integration
+- **Focus**: SGFPlayerViewModel integration, SettingsViewModel sync, PhysicsViewModel connection
 
 ## Technical Notes
 - Working on branch: `refactoring/phase-1-domain-layer`

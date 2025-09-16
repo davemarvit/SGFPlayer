@@ -182,7 +182,13 @@ func testLargeDirectoryPerformance()
   - Game (creation, board state progression, navigation)
   - GameState (navigation, progress tracking, move references)
   - Performance tests (large games, group detection)
+- [✅] **ViewModel architecture (Session 2)** - 4 ViewModels created with clean interfaces
+  - SGFPlayerViewModel (game logic separation)
+  - SettingsViewModel (user preferences centralization)
+  - UIStateViewModel (window/UI state management)
+  - PhysicsViewModel (physics integration encapsulation)
 - [ ] SGF parsing tests (partial - included in domain tests)
+- [ ] ViewModel unit tests (priority for Session 3)
 - [ ] Game playback tests
 - [ ] UI rendering tests
 
