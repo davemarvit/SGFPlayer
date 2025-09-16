@@ -106,7 +106,7 @@ struct ContentView: View {
                 ZStack {
                     // Background
                     Color.black.ignoresSafeArea()
-                    
+
                     // Game Board View
                     let (currentBlackCaptured, currentWhiteCaptured) = calculateCapturesAtMove(player.currentIndex)
                     GameBoardView(
@@ -125,14 +125,11 @@ struct ContentView: View {
                         stoneShadowDX: stoneShadowDX,
                         stoneShadowDY: stoneShadowDY,
                         gameCacheManager: app.gameCacheManager,
+                        autoNext: $autoNext,
                         onBowlPositionsCalculated: { ulCenter, lrCenter, bowlRadius in
-                            // ARCHITECTURE FIX: Only update bowl positions, NOT physics!
-                            // Physics positions are relative to bowl center, so they don't need recalculation on resize
                             actualUlCenter = ulCenter
                             actualLrCenter = lrCenter
                             actualBowlRadius = bowlRadius
-                            
-                            print("🎯 Bowl positions updated (no physics recalc needed): UL(\(ulCenter.x), \(ulCenter.y)) LR(\(lrCenter.x), \(lrCenter.y)) radius:\(bowlRadius)")
                         }
                     )
                 }
@@ -173,8 +170,9 @@ struct ContentView: View {
                 }
                 .padding(.top, 20)
 
-                Spacer()
+                Spacer() // Push buttons to top, fill rest of space
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(
                 // Invisible layer to catch mouse movement
                 Color.clear

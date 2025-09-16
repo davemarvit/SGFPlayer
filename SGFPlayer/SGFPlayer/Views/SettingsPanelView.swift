@@ -464,27 +464,37 @@ struct GameSelectionSection: View {
     var body: some View {
         if let selection = app.selection {
             VStack(alignment: .leading, spacing: 8) {
-                // Search field
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundColor(.white.opacity(0.6))
-                        .font(.system(size: 14))
-                    TextField("Search players...", text: $searchText)
-                        .textFieldStyle(.plain)
+                // Search field - DEBUG VERSION
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Search Players:")
                         .foregroundColor(.white)
-                        .font(.system(size: 14))
+                        .font(.caption)
+
+                    TextField("Type here to search...", text: $searchText)
+                        .textFieldStyle(.roundedBorder) // Use system style for testing
                         .focused($isSearchFocused)
                         .onTapGesture {
                             isSearchFocused = true
+                            print("🔍 TextField tapped, setting focus")
                         }
+                        .onSubmit {
+                            print("🔍 Search submitted: '\(searchText)'")
+                        }
+
+                    // Debug info
+                    Text("Current text: '\(searchText)' | Focused: \(isSearchFocused)")
+                        .font(.caption2)
+                        .foregroundColor(.yellow)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(.black.opacity(0.4))
-                        .stroke(.white.opacity(0.2), lineWidth: 1)
-                )
+                .onAppear {
+                    print("🔍 TextField appeared")
+                }
+                .onChange(of: searchText) { _, newValue in
+                    print("🔍 Search text changed: '\(newValue)'")
+                }
+                .onChange(of: isSearchFocused) { _, focused in
+                    print("🔍 Search focus changed: \(focused)")
+                }
 
                 // Game list with dark styling (scrollable)
                 ScrollView {

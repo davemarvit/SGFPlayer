@@ -2,6 +2,8 @@
 // Extracted from ContentView to reduce complexity
 
 import SwiftUI
+import AppKit
+import Combine
 
 struct GameBoardView: View {
     @ObservedObject var player: SGFPlayer
@@ -28,6 +30,9 @@ struct GameBoardView: View {
     // Game cache for jitter system
     var gameCacheManager: GameCacheManager? = nil
 
+    // Auto-play binding for play/pause button
+    @Binding var autoNext: Bool
+
     // Persistent jitter system that maintains cached offsets across renders
     @State private var stoneJitter: StoneJitter? = nil
     @State private var lastGameFingerprint: String = ""
@@ -36,7 +41,10 @@ struct GameBoardView: View {
     var onBowlPositionsCalculated: ((CGPoint, CGPoint, CGFloat) -> Void)?
     
     var body: some View {
-        GeometryReader { geometry in
+        return GeometryReader { outerGeometry in
+            ZStack {
+                // Board area that fills full space
+                GeometryReader { geometry in
             let L = geometry.size
             let shadowScale = L.width / 800.0
             
@@ -201,13 +209,6 @@ struct GameBoardView: View {
                 
                 // Debug info removed - cleaner UI
 
-                // Game info display below the board - single line with background
-                GameInfoBar(
-                    gameCacheManager: gameCacheManager,
-                    blackCapturedCount: blackCapturedCount,
-                    whiteCapturedCount: whiteCapturedCount
-                )
-                .position(x: L.width / 2, y: boardCenter.y + boardHeight/2 + min(40, actualNegativeSpace * 0.3))
             }
             .onAppear {
                 // Report bowl positions to parent when view appears
@@ -217,11 +218,43 @@ struct GameBoardView: View {
                 // Report bowl positions when view size changes
                 onBowlPositionsCalculated?(ulCenter, lrCenter, actualBowlRadius)
             }
+                } // Close board GeometryReader
+
+                // Floating metadata bar positioned midway between board bottom and window bottom
+                GameInfoBar(
+                    gameCacheManager: gameCacheManager,
+                    blackCapturedCount: blackCapturedCount,
+                    whiteCapturedCount: whiteCapturedCount,
+                    player: player,
+                    autoNext: $autoNext
+                )
+                .position(x: outerGeometry.size.width / 2,
+                         y: calculateMetadataY(geometry: outerGeometry))
+            }
         }
+
+    // Helper function to calculate metadata Y position midway between board bottom and window bottom
+    func calculateMetadataY(geometry: GeometryProxy) -> CGFloat {
+        // Replicate the board positioning calculation from the main view
+        let maxBoardSize = min(geometry.size.width, geometry.size.height) * 0.85
+        let boardHeight = maxBoardSize * 1.07  // Traditional Japanese ratio
+        let totalVerticalSpace = geometry.size.height
+        let actualNegativeSpace = totalVerticalSpace - boardHeight
+        let negativeSpaceAbove = actualNegativeSpace / 3.0  // 1/3 above
+        let boardCenterY = negativeSpaceAbove + boardHeight / 2
+
+        // Calculate board bottom
+        let boardBottom = boardCenterY + boardHeight / 2
+
+        // Position metadata midway between board bottom and window bottom
+        let windowBottom = geometry.size.height
+        let metadataY = boardBottom + (windowBottom - boardBottom) / 2
+
+        return metadataY
     }
-    
+
     // Helper function to get stone at board position
-    private func getStone(row: Int, col: Int) -> Stone? {
+    func getStone(row: Int, col: Int) -> Stone? {
         // Check if there's a stone at this position
         if row < player.board.size && col < player.board.size {
             return player.board.grid[row][col]
@@ -230,7 +263,7 @@ struct GameBoardView: View {
     }
     
     // Legacy color helper for compatibility
-    private func getStoneColor(row: Int, col: Int) -> Color {
+    func getStoneColor(row: Int, col: Int) -> Color {
         if let stone = getStone(row: row, col: col) {
             switch stone {
             case .black:
@@ -248,6 +281,8 @@ struct GameInfoBar: View {
     var gameCacheManager: GameCacheManager?
     let blackCapturedCount: Int
     let whiteCapturedCount: Int
+    @ObservedObject var player: SGFPlayer
+    @Binding var autoNext: Bool
 
     var body: some View {
         if let gameWrapper = gameCacheManager?.currentGame {
@@ -269,9 +304,17 @@ struct GameInfoBar: View {
                     .font(.system(size: 13))
                     .foregroundColor(.white.opacity(0.8))
 
-                Text("·")
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.6))
+                Button(action: {
+                    autoNext.toggle()
+                }) {
+                    Image(systemName: autoNext ? "pause.fill" : "play.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 32, height: 24)
+                        .contentShape(Rectangle()) // Ensure full frame is clickable
+                }
+                .buttonStyle(.plain)
+                .help(autoNext ? "Pause autoplay" : "Start autoplay")
 
                 Text("Captures")
                     .font(.system(size: 13))
@@ -580,10 +623,12 @@ struct GameBoardView_Previews: PreviewProvider {
             stoneShadowRadius: 3,
             stoneShadowDX: 2,
             stoneShadowDY: 3,
-            gameCacheManager: nil
+            gameCacheManager: nil,
+            autoNext: .constant(false)
         )
         .frame(width: 800, height: 600)
     }
 }
 
 // Preview wrapper removed due to binding complexity
+}
