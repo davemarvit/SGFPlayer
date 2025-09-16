@@ -108,6 +108,7 @@ struct GameBoardView: View {
                 Image("tatami")
                     .resizable()
                     .aspectRatio(contentMode: .fill)
+                    .allowsHitTesting(false) // Prevent tatami from blocking clicks
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .clipped()
                     .ignoresSafeArea()
@@ -119,6 +120,7 @@ struct GameBoardView: View {
                         .frame(width: boardWidth, height: boardHeight)
                         .clipShape(Rectangle())  // Right angles, no rounded corners
                         .shadow(color: .black.opacity(0.9), radius: 35, x: 16, y: 16)
+                        .allowsHitTesting(false) // Prevent board from blocking clicks
                         .overlay(
                             // Grid lines and hoshi points
                             GoGridView(
@@ -134,6 +136,7 @@ struct GameBoardView: View {
                         )
                         .position(boardCenter)
                 }
+                .allowsHitTesting(false) // Prevent entire board from blocking clicks
                 
                 // Note: BowlView integration removed - using simple Circle visualization instead
                 
@@ -219,19 +222,12 @@ struct GameBoardView: View {
                 onBowlPositionsCalculated?(ulCenter, lrCenter, actualBowlRadius)
             }
                 } // Close board GeometryReader
+                .allowsHitTesting(false) // Prevent inner GeometryReader from blocking clicks
 
-                // Floating metadata bar positioned midway between board bottom and window bottom
-                GameInfoBar(
-                    gameCacheManager: gameCacheManager,
-                    blackCapturedCount: blackCapturedCount,
-                    whiteCapturedCount: whiteCapturedCount,
-                    player: player,
-                    autoNext: $autoNext
-                )
-                .position(x: outerGeometry.size.width / 2,
-                         y: calculateMetadataY(geometry: outerGeometry))
             }
+
         }
+        .allowsHitTesting(false) // Disable outer GeometryReader hit-testing
 
     // Helper function to calculate metadata Y position midway between board bottom and window bottom
     func calculateMetadataY(geometry: GeometryProxy) -> CGFloat {
@@ -276,86 +272,6 @@ struct GameBoardView: View {
     }
 }
 
-// MARK: - Game Info Bar Component
-struct GameInfoBar: View {
-    var gameCacheManager: GameCacheManager?
-    let blackCapturedCount: Int
-    let whiteCapturedCount: Int
-    @ObservedObject var player: SGFPlayer
-    @Binding var autoNext: Bool
-
-    var body: some View {
-        if let gameWrapper = gameCacheManager?.currentGame {
-            let game = gameWrapper.originalGame
-            let blackPlayer = game.info.playerBlack ?? "Unknown"
-            let whitePlayer = game.info.playerWhite ?? "Unknown"
-            let result = game.info.result ?? "B+3"
-
-            HStack(spacing: 12) {
-                Text("\(blackPlayer) vs \(whitePlayer)")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white)
-
-                Text("—")
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.6))
-
-                Text("\(result)")
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.8))
-
-                Button(action: {
-                    autoNext.toggle()
-                }) {
-                    Image(systemName: autoNext ? "pause.fill" : "play.fill")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(width: 32, height: 24)
-                        .contentShape(Rectangle()) // Ensure full frame is clickable
-                }
-                .buttonStyle(.plain)
-                .help(autoNext ? "Pause autoplay" : "Start autoplay")
-
-                Text("Captures")
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.8))
-
-                HStack(spacing: 6) {
-                    Text("\(blackCapturedCount)")
-                        .font(.system(size: 13))
-                        .foregroundColor(.white)
-
-                    Image("stone_black")
-                        .resizable()
-                        .aspectRatio(1.0, contentMode: .fit)
-                        .frame(width: 14, height: 14)
-
-                    Spacer()
-                        .frame(width: 12) // Add spacing between black and white stone sections
-
-                    Text("\(whiteCapturedCount)")
-                        .font(.system(size: 13))
-                        .foregroundColor(.white)
-
-                    Image("clam_01")
-                        .resizable()
-                        .aspectRatio(1.0, contentMode: .fit)
-                        .frame(width: 14, height: 14)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(.black.opacity(0.3))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(.white.opacity(0.2), lineWidth: 1)
-                    )
-            )
-        }
-    }
-}
 
 // MARK: - Go Grid View Component
 struct GoGridView: View {
@@ -422,15 +338,17 @@ struct GoGridView: View {
             // Star points (traditional 9 points) - correct positions for 19x19 board
             let starPoints = [(3,3), (3,9), (3,15), (9,3), (9,9), (9,15), (15,3), (15,9), (15,15)]
 
-            ForEach(starPoints, id: \.0) { point in
+            ForEach(Array(starPoints.enumerated()), id: \.offset) { index, point in
                 let x = offsetX + CGFloat(point.0) * cellWidth
                 let y = offsetY + CGFloat(point.1) * cellHeight
-                
+
                 Circle()
                     .fill(Color.black)
-                    .frame(width: min(cellWidth, cellHeight) * 0.15, height: min(cellWidth, cellHeight) * 0.15) // Proportional star points
+                    .frame(width: min(cellWidth, cellHeight) * 0.15, height: min(cellWidth, cellHeight) * 0.15)
                     .position(x: x, y: y)
+                    .zIndex(10) // Ensure star points render above grid lines and board
             }
+
             
             // Stones using rectangular grid with actual PNG images and optional jitter
             ForEach(0..<gridSize, id: \.self) { row in
@@ -464,6 +382,7 @@ struct GoGridView: View {
                                 .frame(width: blackStoneSize, height: blackStoneSize)
                                 .position(x: finalPosition.x, y: finalPosition.y)
                                 .shadow(color: .black.opacity(0.6), radius: 4, x: 2, y: 2)
+                                .zIndex(20) // Stones above star points
                         case .white:
                             // Use clam image for white stones - deterministic selection based on position
                             let clamIndex = (row * 19 + col) % 5 + 1
@@ -474,6 +393,7 @@ struct GoGridView: View {
                                 .frame(width: whiteStoneSize, height: whiteStoneSize)
                                 .position(x: finalPosition.x, y: finalPosition.y)
                                 .shadow(color: .black.opacity(0.6), radius: 4, x: 2, y: 2)
+                                .zIndex(20) // Stones above star points
                         }
                     }
                 }

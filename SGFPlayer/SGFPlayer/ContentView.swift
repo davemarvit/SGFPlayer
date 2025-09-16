@@ -104,8 +104,11 @@ struct ContentView: View {
             // Main content
             GeometryReader { geometry in
                 ZStack {
-                    // Background
-                    Color.black.ignoresSafeArea()
+                    // Tatami background filling entire window
+                    Image("tatami")
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .ignoresSafeArea()
 
                     // Game Board View
                     let (currentBlackCaptured, currentWhiteCaptured) = calculateCapturesAtMove(player.currentIndex)
@@ -278,6 +281,24 @@ struct ContentView: View {
                 }
                 .zIndex(20)
             }
+
+            // GameInfoBar - positioned midway between board bottom and window bottom
+            GeometryReader { geometry in
+                let (currentBlackCaptured, currentWhiteCaptured) = calculateCapturesAtMove(player.currentIndex)
+                GameInfoBar(
+                    gameCacheManager: app.gameCacheManager,
+                    blackCapturedCount: currentBlackCaptured,
+                    whiteCapturedCount: currentWhiteCaptured,
+                    player: player,
+                    autoNext: $autoNext
+                )
+                .position(
+                    x: geometry.size.width / 2,
+                    y: calculateMetadataY(geometry: geometry)
+                )
+            }
+            .allowsHitTesting(true)
+            .zIndex(5) // Between main content (0) and settings panel (10)
         }
         .onAppear {
             initializeApp()
@@ -346,6 +367,8 @@ struct ContentView: View {
     private func handleKeyPress(_ keyPress: KeyPress) {
         switch keyPress.key {
         case .leftArrow:
+            // Arrow keys stop autoplay
+            autoNext = false
             if keyPress.modifiers.contains(.shift) {
                 // Shift + Left: Jump back 10 moves
                 let newIndex = max(0, player.currentIndex - 10)
@@ -360,6 +383,8 @@ struct ContentView: View {
                 print("🎮 Keyboard: Step back 1 move to \(newIndex)")
             }
         case .rightArrow:
+            // Arrow keys stop autoplay
+            autoNext = false
             if keyPress.modifiers.contains(.shift) {
                 // Shift + Right: Jump forward 10 moves
                 let newIndex = min(player.moves.count, player.currentIndex + 10)
@@ -606,6 +631,26 @@ struct ContentView: View {
         
         // Create a simple demo setup
         print("📋 Demo game created - ready for testing")
+    }
+
+    // Helper function to calculate metadata Y position (same as GameBoardView)
+    func calculateMetadataY(geometry: GeometryProxy) -> CGFloat {
+        // Replicate the board positioning calculation from the main view
+        let maxBoardSize = min(geometry.size.width, geometry.size.height) * 0.85
+        let boardHeight = maxBoardSize * 1.07  // Traditional Japanese ratio
+        let totalVerticalSpace = geometry.size.height
+        let actualNegativeSpace = totalVerticalSpace - boardHeight
+        let negativeSpaceAbove = actualNegativeSpace / 3.0  // 1/3 above
+        let boardCenterY = negativeSpaceAbove + boardHeight / 2
+
+        // Calculate board bottom
+        let boardBottom = boardCenterY + boardHeight / 2
+
+        // Position metadata midway between board bottom and window bottom
+        let windowBottom = geometry.size.height
+        let metadataY = boardBottom + (windowBottom - boardBottom) / 2
+
+        return metadataY
     }
 }
 
