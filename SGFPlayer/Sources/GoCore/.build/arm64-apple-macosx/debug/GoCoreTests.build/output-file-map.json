@@ -1,0 +1,11 @@
+{
+  "": {
+    "swift-dependencies": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCoreTests.build/master.swiftdeps"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Tests/GoCoreTests.swift": {
+    "dependencies": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCoreTests.build/GoCoreTests.d",
+    "object": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCoreTests.build/GoCoreTests.swift.o",
+    "swiftmodule": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCoreTests.build/GoCoreTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCoreTests.build/GoCoreTests.swiftdeps"
+  }
+}

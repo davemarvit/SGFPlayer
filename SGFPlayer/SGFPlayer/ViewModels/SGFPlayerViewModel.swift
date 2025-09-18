@@ -210,7 +210,7 @@ class SGFPlayerViewModel: ObservableObject {
     private func calculateCaptures() -> (whiteByBlack: Int, blackByWhite: Int) {
         // For now, use bowls adapter for capture counting
         // This maintains compatibility with existing capture logic
-        return (whiteByBlack: bowls.whiteStonesCaptured, blackByWhite: bowls.blackStonesCaptured)
+        return (whiteByBlack: bowls.stonesUL.count, blackByWhite: bowls.stonesLR.count)
     }
 
     private func resetCachedState() {
@@ -218,7 +218,7 @@ class SGFPlayerViewModel: ObservableObject {
         gridAtMove.removeAll()
         tallyWByB = 0
         tallyBByW = 0
-        currentMoveIndex = 0
+        player.seek(to: 0)
     }
 
     private func schedulePhysicsUpdate() {
@@ -283,16 +283,16 @@ extension SGFPlayerViewModel {
     ) {
         // Sync without triggering didSet observers (to avoid infinite loops)
         if self.autoNext != autoNext {
-            self._autoNext.wrappedValue = autoNext
+            self.autoNext = autoNext
         }
         if self.randomNext != randomNext {
-            self._randomNext.wrappedValue = randomNext
+            self.randomNext = randomNext
         }
         if self.randomOnStart != randomOnStart {
-            self._randomOnStart.wrappedValue = randomOnStart
+            self.randomOnStart = randomOnStart
         }
         if self.uiMoveDelay != uiMoveDelay {
-            self._uiMoveDelay.wrappedValue = uiMoveDelay
+            self.uiMoveDelay = uiMoveDelay
             player.setPlayInterval(uiMoveDelay)
         }
     }

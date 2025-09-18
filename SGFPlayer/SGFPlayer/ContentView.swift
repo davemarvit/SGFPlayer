@@ -137,6 +137,8 @@ struct ContentView: View {
                             actualBowlRadius = bowlRadius
                         }
                     )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
                 }
             }
             
@@ -634,22 +636,35 @@ struct ContentView: View {
         print("📋 Demo game created - ready for testing")
     }
 
-    // Helper function to calculate metadata Y position (same as GameBoardView)
+    // Helper function to calculate metadata Y position (matching GameBoardView)
     func calculateMetadataY(geometry: GeometryProxy) -> CGFloat {
-        // Replicate the board positioning calculation from the main view
-        let maxBoardSize = min(geometry.size.width, geometry.size.height) * 0.85
-        let boardHeight = maxBoardSize * 1.07  // Traditional Japanese ratio
-        let totalVerticalSpace = geometry.size.height
-        let actualNegativeSpace = totalVerticalSpace - boardHeight
-        let negativeSpaceAbove = actualNegativeSpace / 3.0  // 1/3 above
+        // Use same AGGRESSIVE responsive layout calculation as GameBoardView
+        let screenWidth = geometry.size.width
+        let screenHeight = geometry.size.height
+
+        // Use same SMART responsive calculations as GameBoardView
+        let bowlSpaceWidth = min(screenWidth * 0.2, 180)
+        let metadataSpaceHeight: CGFloat = 50
+
+        let availableWidth = screenWidth - bowlSpaceWidth
+        let availableHeight = screenHeight - metadataSpaceHeight
+
+        let boardWidthFromWidth = availableWidth * 0.9
+        let boardWidthFromHeight = (availableHeight * 0.85) / 1.07
+
+        let boardWidth = min(boardWidthFromWidth, boardWidthFromHeight)
+        let boardHeight = boardWidth * 1.07
+
+        let totalVerticalSpace = availableHeight
+        let actualNegativeSpace = max(0, totalVerticalSpace - boardHeight)
+        let negativeSpaceAbove = actualNegativeSpace / 3.0
         let boardCenterY = negativeSpaceAbove + boardHeight / 2
 
         // Calculate board bottom
         let boardBottom = boardCenterY + boardHeight / 2
 
-        // Position metadata midway between board bottom and window bottom
-        let windowBottom = geometry.size.height
-        let metadataY = boardBottom + (windowBottom - boardBottom) / 2
+        // Position metadata in reserved space at bottom - more conservative
+        let metadataY = screenHeight - (metadataSpaceHeight / 2)
 
         return metadataY
     }

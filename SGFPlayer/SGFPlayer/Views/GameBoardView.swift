@@ -49,20 +49,32 @@ struct GameBoardView: View {
             let shadowScale = L.width / 800.0
             
             // Traditional Go Board with proper Japanese ratio (1.07:1 - taller than wide)
-            // Calculate board size based on available space, ensuring it fits
-            let maxBoardSize = min(geometry.size.width, geometry.size.height) * 0.85
-            let boardWidth = maxBoardSize
-            let boardHeight = boardWidth * 1.07  // Traditional Japanese ratio
+            // SMART responsive layout: minimal negative space as fraction of board size
 
-            // Calculate negative space based on the ACTUAL height available for the board
-            // We want the board + negative space to use the full height when height is the limiting factor
-            let totalVerticalSpace = L.height
-            let actualNegativeSpace = totalVerticalSpace - boardHeight
+            // Calculate responsive board size with minimal margins
+            let bowlSpaceWidth = min(L.width * 0.2, 180)  // 20% or max 180px for bowls
+            let metadataSpaceHeight: CGFloat = 50  // 50px for metadata bar
+
+            let availableWidth = L.width - bowlSpaceWidth
+            let availableHeight = L.height - metadataSpaceHeight
+
+            // Calculate board size with fractional margins
+            let boardWidthFromWidth = availableWidth * 0.9  // Use 90% of available width
+            let boardWidthFromHeight = (availableHeight * 0.85) / 1.07  // Use 85% of available height, adjusted for ratio
+
+            let boardWidth = min(boardWidthFromWidth, boardWidthFromHeight)
+            let boardHeight = boardWidth * 1.07
+
+            // Calculate negative space
+            let totalVerticalSpace = availableHeight
+            let actualNegativeSpace = max(0, totalVerticalSpace - boardHeight)
 
             // Distribute negative space: 1/3 above, 2/3 below
             let negativeSpaceAbove = actualNegativeSpace / 3.0  // 1/3 above
             let boardCenterY = negativeSpaceAbove + boardHeight / 2
-            let boardCenter = CGPoint(x: L.width / 2, y: boardCenterY)
+            // Position board center in the available space (excluding bowl area)
+            let boardCenterX = availableWidth / 2  // Center within available width
+            let boardCenter = CGPoint(x: boardCenterX, y: boardCenterY)
             
             // Calculate bowl positions aligned with specific grid lines
             let lidDiameter = boardHeight / 3  // Lid diameter is 1/3 of board's long side (height)
@@ -87,19 +99,13 @@ struct GameBoardView: View {
             let sixthFromBottomY = boardCenter.y - boardHeight/2 + offsetY + CGFloat(13) * cellHeight  
             let lrLidY = sixthFromBottomY + actualBowlRadius
             
-            // Position bowls beside the board with grid line alignment
-            let boardHalfWidth = boardWidth / 2
-            let bowlOffsetX = boardHalfWidth + actualBowlRadius + 20  // 20px margin from board edge
-            
-            // For upper right lid (lrCenter), cut the distance in half
-            let lrBowlOffsetX = boardHalfWidth + actualBowlRadius + 10  // Half the margin (10px instead of 20px)
-            
+            // Position bowls in the reserved bowl space area
             let ulCenter = CGPoint(
-                x: boardCenter.x - bowlOffsetX,
+                x: availableWidth + (bowlSpaceWidth / 4),  // 1/4 into bowl space for left bowl
                 y: ulLidY
             )
             let lrCenter = CGPoint(
-                x: boardCenter.x + lrBowlOffsetX,  // Using reduced offset for upper right lid
+                x: availableWidth + (bowlSpaceWidth * 3/4),  // 3/4 into bowl space for right bowl
                 y: lrLidY
             )
             

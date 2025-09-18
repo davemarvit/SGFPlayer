@@ -1,0 +1,175 @@
+{
+  "" : {
+    "const-values" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFPlayer-master.swiftconstvalues",
+    "dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFPlayer-master.d",
+    "diagnostics" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFPlayer-master.dia",
+    "emit-module-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFPlayer-master-emit-module.d",
+    "emit-module-diagnostics" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFPlayer-master-emit-module.dia",
+    "swift-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFPlayer-master.swiftdeps"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/AppModel.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/AppModel.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/AppModel.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/AppModel.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/BoardViewport.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/BoardViewport.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/BoardViewport.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/BoardViewport.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/BowlPhysics.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/BowlPhysics.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/BowlPhysics.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/BowlPhysics.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/BowlView.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/BowlView.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/BowlView.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/BowlView.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Cache/CacheManager.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/CacheManager.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/CacheManager.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/CacheManager.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ContentView.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ContentView.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ContentView.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ContentView.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ContentView_Original.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ContentView_Original.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ContentView_Original.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ContentView_Original.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Integration/CompatibilityLayer.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/CompatibilityLayer.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/CompatibilityLayer.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/CompatibilityLayer.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Integration/ContentViewBridge.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ContentViewBridge.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ContentViewBridge.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ContentViewBridge.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Integration/ContentViewMigrationGuide.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ContentViewMigrationGuide.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ContentViewMigrationGuide.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ContentViewMigrationGuide.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Integration/ContentViewModification.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ContentViewModification.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ContentViewModification.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ContentViewModification.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Integration/PhysicsIntegration.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/PhysicsIntegration.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/PhysicsIntegration.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/PhysicsIntegration.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Integration/PhysicsIntegrationDemo.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/PhysicsIntegrationDemo.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/PhysicsIntegrationDemo.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/PhysicsIntegrationDemo.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Models/GameStateCache.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/GameStateCache.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/GameStateCache.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/GameStateCache.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Physics/EnergyMinimizationModel.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/EnergyMinimizationModel.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/EnergyMinimizationModel.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/EnergyMinimizationModel.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Physics/GroupDropPhysicsModel.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/GroupDropPhysicsModel.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/GroupDropPhysicsModel.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/GroupDropPhysicsModel.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Physics/PhysicsEngine.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/PhysicsEngine.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/PhysicsEngine.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/PhysicsEngine.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Physics/SpiralPhysicsModel.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SpiralPhysicsModel.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SpiralPhysicsModel.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SpiralPhysicsModel.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/PlayerCapturesAdapter.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/PlayerCapturesAdapter.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/PlayerCapturesAdapter.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/PlayerCapturesAdapter.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/SGFKit.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFKit.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFKit.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFKit.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/SGFPlayerApp.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFPlayerApp.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFPlayerApp.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFPlayerApp.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/SGFPlayerEngine.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFPlayerEngine.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFPlayerEngine.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFPlayerEngine.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/StoneJitter.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/StoneJitter.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/StoneJitter.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/StoneJitter.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ViewModels/PhysicsViewModel.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/PhysicsViewModel.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/PhysicsViewModel.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/PhysicsViewModel.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ViewModels/SGFPlayerViewModel.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFPlayerViewModel.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFPlayerViewModel.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SGFPlayerViewModel.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ViewModels/SettingsViewModel.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SettingsViewModel.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SettingsViewModel.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SettingsViewModel.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ViewModels/StonePositionViewModel.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/StonePositionViewModel.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/StonePositionViewModel.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/StonePositionViewModel.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ViewModels/UIStateViewModel.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/UIStateViewModel.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/UIStateViewModel.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/UIStateViewModel.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Views/ControlsView.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ControlsView.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ControlsView.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/ControlsView.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Views/GameBoardView.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/GameBoardView.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/GameBoardView.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/GameBoardView.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Views/GameInfoBar.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/GameInfoBar.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/GameInfoBar.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/GameInfoBar.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Views/SettingsPanelView.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SettingsPanelView.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SettingsPanelView.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/SettingsPanelView.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/DerivedSources/GeneratedAssetSymbols.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/GeneratedAssetSymbols.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/GeneratedAssetSymbols.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/arm64/GeneratedAssetSymbols.o"
+  }
+}

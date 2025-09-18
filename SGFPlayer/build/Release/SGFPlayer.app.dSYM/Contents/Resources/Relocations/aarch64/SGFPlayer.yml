@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/Release/SGFPlayer.app/Contents/MacOS/SGFPlayer'
+relocations:     []
+...
