@@ -1,0 +1,376 @@
+{
+  "source": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Views/SettingsPanelView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Settings",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 57
+        }
+      },
+      {
+        "comment": "",
+        "key": "Advanced Settings",
+        "location": {
+          "startingColumn": 37,
+          "startingLine": 288
+        }
+      },
+      {
+        "comment": "",
+        "key": "Current: Physics Model %lld",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 107
+        }
+      },
+      {
+        "comment": "",
+        "key": "Physics Model",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 93
+        }
+      },
+      {
+        "comment": "",
+        "key": "Active model",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 95
+        }
+      },
+      {
+        "comment": "",
+        "key": "Model %lld: %@",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 101
+        }
+      },
+      {
+        "comment": "",
+        "key": "Auto-play Controls",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 118
+        }
+      },
+      {
+        "comment": "",
+        "key": "Auto-play",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 125
+        }
+      },
+      {
+        "comment": "",
+        "key": "Random next",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 128
+        }
+      },
+      {
+        "comment": "",
+        "key": "Move Delay",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 136
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@s",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 138
+        }
+      },
+      {
+        "comment": "",
+        "key": "Move Navigation",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 173
+        }
+      },
+      {
+        "comment": "",
+        "key": "Move",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 179
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld / %lld",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 181
+        }
+      },
+      {
+        "comment": "",
+        "key": "Playback Controls",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 218
+        }
+      },
+      {
+        "comment": "",
+        "key": "<<",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 228
+        }
+      },
+      {
+        "comment": "",
+        "key": "<",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 240
+        }
+      },
+      {
+        "comment": "",
+        "key": ">",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 264
+        }
+      },
+      {
+        "comment": "",
+        "key": ">>",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 277
+        }
+      },
+      {
+        "comment": "",
+        "key": "Debug Layout",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 302
+        }
+      },
+      {
+        "comment": "",
+        "key": "Physics Model Controls (Legacy - being replaced)",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 293
+        }
+      },
+      {
+        "comment": "",
+        "key": "Current Model: %lld",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 296
+        }
+      },
+      {
+        "comment": "",
+        "key": "🔍 Diagnostics",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 308
+        }
+      },
+      {
+        "comment": "",
+        "key": "Export",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 314
+        }
+      },
+      {
+        "comment": "",
+        "key": "Player State:",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 322
+        }
+      },
+      {
+        "comment": "",
+        "key": "  • Current Move: %lld",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 325
+        }
+      },
+      {
+        "comment": "",
+        "key": "  • Total Moves: %lld",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 327
+        }
+      },
+      {
+        "comment": "",
+        "key": "  • Board Size: %lld",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 329
+        }
+      },
+      {
+        "comment": "",
+        "key": "Physics State:",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 332
+        }
+      },
+      {
+        "comment": "",
+        "key": "  • Active Model: %lld",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 335
+        }
+      },
+      {
+        "comment": "",
+        "key": "  • Black Stones: %lld",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 337
+        }
+      },
+      {
+        "comment": "",
+        "key": "  • White Stones: %lld",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 339
+        }
+      },
+      {
+        "comment": "",
+        "key": "Black Stone Positions (first 3):",
+        "location": {
+          "startingColumn": 46,
+          "startingLine": 343
+        }
+      },
+      {
+        "comment": "",
+        "key": "  • (\\(String(format: \"%.1f\", stone.pos.x)), \\(String(format: \"%.1f\", stone.pos.y)))",
+        "location": {
+          "startingColumn": 50,
+          "startingLine": 347
+        }
+      },
+      {
+        "comment": "",
+        "key": "📁 %@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 436
+        }
+      },
+      {
+        "comment": "",
+        "key": "Include subfolders",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 430
+        }
+      },
+      {
+        "comment": "",
+        "key": "Open folder...",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 406
+        }
+      },
+      {
+        "comment": "",
+        "key": "Random game now",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 416
+        }
+      },
+      {
+        "comment": "",
+        "key": "Search Players:",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 469
+        }
+      },
+      {
+        "comment": "",
+        "key": "Type here to search...",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 473
+        }
+      },
+      {
+        "comment": "",
+        "key": "Date: — · Black: %@ · White: %@",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 574
+        }
+      },
+      {
+        "comment": "",
+        "key": "· Result: %@ · File: %@",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 577
+        }
+      },
+      {
+        "comment": "",
+        "key": "Stone Jitter",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 664
+        }
+      },
+      {
+        "comment": "",
+        "key": "Adjusts how naturally stones are placed off intersections",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 691
+        }
+      },
+      {
+        "comment": "",
+        "key": "Natural Placement",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 670
+        }
+      },
+      {
+        "comment": "",
+        "key": "%@×",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 672
+        }
+      }
+    ]
+  },
+  "version": 1
+}

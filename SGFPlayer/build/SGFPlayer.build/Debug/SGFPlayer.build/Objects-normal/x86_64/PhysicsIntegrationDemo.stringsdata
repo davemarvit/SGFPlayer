@@ -1,0 +1,240 @@
+{
+  "source": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Integration/PhysicsIntegrationDemo.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Stone Clustering Fix Demonstration",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 17
+        }
+      },
+      {
+        "comment": "",
+        "key": "Hide Diagnostics",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 216
+        }
+      },
+      {
+        "comment": "",
+        "key": "Show Diagnostics",
+        "location": {
+          "startingColumn": 59,
+          "startingLine": 216
+        }
+      },
+      {
+        "comment": "",
+        "key": "Start Game Simulation",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 28
+        }
+      },
+      {
+        "comment": "",
+        "key": "Stop Simulation",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 33
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reset",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 38
+        }
+      },
+      {
+        "comment": "",
+        "key": "Active Physics Model",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 49
+        }
+      },
+      {
+        "comment": "",
+        "key": "Physics Model",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 52
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld: %@",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 54
+        }
+      },
+      {
+        "comment": "",
+        "key": "Black Stones: %lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 73
+        }
+      },
+      {
+        "comment": "",
+        "key": "(Captured by White)",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 75
+        }
+      },
+      {
+        "comment": "",
+        "key": "White Stones: %lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 108
+        }
+      },
+      {
+        "comment": "",
+        "key": "(Captured by Black)",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 110
+        }
+      },
+      {
+        "comment": "",
+        "key": "Diagnostic Information",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 146
+        }
+      },
+      {
+        "comment": "",
+        "key": "Move: %lld",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 151
+        }
+      },
+      {
+        "comment": "",
+        "key": "Architecture: New Modular Physics",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 152
+        }
+      },
+      {
+        "comment": "",
+        "key": "Black Stone Positions:",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 162
+        }
+      },
+      {
+        "comment": "",
+        "key": "  ... and %lld more",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 170
+        }
+      },
+      {
+        "comment": "",
+        "key": "White Stone Positions:",
+        "location": {
+          "startingColumn": 38,
+          "startingLine": 177
+        }
+      },
+      {
+        "comment": "",
+        "key": "  ... and %lld more",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 185
+        }
+      },
+      {
+        "comment": "",
+        "key": "Key Improvements:",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 193
+        }
+      },
+      {
+        "comment": "",
+        "key": "✅ Physics models actually execute (no cache bypass)",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 196
+        }
+      },
+      {
+        "comment": "",
+        "key": "✅ Proper seed differentiation prevents identical positioning",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 198
+        }
+      },
+      {
+        "comment": "",
+        "key": "✅ Energy minimization prevents stone clustering",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 200
+        }
+      },
+      {
+        "comment": "",
+        "key": "✅ Clean cache invalidation on model changes",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 202
+        }
+      },
+      {
+        "comment": "",
+        "key": "✅ Modular architecture enables reliable physics",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 204
+        }
+      },
+      {
+        "comment": "",
+        "key": "📋 Copy All Diagnostics",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 155
+        }
+      },
+      {
+        "comment": "",
+        "key": "  • (%@, %@)",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 165
+        }
+      },
+      {
+        "comment": "",
+        "key": "  • (%@, %@)",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 180
+        }
+      }
+    ]
+  },
+  "version": 1
+}

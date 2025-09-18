@@ -1,0 +1,18 @@
+"/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ViewModels/SGFPlayerViewModel.swift":
+  const-values: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerViewModel.swiftconstvalues"
+  dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerViewModel.d"
+  swift-dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerViewModel.swiftdeps"
+  diagnostics: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerViewModel.dia"
+  object: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerViewModel.o"
+"/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Physics/GroupDropPhysicsModel.swift":
+  swift-dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GroupDropPhysicsModel.swiftdeps"
+  object: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GroupDropPhysicsModel.o"
+  const-values: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GroupDropPhysicsModel.swiftconstvalues"
+  dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GroupDropPhysicsModel.d"
+  diagnostics: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GroupDropPhysicsModel.dia"
+"/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Cache/CacheManager.swift":
+  const-values: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/CacheManager.swiftconstvalues"
+  diagnostics: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/CacheManager.dia"
+  object: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/CacheManager.o"
+  dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/CacheManager.d"
+  swift-dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/CacheManager.swiftdeps"

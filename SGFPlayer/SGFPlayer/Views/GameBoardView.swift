@@ -446,65 +446,36 @@ struct GoGridView: View {
         var finalX = baseX
         var finalY = baseY
 
+        // TODO: Re-implement jitter using cached calculations to avoid infinite loop
+        // For now, disable jitter to fix the infinite calculation loop that was causing crashes
+        // The previous implementation was calculating jitter inside the view body which triggered
+        // infinite re-renders due to print statements and state changes
+
+        /*
         // Use precomputed jitter from game cache
         if let gameCache = gameCache,
            let currentGame = gameCache.currentGame,
            currentGame.jitterMultiplier > 0.0 {
+            // Use cached jitter from StoneJitter system to avoid calculations in view body
+            if let jitter = stoneJitter,
+               let gameFingerprint = currentGame.gameFingerprint.isEmpty ? nil : currentGame.gameFingerprint,
+               !gameFingerprint.isEmpty {
 
-            // For now, let's calculate jitter directly here instead of relying on cache
-            // This gives us immediate jitter while we work on the caching system
-            let _ = max(0, currentMoveIndex)
-
-            // Generate deterministic jitter based on position and game
-            if let gameFingerprint = currentGame.gameFingerprint.isEmpty ? nil : currentGame.gameFingerprint {
-                print("🎯 CALCULATING REAL-TIME JITTER: multiplier=\(currentGame.jitterMultiplier) for stone(\(col),\(row))")
-
-                // Use same algorithm as GameStateCache
-                var seed = UInt32(abs(col + 11)) &* 73856093
-                seed ^= UInt32(abs(row + 17)) &* 19349663
-                // Safely convert hashValue to UInt32 by truncating
-                let hashValue32 = UInt32(truncatingIfNeeded: abs(gameFingerprint.hashValue + 23))
-                seed ^= hashValue32 &* 83492791
-                seed = seed == 0 ? 0x9e3779b9 : seed
-
-                // Generate Gaussian jitter
-                let (gx, gy) = generateGaussianPair(&seed)
-
-                // Apply sigma, clamp, and multiplier
-                let sigma: CGFloat = 0.08
-                let clamp: CGFloat = 0.22
-                let baseOffsetX = min(max(gx * sigma, -clamp), clamp)
-                let baseOffsetY = min(max(gy * sigma, -clamp), clamp)
+                let jitterOffset = jitter.jitterForPosition(x: col, y: row)
 
                 // Apply jitter multiplier
                 let scaledOffset = CGPoint(
-                    x: baseOffsetX * currentGame.jitterMultiplier,
-                    y: baseOffsetY * currentGame.jitterMultiplier
+                    x: jitterOffset.x * currentGame.jitterMultiplier,
+                    y: jitterOffset.y * currentGame.jitterMultiplier
                 )
 
                 // Convert from radius units to pixels
                 let stoneRadius = baseStoneSize / 2
                 finalX += scaledOffset.x * stoneRadius
                 finalY += scaledOffset.y * stoneRadius
-
-                print("🎯 APPLIED REAL-TIME: base=(\(baseOffsetX), \(baseOffsetY)), scaled=(\(scaledOffset.x), \(scaledOffset.y)), final=(\(finalX), \(finalY))")
-            } else {
-                print("🚫 NO GAME FINGERPRINT: cannot calculate jitter")
-            }
-        } else {
-            // Debug why jitter is not being applied
-            if gameCache == nil {
-                print("🚫 NO JITTER: gameCache is nil")
-            } else if gameCache?.currentGame == nil {
-                print("🚫 NO JITTER: currentGame is nil")
-            } else if let currentGame = gameCache?.currentGame {
-                if currentGame.jitterMultiplier <= 0.0 {
-                    print("🚫 NO JITTER: multiplier=\(currentGame.jitterMultiplier) (≤0.0)")
-                } else {
-                    print("🚫 NO JITTER: unknown reason")
-                }
             }
         }
+        */
 
         return CGPoint(x: finalX, y: finalY)
     }

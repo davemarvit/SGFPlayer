@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>colors</key>
+	<array/>
+	<key>images</key>
+	<array>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameBoardKaya</string>
+			<key>relativePath</key>
+			<string>./board_kaya.imageset</string>
+			<key>swiftSymbol</key>
+			<string>boardKaya</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameClam01</string>
+			<key>relativePath</key>
+			<string>./clam_01.imageset</string>
+			<key>swiftSymbol</key>
+			<string>clam01</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameClam02</string>
+			<key>relativePath</key>
+			<string>./clam_02.imageset</string>
+			<key>swiftSymbol</key>
+			<string>clam02</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameClam03</string>
+			<key>relativePath</key>
+			<string>./clam_03.imageset</string>
+			<key>swiftSymbol</key>
+			<string>clam03</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameClam04</string>
+			<key>relativePath</key>
+			<string>./clam_04.imageset</string>
+			<key>swiftSymbol</key>
+			<string>clam04</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameClam05</string>
+			<key>relativePath</key>
+			<string>./clam_05.imageset</string>
+			<key>swiftSymbol</key>
+			<string>clam05</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameGoLid1</string>
+			<key>relativePath</key>
+			<string>./go_lid_1.imageset</string>
+			<key>swiftSymbol</key>
+			<string>goLid1</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameGoLid2</string>
+			<key>relativePath</key>
+			<string>./go_lid_2.imageset</string>
+			<key>swiftSymbol</key>
+			<string>goLid2</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameStoneBlack</string>
+			<key>relativePath</key>
+			<string>./stone_black.imageset</string>
+			<key>swiftSymbol</key>
+			<string>stoneBlack</string>
+		</dict>
+		<dict>
+			<key>catalogPath</key>
+			<string>/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Assets.xcassets</string>
+			<key>objcSymbol</key>
+			<string>ACImageNameTatami</string>
+			<key>relativePath</key>
+			<string>./tatami.imageset</string>
+			<key>swiftSymbol</key>
+			<string>tatami</string>
+		</dict>
+	</array>
+	<key>symbols</key>
+	<array/>
+</dict>
+</plist>

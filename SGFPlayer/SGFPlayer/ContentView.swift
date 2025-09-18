@@ -47,9 +47,12 @@ struct ContentView: View {
     
     // Settings
     @AppStorage("randomOnStart") private var randomOnStart: Bool = false
+
+    // Initialization tracking to prevent repeated app initialization
+    @State private var isInitialized: Bool = false
     @AppStorage("autoNext") private var autoNext: Bool = false
     @AppStorage("randomNext") private var randomNext: Bool = false
-    @State private var boardStoneDiameter: CGFloat = 20.0
+    // Note: boardStoneDiameter is now managed by UIStateViewModel for responsive sizing
     @AppStorage("activePhysicsModel") private var legacyActivePhysicsModel: Int = 2
     
     // Shadow parameters
@@ -103,8 +106,10 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
-            // Main content
+            // Main content with single-level layout management
             GeometryReader { geometry in
+                let layout = calculateResponsiveLayout(in: geometry)
+
                 ZStack {
                     // Tatami background filling entire window
                     Image("tatami")
@@ -112,33 +117,33 @@ struct ContentView: View {
                         .aspectRatio(contentMode: .fill)
                         .ignoresSafeArea()
 
-                    // Game Board View
+                    // Simple Board View with explicit positioning
                     let (currentBlackCaptured, currentWhiteCaptured) = calculateCapturesAtMove(player.currentIndex)
-                    GameBoardView(
+                    SimpleBoardView(
                         player: player,
                         physicsIntegration: physicsIntegration,
-                        boardStoneDiameter: boardStoneDiameter,
-                        currentBowlRadius: currentBowlRadius,
-                        blackCapturedCount: currentBlackCaptured,
-                        whiteCapturedCount: currentWhiteCaptured,
-                        lidShadowOpacity: lidShadowOpacity,
-                        lidShadowRadius: lidShadowRadius,
-                        lidShadowDX: lidShadowDX,
-                        lidShadowDY: lidShadowDY,
-                        stoneShadowOpacity: stoneShadowOpacity,
-                        stoneShadowRadius: stoneShadowRadius,
-                        stoneShadowDX: stoneShadowDX,
-                        stoneShadowDY: stoneShadowDY,
+                        boardStoneDiameter: uiStateVM.boardStoneDiameter,
                         gameCacheManager: app.gameCacheManager,
-                        autoNext: $autoNext,
-                        onBowlPositionsCalculated: { ulCenter, lrCenter, bowlRadius in
-                            actualUlCenter = ulCenter
-                            actualLrCenter = lrCenter
-                            actualBowlRadius = bowlRadius
-                        }
+                        boardFrame: layout.boardFrame,
+                        ulBowlCenter: layout.ulBowlCenter,
+                        lrBowlCenter: layout.lrBowlCenter,
+                        bowlRadius: layout.bowlRadius
                     )
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipped()
+                    .onAppear {
+                        // Update physics with correct bowl positions from responsive layout
+                        updatePhysicsWithLayout(layout, currentBlackCaptured, currentWhiteCaptured)
+                        // Update UI state for responsive stone sizing
+                        uiStateVM.handleWindowResize(geometry.size)
+                    }
+                    .onChange(of: layout.bowlRadius) { _ in
+                        // Update physics when layout changes
+                        updatePhysicsWithLayout(layout, currentBlackCaptured, currentWhiteCaptured)
+                    }
+                    .onChange(of: geometry.size) { _, newSize in
+                        // Update UI state when window size changes
+                        uiStateVM.handleWindowResize(newSize)
+                    }
+
                 }
             }
             
@@ -286,8 +291,9 @@ struct ContentView: View {
                 .zIndex(20)
             }
 
-            // GameInfoBar - positioned midway between board bottom and window bottom
+            // GameInfoBar - positioned using responsive layout
             GeometryReader { geometry in
+                let layout = calculateResponsiveLayout(in: geometry)
                 let (currentBlackCaptured, currentWhiteCaptured) = calculateCapturesAtMove(player.currentIndex)
                 GameInfoBar(
                     gameCacheManager: app.gameCacheManager,
@@ -298,14 +304,19 @@ struct ContentView: View {
                 )
                 .position(
                     x: geometry.size.width / 2,
-                    y: calculateMetadataY(geometry: geometry)
+                    y: layout.metadataY
                 )
             }
             .allowsHitTesting(true)
             .zIndex(5) // Between main content (0) and settings panel (10)
         }
         .onAppear {
-            initializeApp()
+            if !isInitialized {
+                isInitialized = true
+                initializeApp()
+            } else {
+                print("🔧 DEBUG: Skipping initializeApp() - already initialized")
+            }
         }
         .onChange(of: player.currentIndex) { _, newIndex in
             debouncedPhysicsUpdate(newIndex)
@@ -398,9 +409,10 @@ struct ContentView: View {
             } else {
                 // Right: Step forward 1 move
                 let newIndex = min(player.moves.count, player.currentIndex + 1)
+                print("🎮 Keyboard: Step forward 1 move to \(newIndex) (current: \(player.currentIndex), total: \(player.moves.count))")
                 player.seek(to: newIndex)
                 updatePhysicsForMove(newIndex)
-                print("🎮 Keyboard: Step forward 1 move to \(newIndex)")
+                print("🎮 Keyboard: Step forward completed, new index: \(player.currentIndex)")
             }
         case .space:
             // Space: Toggle auto-play
@@ -420,6 +432,7 @@ struct ContentView: View {
     // MARK: - Helper Functions
     
     private func initializeApp() {
+        print("🚀 INIT: initializeApp() called")
         // Sync legacy physics model to new system
         if physicsIntegration.activePhysicsModel != (legacyActivePhysicsModel - 1) {
             physicsIntegration.activePhysicsModel = max(0, min(5, legacyActivePhysicsModel - 1))
@@ -454,14 +467,20 @@ struct ContentView: View {
         }
         */
         
-        // Load game if available
+        // Load game if available, otherwise load test game
         if let game = app.selection?.game {
             player.load(game: game)
-        } else {
-            // Create some sample moves to demonstrate functionality
+            print("📋 Loaded existing game selection with \(game.moves.count) moves")
+        } else if player.moves.isEmpty {
+            print("🔧 DEBUG: Loading test game since no game is selected")
             createSampleGame()
-            print("📋 Created sample game with \(player.moves.count) moves")
+            print("📋 Test game loaded with \(player.moves.count) moves")
+        } else {
+            print("🔧 DEBUG: Skipping game load - game already loaded with \(player.moves.count) moves")
         }
+        print("🎯 CURRENT MOVE INDEX: \(player.currentIndex)")
+        print("🎯 TOTAL MOVES: \(player.moves.count)")
+        print("🎯 BOARD STONES: \(player.board.grid.flatMap { $0 }.compactMap { $0 }.count)")
         
         // Start autoplay if enabled
         if autoNext {
@@ -593,7 +612,26 @@ struct ContentView: View {
 
         print("🎲 Random game selected: \(app.games[randomIndex].url.lastPathComponent)")
     }
-    
+
+    // Update physics with responsive layout positions
+    private func updatePhysicsWithLayout(_ layout: ResponsiveLayout, _ blackCaptured: Int, _ whiteCaptured: Int) {
+        let gameSeed = UInt64(12345) // Simplified for now
+
+        physicsIntegration.updateStonePositions(
+            currentMove: player.currentIndex,
+            blackStoneCount: blackCaptured,
+            whiteStoneCount: whiteCaptured,
+            bowlRadius: layout.bowlRadius,
+            gameSeed: gameSeed,
+            ulCenter: layout.ulBowlCenter,
+            lrCenter: layout.lrBowlCenter
+        )
+
+        print("🔄 RESPONSIVE PHYSICS UPDATE: Move \(player.currentIndex), Black: \(blackCaptured), White: \(whiteCaptured)")
+        print("🎯 Layout Bowl positions: UL(\(layout.ulBowlCenter.x), \(layout.ulBowlCenter.y)) LR(\(layout.lrBowlCenter.x), \(layout.lrBowlCenter.y)) radius:\(layout.bowlRadius)")
+        print("🎲 Stone counts: Black physics=\(physicsIntegration.blackStones.count), White physics=\(physicsIntegration.whiteStones.count)")
+    }
+
     // Legacy function - now delegated to ViewModel
     private func toggleFullscreen() {
         uiStateVM.toggleFullscreen()
@@ -614,59 +652,92 @@ struct ContentView: View {
     private func createSampleGame() {
         // Create some sample moves to test the interface
         print("🎮 Creating sample game for testing...")
-        
-        // Load the test SGF file if available
-        let testFile = "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFTests/test01.sgf"
-        if FileManager.default.fileExists(atPath: testFile) {
-            do {
-                let sgfContent = try String(contentsOfFile: testFile, encoding: .utf8)
-                print("📁 Loading test SGF file: \(testFile)")
-                print("📋 SGF Content preview: \(String(sgfContent.prefix(200)))...")
-                
-                // For now, just note that we have the SGF content
-                // Actual parsing would require proper SGF implementation
-                print("📋 SGF content loaded - parsing would go here")
-                
-            } catch {
-                print("❌ Failed to load test SGF: \(error)")
-            }
+
+        // Use embedded SGF content to avoid sandboxing issues
+        let sgfContent = """
+(;GM[1]FF[4]CA[UTF-8]AP[Claude Code Test]ST[2]RU[Japanese]SZ[19]KM[6.50]PW[White Player]PB[Black Player]WR[1d]BR[1d]DT[2024-09-17]RE[B+0.50]
+;B[pd];W[dd];B[pq];W[dp];B[fq];W[cn];B[jp];W[qf];B[nc];W[rd];B[qc];W[qi];B[qk];W[oi];B[ok];W[mi];B[mk];W[ki];B[ik];W[ii];B[gk];W[gi];B[ek];W[dh];B[dk];W[ck];B[cl];W[bk];B[bl];W[ak];B[al];W[bj];B[cj];W[aj];B[ci];W[bi];B[ch];W[bg];B[cg];W[bf];B[cf];W[be];B[ce];W[bd];B[cd];W[cc];B[bc];W[ac];B[bb];W[ab];B[cb];W[db];B[ca];W[dc];B[da];W[ea];B[ba];W[eb];B[fb];W[fc];B[gb];W[gc];B[hb];W[hc];B[ib];W[ic];B[jb];W[jc];B[kb];W[kc];B[lb];W[lc];B[mb];W[mc];B[nb];W[oc];B[ob];W[pc];B[qb];W[pb];B[pa];W[oa];B[qa];W[na];B[ma];W[od];B[ne];W[oe];B[nf];W[of];B[ng];W[og];B[nh];W[oh];B[ni];W[nj];B[mj];W[oj];B[pk];W[pj];B[qj];W[pi];B[ri];W[rh];B[si];W[sh];B[rj];W[qh];B[ql];W[rm];B[rl];W[sm];B[sl];W[pm];B[pl];W[om];B[ol];W[nm];B[nl];W[mm];B[ml];W[lm];B[ll];W[km];B[kl];W[jm];B[jl];W[im];B[il];W[hm];B[hl];W[gm];B[gl];W[fm];B[fl];W[em];B[el];W[dm];B[dl];W[cm];B[bm];W[bn];B[an];W[ao];B[am];W[bp];B[cq];W[cp];B[dq];W[ep];B[eq];W[fp];B[gp];W[go];B[hp];W[ho];B[io];W[in];B[jo];W[jn];B[ko];W[ln];B[lo];W[mo];B[mp];W[no];B[np];W[op];B[oq];W[pp];B[qp];W[po];B[qo];W[pn];B[qn];W[qm];B[rn];W[sn];B[so];W[ro];B[sp];W[rp];B[rq];W[sq];B[sr];W[sp];B[tp];W[sq];B[tr];W[rr];B[qr];W[rs];B[qs];W[ss];B[ts];W[sr];B[tq];W[pr];B[ps];W[or];B[os];W[nr];B[ns];W[mr];B[ms];W[lr];B[ls];W[kr];B[ks];W[jr];B[js];W[ir];B[is];W[hr];B[hs];W[gr];B[gs];W[fr];B[fs];W[er];B[es];W[dr];B[ds];W[cr];B[cs];W[br];B[bs];W[ar];B[as];W[aq];B[bq];W[ap];B[br];W[as];B[ar])
+"""
+
+        print("🔍 Using embedded SGF content to avoid sandboxing issues")
+        do {
+            print("📋 SGF Content preview: \(String(sgfContent.prefix(200)))...")
+
+            // Parse and load the SGF game
+            let tree = try SGFParser.parse(text: sgfContent)
+            let game = SGFGame.from(tree: tree)
+            player.load(game: game)
+
+            // Advance to move 20 to show some stones on the board
+            player.seek(to: 20)
+
+            print("📋 SGF game loaded with \(game.moves.count) moves, advanced to move 20")
+            print("🎯 Board should now show stones at move \(player.currentIndex)")
+            print("🎯 Current board grid has \(player.board.grid.flatMap { $0 }.compactMap { $0 }.count) stones")
+
+        } catch {
+            print("❌ Failed to parse embedded SGF: \(error)")
+            print("❌ Error details: \(String(describing: error))")
         }
         
         // Create a simple demo setup
         print("📋 Demo game created - ready for testing")
     }
 
-    // Helper function to calculate metadata Y position (matching GameBoardView)
-    func calculateMetadataY(geometry: GeometryProxy) -> CGFloat {
-        // Use same AGGRESSIVE responsive layout calculation as GameBoardView
+}
+
+// MARK: - Responsive Layout Management
+
+struct ResponsiveLayout {
+    let boardFrame: CGRect
+    let ulBowlCenter: CGPoint
+    let lrBowlCenter: CGPoint
+    let bowlRadius: CGFloat
+    let metadataY: CGFloat
+}
+
+extension ContentView {
+    func calculateResponsiveLayout(in geometry: GeometryProxy) -> ResponsiveLayout {
         let screenWidth = geometry.size.width
         let screenHeight = geometry.size.height
 
-        // Use same SMART responsive calculations as GameBoardView
-        let bowlSpaceWidth = min(screenWidth * 0.2, 180)
-        let metadataSpaceHeight: CGFloat = 50
+        // Calculate board dimensions with proper aspect ratio (1.07:1 for Go)
+        let boardAspectRatio: CGFloat = 1.07
+        let availableSpace = min(screenWidth * 0.9, screenHeight * 0.85) // Increased from 0.8/0.7
 
-        let availableWidth = screenWidth - bowlSpaceWidth
-        let availableHeight = screenHeight - metadataSpaceHeight
+        let boardWidth = availableSpace
+        let boardHeight = availableSpace / boardAspectRatio
 
-        let boardWidthFromWidth = availableWidth * 0.9
-        let boardWidthFromHeight = (availableHeight * 0.85) / 1.07
+        // Center the board with minimal negative space
+        let boardX = (screenWidth - boardWidth) / 2
+        let boardY = (screenHeight - boardHeight) / 2 - 10 // Reduced offset
 
-        let boardWidth = min(boardWidthFromWidth, boardWidthFromHeight)
-        let boardHeight = boardWidth * 1.07
+        let boardFrame = CGRect(x: boardX, y: boardY, width: boardWidth, height: boardHeight)
 
-        let totalVerticalSpace = availableHeight
-        let actualNegativeSpace = max(0, totalVerticalSpace - boardHeight)
-        let negativeSpaceAbove = actualNegativeSpace / 3.0
-        let boardCenterY = negativeSpaceAbove + boardHeight / 2
+        // Calculate bowl positions relative to board - bowls should be 1/3 the long side
+        let bowlRadius = max(boardWidth, boardHeight) / 3 / 2 // divide by 2 since radius = diameter/2
+        let bowlOffset = bowlRadius * 1.1 // Tighter spacing
 
-        // Calculate board bottom
-        let boardBottom = boardCenterY + boardHeight / 2
+        let ulBowlCenter = CGPoint(
+            x: boardFrame.minX - bowlOffset,
+            y: boardFrame.minY + bowlOffset
+        )
 
-        // Position metadata in reserved space at bottom - more conservative
-        let metadataY = screenHeight - (metadataSpaceHeight / 2)
+        let lrBowlCenter = CGPoint(
+            x: boardFrame.maxX + bowlOffset,
+            y: boardFrame.maxY - bowlOffset
+        )
 
-        return metadataY
+        // Calculate metadata position midway between board bottom and window bottom
+        let metadataY = (boardFrame.maxY + screenHeight) / 2
+
+        return ResponsiveLayout(
+            boardFrame: boardFrame,
+            ulBowlCenter: ulBowlCenter,
+            lrBowlCenter: lrBowlCenter,
+            bowlRadius: bowlRadius,
+            metadataY: metadataY
+        )
     }
 }
 

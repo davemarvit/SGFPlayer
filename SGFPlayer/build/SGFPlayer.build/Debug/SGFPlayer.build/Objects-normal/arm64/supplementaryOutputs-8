@@ -1,0 +1,24 @@
+"/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ContentView.swift":
+  diagnostics: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentView.dia"
+  dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentView.d"
+  const-values: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentView.swiftconstvalues"
+  object: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentView.o"
+  swift-dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentView.swiftdeps"
+"/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Views/GameBoardView.swift":
+  const-values: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GameBoardView.swiftconstvalues"
+  object: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GameBoardView.o"
+  dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GameBoardView.d"
+  diagnostics: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GameBoardView.dia"
+  swift-dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/GameBoardView.swiftdeps"
+"/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Views/ControlsView.swift":
+  diagnostics: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ControlsView.dia"
+  swift-dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ControlsView.swiftdeps"
+  const-values: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ControlsView.swiftconstvalues"
+  dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ControlsView.d"
+  object: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ControlsView.o"
+"/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Integration/ContentViewMigrationGuide.swift":
+  object: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentViewMigrationGuide.o"
+  const-values: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentViewMigrationGuide.swiftconstvalues"
+  dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentViewMigrationGuide.d"
+  swift-dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentViewMigrationGuide.swiftdeps"
+  diagnostics: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentViewMigrationGuide.dia"

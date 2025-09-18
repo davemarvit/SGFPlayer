@@ -32,9 +32,11 @@ final class SGFPlayer: ObservableObject {
 
     // Load a new SGF game
     func load(game: SGFGame) {
+        print("🔍 LOAD: Loading game with board size \(game.boardSize), \(game.moves.count) moves")
         baseSize = game.boardSize
         _baseSetup = game.setup
         _moves = game.moves
+        print("🔍 LOAD: First 5 moves: \(Array(_moves.prefix(5)))")
         reset()
     }
 
@@ -93,11 +95,16 @@ final class SGFPlayer: ObservableObject {
 
     func seek(to idx: Int) {
         let clamped = max(0, min(idx, _moves.count))
+        print("🔍 SEEK: Seeking to move \(idx), clamped to \(clamped), total moves: \(_moves.count)")
         reset()
         if clamped > 0 {
-            for i in 0..<clamped { apply(moveAt: i) }
+            for i in 0..<clamped {
+                print("🔍 SEEK: Applying move \(i)")
+                apply(moveAt: i)
+            }
         }
         currentIndex = clamped
+        print("🔍 SEEK: Final currentIndex: \(currentIndex), board stones: \(board.grid.flatMap { $0 }.compactMap { $0 }.count)")
     }
 
     // Update interval on the fly; restarts timer if currently playing
@@ -110,17 +117,21 @@ final class SGFPlayer: ObservableObject {
     // then (if needed) remove own group if it has no liberties (supports suicide SGFs).
     private func apply(moveAt i: Int) {
         let (color, coord) = _moves[i]
+        print("🔍 APPLY: Move \(i): \(color) at \(coord ?? (nil, nil))")
         guard let (x, y) = coord,
               x >= 0, y >= 0,
               x < board.size, y < board.size else {
             // pass
+            print("🔍 APPLY: Move \(i) is a PASS or invalid")
             lastMove = nil
             return
         }
 
+        print("🔍 APPLY: Placing \(color) stone at (\(x), \(y))")
         // If position already occupied, overwrite (SGFs should be legal; this is defensive)
         var g = board.grid
         g[y][x] = color
+        print("🔍 APPLY: Grid updated, stone placed at [\(y)][\(x)]")
 
         // Capture adjacent opponent groups with no liberties
         let opp: Stone = (color == .black ? .white : .black)
@@ -149,6 +160,9 @@ final class SGFPlayer: ObservableObject {
 
         board = .init(size: board.size, grid: g)
         lastMove = .init(color: color, x: x, y: y)
+
+        let totalStones = g.flatMap { $0 }.compactMap { $0 }.count
+        print("🔍 APPLY: Move \(i) complete. Total stones on board: \(totalStones)")
     }
 }
 

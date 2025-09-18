@@ -1,0 +1,18 @@
+"/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/PlayerCapturesAdapter.swift":
+  dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PlayerCapturesAdapter.d"
+  diagnostics: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PlayerCapturesAdapter.dia"
+  const-values: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PlayerCapturesAdapter.swiftconstvalues"
+  swift-dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PlayerCapturesAdapter.swiftdeps"
+  object: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PlayerCapturesAdapter.o"
+"/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ViewModels/SettingsViewModel.swift":
+  dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SettingsViewModel.d"
+  swift-dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SettingsViewModel.swiftdeps"
+  diagnostics: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SettingsViewModel.dia"
+  object: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SettingsViewModel.o"
+  const-values: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SettingsViewModel.swiftconstvalues"
+"/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Integration/ContentViewModification.swift":
+  diagnostics: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentViewModification.dia"
+  swift-dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentViewModification.swiftdeps"
+  dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentViewModification.d"
+  object: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentViewModification.o"
+  const-values: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentViewModification.swiftconstvalues"

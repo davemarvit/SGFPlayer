@@ -1,0 +1,18 @@
+"/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/SGFPlayerApp.swift":
+  object: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerApp.o"
+  const-values: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerApp.swiftconstvalues"
+  dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerApp.d"
+  diagnostics: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerApp.dia"
+  swift-dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerApp.swiftdeps"
+"/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Integration/PhysicsIntegrationDemo.swift":
+  const-values: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PhysicsIntegrationDemo.swiftconstvalues"
+  object: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PhysicsIntegrationDemo.o"
+  diagnostics: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PhysicsIntegrationDemo.dia"
+  swift-dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PhysicsIntegrationDemo.swiftdeps"
+  dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/PhysicsIntegrationDemo.d"
+"/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ViewModels/UIStateViewModel.swift":
+  object: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/UIStateViewModel.o"
+  const-values: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/UIStateViewModel.swiftconstvalues"
+  dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/UIStateViewModel.d"
+  swift-dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/UIStateViewModel.swiftdeps"
+  diagnostics: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/UIStateViewModel.dia"

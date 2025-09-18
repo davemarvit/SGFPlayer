@@ -1,0 +1,16 @@
+{
+  "source": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ContentView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Close Demo",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 273
+        }
+      }
+    ]
+  },
+  "version": 1
+}
