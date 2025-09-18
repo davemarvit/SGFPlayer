@@ -121,7 +121,7 @@ struct ContentView: View {
                     let (currentBlackCaptured, currentWhiteCaptured) = calculateCapturesAtMove(player.currentIndex)
                     SimpleBoardView(
                         player: player,
-                        physicsIntegration: physicsIntegration,
+                        physicsIntegration: physicsIntegration,  // Only for bowls, not board stones
                         boardStoneDiameter: uiStateVM.boardStoneDiameter,
                         gameCacheManager: app.gameCacheManager,
                         boardFrame: layout.boardFrame,

@@ -5,7 +5,7 @@ import SwiftUI
 
 struct SimpleBoardView: View {
     @ObservedObject var player: SGFPlayer
-    let physicsIntegration: PhysicsIntegration
+    let physicsIntegration: PhysicsIntegration  // Only for bowl rendering, NOT board stones
     let boardStoneDiameter: CGFloat
     let gameCacheManager: GameCacheManager?
 
@@ -20,7 +20,6 @@ struct SimpleBoardView: View {
             // Board rendering at explicit position
             BoardContent(
                 player: player,
-                physicsIntegration: physicsIntegration,
                 boardStoneDiameter: boardStoneDiameter,
                 gameCacheManager: gameCacheManager,
                 boardFrame: boardFrame
@@ -41,7 +40,6 @@ struct SimpleBoardView: View {
 // MARK: - Board Content
 struct BoardContent: View {
     let player: SGFPlayer
-    let physicsIntegration: PhysicsIntegration
     let boardStoneDiameter: CGFloat
     let gameCacheManager: GameCacheManager?
     let boardFrame: CGRect
@@ -65,7 +63,6 @@ struct BoardContent: View {
             // Game stones
             GameStones(
                 player: player,
-                physicsIntegration: physicsIntegration,
                 boardStoneDiameter: boardStoneDiameter,
                 gameCacheManager: gameCacheManager,
                 boardFrame: boardFrame
@@ -141,7 +138,6 @@ struct HoshiPoints: View {
 // MARK: - Game Stones
 struct GameStones: View {
     let player: SGFPlayer
-    let physicsIntegration: PhysicsIntegration
     let boardStoneDiameter: CGFloat
     let gameCacheManager: GameCacheManager?
     let boardFrame: CGRect
@@ -179,11 +175,18 @@ struct GameStones: View {
         }
         .onAppear {
             let stoneCount = player.board.grid.flatMap { $0 }.compactMap { $0 }.count
-            print("🎯 BOARD STONES: Found \(stoneCount) stones on move \(player.currentIndex)")
+            print("🎯 ARCHITECTURE FIX: SimpleBoardView loaded - found \(stoneCount) stones on move \(player.currentIndex)")
+            print("🎯 STONE CHECK: Board has \(player.board.grid.count) rows")
+            for (rowIndex, row) in player.board.grid.enumerated() {
+                let rowStones = row.compactMap { $0 }.count
+                if rowStones > 0 {
+                    print("🎯 ROW \(rowIndex): \(rowStones) stones")
+                }
+            }
         }
         .onChange(of: player.currentIndex) { _, newIndex in
             let stoneCount = player.board.grid.flatMap { $0 }.compactMap { $0 }.count
-            print("🎯 BOARD STONES: Move changed to \(newIndex), found \(stoneCount) stones")
+            print("🎯 MOVE UPDATE: Changed to move \(newIndex), board has \(stoneCount) stones")
         }
     }
 }
