@@ -10,20 +10,20 @@ final class StoneJitter {
 
     // Preset (radius-relative)
     struct Preset {
-        var sigma:  CGFloat = 0.08   // std-dev of random offset (~8% of radius)
-        var clamp:  CGFloat = 0.22   // hard clamp per-axis (radius units)
-        var contact:CGFloat = 0.85   // min center distance / (2r). 1.0 = kissing, reduced to prevent unnecessary movement
-        var relaxIters: Int = 6      // how many smoothing passes when placed
+        var sigma:  CGFloat = 0.12   // std-dev of random offset (~12% of radius)
+        var clamp:  CGFloat = 0.25   // hard clamp per-axis (radius units)
+        var minDistance: CGFloat = 0.8  // minimum distance between stone centers (in grid units) - require very close contact
+        var pushStrength: CGFloat = 0.3  // how strong collision displacement is - keep small for realistic movement
     }
 
     // Public knob (0 = perfect, 1 = preset look, >1 = wilder)
     var eccentricity: CGFloat = 1.0 { didSet { recomputeEffective() } }
 
     // Live values (derived from preset + eccentricity)
-    private var sigma:  CGFloat = 0.08
-    private var clamp:  CGFloat = 0.22
-    private var contact:CGFloat = 0.98
-    private var relaxIters: Int = 6
+    private var sigma:  CGFloat = 0.12
+    private var clamp:  CGFloat = 0.25
+    private var minDistance: CGFloat = 1.8
+    private var pushStrength: CGFloat = 0.3
 
     private var preset = Preset()
 
@@ -64,13 +64,56 @@ final class StoneJitter {
                 for x in 0..<size {
                     if !occupied[y][x] {
                         initialJitter[y][x] = nil
+                        finalOffsets[y][x] = nil
                     }
                 }
             }
-            // Always clear final offsets to recalculate relaxation
-            finalOffsets = Array(repeating: Array(repeating: nil, count: size), count: size)
+
+            // FIXED: Only clear final offsets for stones that could be affected by relaxation
+            // Instead of clearing all offsets, only clear offsets for stones within
+            // relaxation range of newly placed or removed stones
+            clearAffectedRegions(occupied: occupied)
+
             lastPreparedMove = moveIndex
         }
+    }
+
+    // Clear final offsets only for regions that could be affected by stone placement/removal
+    private func clearAffectedRegions(occupied: [[Bool]]) {
+        // For now, only clear final offsets for positions that have stones
+        // This prevents isolated stones from moving when unrelated stones are played
+        for y in 0..<size {
+            for x in 0..<size {
+                if occupied[y][x] {
+                    // Only clear if this stone might be affected by neighboring changes
+                    if hasNearbyChanges(x: x, y: y, occupied: occupied) {
+                        finalOffsets[y][x] = nil
+                    }
+                }
+            }
+        }
+    }
+
+    // Check if a stone position might be affected by nearby changes
+    private func hasNearbyChanges(x: Int, y: Int, occupied: [[Bool]]) -> Bool {
+        // Check only immediate adjacent positions for direct stone collisions
+        let range = 1 // Check only adjacent cells for direct interactions
+        let xmin = max(0, x - range)
+        let xmax = min(size - 1, x + range)
+        let ymin = max(0, y - range)
+        let ymax = min(size - 1, y + range)
+
+        for ny in ymin...ymax {
+            for nx in xmin...xmax {
+                if nx != x || ny != y {
+                    // If there's a stone nearby, this position might need recalculation
+                    if occupied[ny][nx] {
+                        return true
+                    }
+                }
+            }
+        }
+        return false
     }
 
     // Returns the jitter offset (in *radius* units) for a stone being shown at (x,y).
@@ -84,13 +127,17 @@ final class StoneJitter {
                 moveIndex: Int,
                 radius r: CGFloat,
                 occupied: [[Bool]]) -> CGPoint {
+
+        // Early exit if no jitter
+        if eccentricity <= 0.001 {
+            return .zero
+        }
+
         // If we already have a final offset calculated, return it
         if let finalOffset = finalOffsets[safe: y]?[safe: x] ?? nil {
             return finalOffset
         }
-
-        // Get or create stable initial jitter for this position
-        if initialJitter[safe: y]?[safe: x] == nil {
+        if (initialJitter[safe: y]?[safe: x] ?? nil) == nil {
             // Draw a fresh jitter offset (gaussian in radius units, clamped)
             var s = seedFor(x: x, y: y, move: moveIndex)
             let g = gaussian2D(&s)
@@ -114,8 +161,11 @@ final class StoneJitter {
         }
         finalOffsets[y][x] = initialOffset
 
-        // Apply relaxation if needed
-        relaxAround(cx: x, cy: y, r: r, occupied: occupied)
+        // Skip collision detection if jitter is minimal (performance optimization)
+        if eccentricity > 0.1 {
+            // Resolve collisions with neighboring stones
+            resolveCollisions(cx: x, cy: y, r: r, occupied: occupied)
+        }
 
         // Return final relaxed position, clamped
         guard let finalOffset = finalOffsets[y][x] else {
@@ -126,79 +176,112 @@ final class StoneJitter {
             y: clampValue(finalOffset.y, maxAbs: clamp)
         )
         finalOffsets[y][x] = clampedOffset
+
         return clampedOffset
+    }
+
+    // Force clear all cached jitter (for when eccentricity changes)
+    func clearCache() {
+        for y in 0..<size {
+            for x in 0..<size {
+                initialJitter[y][x] = nil
+                finalOffsets[y][x] = nil
+            }
+        }
+        lastPreparedMove = .min
+    }
+
+    // Clear only final offsets (keeps stable base jitter but forces collision recalculation)
+    func clearFinalOffsetsOnly() {
+        for y in 0..<size {
+            for x in 0..<size {
+                finalOffsets[y][x] = nil
+            }
+        }
+        // Don't reset lastPreparedMove - we only want to recalculate collisions
     }
 
     // MARK: - Internals
 
     private func recomputeEffective() {
-        sigma   = preset.sigma * eccentricity
-        // let clamp grow gently so tails aren’t squashed at high ecc.
-        let clampScale = 0.75 + 0.25 * min(2.0, eccentricity) // 0..2 → 0.75..1.25
-        clamp   = preset.clamp * clampScale
-        contact = preset.contact
-        relaxIters = preset.relaxIters
+        sigma = preset.sigma * eccentricity
+        clamp = preset.clamp * eccentricity
+        minDistance = preset.minDistance
+        pushStrength = preset.pushStrength
     }
 
-    private func relaxAround(cx: Int, cy: Int, r: CGFloat, occupied: [[Bool]]) {
+    private func resolveCollisions(cx: Int, cy: Int, r: CGFloat, occupied: [[Bool]], depth: Int = 0) {
         guard size > 0 else { return }
-        let minD = 2.0 * r * contact
+        guard depth < 2 else { return } // Limit cascade to prevent excessive stone movement
+        guard cx >= 0, cy >= 0, cx < size, cy < size else { return }
+        guard cy < finalOffsets.count, cx < finalOffsets[cy].count else { return }
 
-        let xmin = max(0, cx - 1), xmax = min(size - 1, cx + 1)
-        let ymin = max(0, cy - 1), ymax = min(size - 1, cy + 1)
+        // Get position of the newly placed stone (at cx, cy)
+        guard let centerStoneOffset = finalOffsets[cy][cx] else { return }
+        let centerPos = CGPoint(
+            x: CGFloat(cx) + centerStoneOffset.x,
+            y: CGFloat(cy) + centerStoneOffset.y
+        )
 
-        guard xmin <= xmax && ymin <= ymax else { return }
+        // Check only orthogonal neighbors for realistic collision detection
+        let adjacentPositions = [
+            (cx-1, cy), (cx+1, cy),  // horizontal neighbors
+            (cx, cy-1), (cx, cy+1)   // vertical neighbors
+            // Note: diagonal neighbors removed - too far apart for natural stone contact
+        ]
 
-        for _ in 0..<relaxIters {
-            for y in ymin...ymax {
-                for x in xmin...xmax {
-                    guard occupied[y][x] else { continue }
+        for (nx, ny) in adjacentPositions {
+            guard nx >= 0, ny >= 0, nx < size, ny < size else { continue }
+            guard ny < occupied.count, nx < occupied[ny].count else { continue }
+            guard occupied[ny][nx] else { continue }
+            guard nx != cx || ny != cy else { continue }
+            guard ny < finalOffsets.count, nx < finalOffsets[ny].count else { continue }
 
-                    // Check only orthogonal neighbors to avoid unnecessary diagonal interactions
-                    for (nx, ny) in [(x+1,y),(x,y+1)] {
-                        guard nx >= xmin, nx <= xmax, ny >= ymin, ny <= ymax else { continue }
-                        guard nx >= 0, ny >= 0, nx < size, ny < size else { continue }
-                        guard occupied[ny][nx] else { continue }
+            // Get neighboring stone position
+            let neighborOffset = finalOffsets[ny][nx] ?? .zero
+            let neighborPos = CGPoint(
+                x: CGFloat(nx) + neighborOffset.x,
+                y: CGFloat(ny) + neighborOffset.y
+            )
 
-                        // Use positions based on grid coordinates + initial jitter only
-                        // This prevents cascading movement during relaxation
-                        let ax = CGFloat(x) + (finalOffsets[y][x]?.x ?? 0)
-                        let ay = CGFloat(y) + (finalOffsets[y][x]?.y ?? 0)
-                        let bx = CGFloat(nx) + (finalOffsets[ny][nx]?.x ?? 0)
-                        let by = CGFloat(ny) + (finalOffsets[ny][nx]?.y ?? 0)
+            // Calculate distance between stone centers accounting for rectangular cells
+            let dx = neighborPos.x - centerPos.x
+            let dy = neighborPos.y - centerPos.y
 
-                        var dx = (bx - ax) * r
-                        var dy = (by - ay) * r
-                        var dist = hypot(dx, dy)
-                        if dist < 1e-6 {
-                            dx = CGFloat(nx - x) * 0.001
-                            dy = CGFloat(ny - y) * 0.001
-                            dist = hypot(dx, dy)
-                        }
-                        if dist < minD {
-                            let need = (minD - dist) * 0.5
-                            let ux = dx / dist
-                            let uy = dy / dist
+            // Normalize for cell aspect ratio: horizontal = 22mm, vertical = 23.7mm
+            let cellAspectRatio = 23.7 / 22.0 // vertical/horizontal spacing ratio
+            let normalizedDy = dy / cellAspectRatio // convert vertical distance to horizontal units
+            let distance = hypot(dx, normalizedDy)
 
-                            var A = finalOffsets[y][x] ?? .zero
-                            var B = finalOffsets[ny][nx] ?? .zero
+            // Check if stones are too close (collision)
+            if distance < minDistance && distance > 0.001 {
+                // Calculate push direction accounting for cell aspect ratio
+                let normalizedDistance = hypot(dx, normalizedDy)
+                let pushDir = CGPoint(
+                    x: dx / normalizedDistance,
+                    y: normalizedDy / normalizedDistance * cellAspectRatio // convert back to actual cell units
+                )
 
-                            // convert pixel correction to radius units
-                            A.x -= (need * ux) / r
-                            A.y -= (need * uy) / r
-                            B.x += (need * ux) / r
-                            B.y += (need * uy) / r
+                // Calculate how much to push apart
+                let overlap = minDistance - distance
+                let pushAmount = overlap * pushStrength
 
-                            A.x = clampValue(A.x, maxAbs: clamp)
-                            A.y = clampValue(A.y, maxAbs: clamp)
-                            B.x = clampValue(B.x, maxAbs: clamp)
-                            B.y = clampValue(B.y, maxAbs: clamp)
+                // Push the neighboring stone away along the contact line
+                var newNeighborOffset = neighborOffset
+                newNeighborOffset.x += pushDir.x * pushAmount
+                newNeighborOffset.y += pushDir.y * pushAmount
 
-                            finalOffsets[y][x]   = A
-                            finalOffsets[ny][nx] = B
-                        }
-                    }
+                // Clamp the neighbor's offset
+                newNeighborOffset.x = clampValue(newNeighborOffset.x, maxAbs: clamp)
+                newNeighborOffset.y = clampValue(newNeighborOffset.y, maxAbs: clamp)
+
+                // Safely update the neighbor's offset
+                if ny < finalOffsets.count && nx < finalOffsets[ny].count {
+                    finalOffsets[ny][nx] = newNeighborOffset
                 }
+
+                // Chain reaction: check if this pushed stone now collides with others
+                resolveCollisions(cx: nx, cy: ny, r: r, occupied: occupied, depth: depth + 1)
             }
         }
     }

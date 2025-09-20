@@ -308,7 +308,7 @@ struct ContentView: View {
                 )
             }
             .allowsHitTesting(true)
-            .zIndex(5) // Between main content (0) and settings panel (10)
+            .zIndex(15) // Above settings panel (10) to ensure button clicks work
         }
         .onAppear {
             if !isInitialized {
@@ -703,14 +703,23 @@ extension ContentView {
 
         // Calculate board dimensions with proper aspect ratio (1.07:1 for Go)
         let boardAspectRatio: CGFloat = 1.07
-        let availableSpace = min(screenWidth * 0.9, screenHeight * 0.85) // Increased from 0.8/0.7
+
+        // First calculate maximum board size that fits the aspect ratio
+        let maxWidthBasedSize = screenWidth * 0.9
+        let maxHeightBasedSize = screenHeight * 0.75 // Leave more room for spacing
+        let availableSpace = min(maxWidthBasedSize, maxHeightBasedSize)
 
         let boardWidth = availableSpace
         let boardHeight = availableSpace / boardAspectRatio
 
-        // Center the board with minimal negative space
+        // Calculate board positioning with proper top/bottom space ratio
+        // Bottom space should be larger than top, but not too large
+        let availableVerticalSpace = screenHeight - boardHeight
+        let topSpace = availableVerticalSpace / 4  // 1/4 of available space (small top)
+        let bottomSpace = availableVerticalSpace * 3 / 4  // 3/4 of available space (larger bottom for metadata)
+
         let boardX = (screenWidth - boardWidth) / 2
-        let boardY = (screenHeight - boardHeight) / 2 - 10 // Reduced offset
+        let boardY = topSpace
 
         let boardFrame = CGRect(x: boardX, y: boardY, width: boardWidth, height: boardHeight)
 
@@ -728,8 +737,8 @@ extension ContentView {
             y: boardFrame.maxY - bowlOffset
         )
 
-        // Calculate metadata position midway between board bottom and window bottom
-        let metadataY = (boardFrame.maxY + screenHeight) / 2
+        // Position metadata bar center midway between board bottom and window bottom
+        let metadataY = boardFrame.maxY + bottomSpace / 2
 
         return ResponsiveLayout(
             boardFrame: boardFrame,

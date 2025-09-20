@@ -16,8 +16,22 @@ class PhysicsIntegration: ObservableObject {
     @Published var debugMode: Bool = true
     
     // MARK: - Published State (compatible with ContentView)
-    @Published var blackStones: [LegacyCapturedStone] = []
-    @Published var whiteStones: [LegacyCapturedStone] = []
+    @Published var blackStones: [LegacyCapturedStone] = [] {
+        didSet {
+            Logger.warning("🚀 blackStones @Published CHANGED - OLD: \(oldValue.count), NEW: \(blackStones.count)")
+            if DebugConfig.enablePhysicsDebugging {
+                Logger.debug("blackStones NEW IDs: \(blackStones.map { $0.id.uuidString.prefix(8) })")
+            }
+        }
+    }
+    @Published var whiteStones: [LegacyCapturedStone] = [] {
+        didSet {
+            Logger.warning("🚀 whiteStones @Published CHANGED - OLD: \(oldValue.count), NEW: \(whiteStones.count)")
+            if DebugConfig.enablePhysicsDebugging {
+                Logger.debug("whiteStones NEW IDs: \(whiteStones.map { $0.id.uuidString.prefix(8) })")
+            }
+        }
+    }
     @Published var physicsStatus: String = ""
     @Published var isReady: Bool = false
     
@@ -42,7 +56,7 @@ class PhysicsIntegration: ObservableObject {
     init() {
         setupNewPhysicsBindings()
         isReady = true
-        print("🚀 PhysicsIntegration: Initialized with new architecture")
+        Logger.info("PhysicsIntegration: Initialized with new architecture")
     }
     
     private func setupNewPhysicsBindings() {
@@ -67,30 +81,38 @@ class PhysicsIntegration: ObservableObject {
     }
     
     private func updateBlackStonesBatched(_ stones: [LegacyCapturedStone]) {
+        if DebugConfig.enablePhysicsDebugging {
+            Logger.debug("UPDATE_BLACK_STONES_BATCHED - received: \(stones.count), current: \(blackStones.count)")
+        }
         pendingBlackStones = stones
         scheduleBatchUpdate()
-        
-        if debugMode {
-            print("🚀 PhysicsIntegration: Batched black stones: \(stones.count)")
+
+        if debugMode && DebugConfig.enablePhysicsDebugging {
+            Logger.debug("Batched black stones: \(stones.count)")
         }
     }
-    
+
     private func updateWhiteStonesBatched(_ stones: [LegacyCapturedStone]) {
+        if DebugConfig.enablePhysicsDebugging {
+            Logger.debug("UPDATE_WHITE_STONES_BATCHED - received: \(stones.count), current: \(whiteStones.count)")
+        }
         pendingWhiteStones = stones
         scheduleBatchUpdate()
-        
-        if debugMode {
-            print("🚀 PhysicsIntegration: Batched white stones: \(stones.count)")
+
+        if debugMode && DebugConfig.enablePhysicsDebugging {
+            Logger.debug("Batched white stones: \(stones.count)")
         }
     }
     
     private func scheduleBatchUpdate() {
         // Cancel any pending update
         physicsUpdateTimer?.invalidate()
-        
-        // Schedule a batched update after 50ms to let physics settle
-        physicsUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: false) { [weak self] _ in
-            self?.executeBatchUpdate()
+
+        // For physics UI updates, apply immediately to ensure synchronization
+        // The batching was designed for preventing UI blinking during rapid updates,
+        // but the 50ms delay was causing sync issues with ContentView
+        DispatchQueue.main.async {
+            self.executeBatchUpdate()
         }
     }
     
@@ -100,30 +122,25 @@ class PhysicsIntegration: ObservableObject {
         updateStonesIncremental(current: &whiteStones, pending: pendingWhiteStones)
 
         if debugMode {
-            print("🚀 PhysicsIntegration: ✅ FINAL UPDATE - Black: \(pendingBlackStones.count), White: \(pendingWhiteStones.count)")
+            Logger.warning("✅ FINAL PHYSICS UPDATE - Black: \(pendingBlackStones.count), White: \(pendingWhiteStones.count)")
         }
 
         isPhysicsInProgress = false
     }
 
     private func updateStonesIncremental(current: inout [LegacyCapturedStone], pending: [LegacyCapturedStone]) {
-        // Only update if the count has changed or positions have changed significantly
-        if current.count != pending.count {
-            // Add new stones incrementally to prevent blinking
-            if pending.count > current.count {
-                // Adding stones: append the new ones
-                let newStones = Array(pending.suffix(pending.count - current.count))
-                current.append(contentsOf: newStones)
-            } else {
-                // Removing stones: keep the ones that still exist
-                current = Array(current.prefix(pending.count))
-            }
+        // SwiftUI @Published arrays only trigger updates when the array reference changes
+        // So we need to replace the entire array, not modify individual elements
+        let oldCount = current.count
+        current = pending
+
+        if DebugConfig.enablePhysicsDebugging {
+            Logger.debug("Array replaced - OLD count: \(oldCount), NEW count: \(pending.count)")
         }
 
-        // Update positions of existing stones
-        for i in 0..<min(current.count, pending.count) {
-            current[i] = pending[i]
-        }
+        // REMOVED: Force objectWillChange.send() - this was causing GeometryReader infinite loop
+        // @Published property changes automatically trigger view updates
+        // print("🚀 PhysicsIntegration: Forced objectWillChange.send()")
     }
     
     // MARK: - Public Interface (compatible with ContentView)
@@ -139,6 +156,9 @@ class PhysicsIntegration: ObservableObject {
         }
     }
     
+    // State tracking to prevent unnecessary updates
+    private var lastUpdateState: (move: Int, blackCount: Int, whiteCount: Int, bowlRadius: CGFloat)?
+
     /// Update stone positions for current game state
     func updateStonePositions(
         currentMove: Int,
@@ -149,6 +169,24 @@ class PhysicsIntegration: ObservableObject {
         ulCenter: CGPoint,
         lrCenter: CGPoint
     ) {
+        // CRITICAL FIX: Check if state actually changed to prevent GeometryReader infinite loop
+        let newState = (move: currentMove, blackCount: blackStoneCount, whiteCount: whiteStoneCount, bowlRadius: bowlRadius)
+
+        if let lastState = lastUpdateState,
+           lastState.move == newState.move &&
+           lastState.blackCount == newState.blackCount &&
+           lastState.whiteCount == newState.whiteCount &&
+           abs(lastState.bowlRadius - newState.bowlRadius) < 1.0 {
+
+            Logger.warning("⏭️ SKIPPING PHYSICS UPDATE - no meaningful change detected")
+            return
+        }
+
+        lastUpdateState = newState
+
+        Logger.warning("🚀 UPDATE_STONE_POSITIONS - move: \(currentMove), blackCount: \(blackStoneCount), whiteCount: \(whiteStoneCount), bowlRadius: \(bowlRadius)")
+        Logger.warning("Current stone arrays BEFORE update - blackStones: \(blackStones.count), whiteStones: \(whiteStones.count)")
+
         if useNewPhysics {
             physicsReplacement.updateStonePositions(
                 currentMove: currentMove,
@@ -158,7 +196,9 @@ class PhysicsIntegration: ObservableObject {
                 gameSeed: gameSeed,
                 bowlCenters: (upperLeft: ulCenter, lowerRight: lrCenter)
             )
-            
+
+            print("🚀 PhysicsIntegration: PHYSICS_REPLACEMENT_CALLED - waiting for published updates...")
+
             if debugMode {
                 print("🚀 PhysicsIntegration: Move \(currentMove), Black: \(blackStoneCount), White: \(whiteStoneCount)")
             }
@@ -189,8 +229,11 @@ class PhysicsIntegration: ObservableObject {
         // Reset physics state flags
         isPhysicsInProgress = false
 
+        // CRITICAL FIX: Clear state tracking to allow fresh updates after reset
+        lastUpdateState = nil
+
         physicsStatus = "Reset"
-        print("🚀 PhysicsIntegration: Reset (cleared pending updates)")
+        print("🚀 PhysicsIntegration: Reset (cleared pending updates + state tracking)")
     }
     
     /// Get available physics models

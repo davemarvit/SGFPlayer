@@ -669,24 +669,29 @@ struct JitterControlsView: View {
                 HStack {
                     Text("Natural Placement")
                     Spacer()
-                    Text("\(String(format: "%.1f", localMultiplier))×")
+                    Text(String(format: "%.1f", localMultiplier * 5.0))  // Display 0-10 scale with .5 increments
                         .monospacedDigit()
                 }
                 .font(.caption)
-                .foregroundColor(.secondary)
+                .foregroundColor(.primary.opacity(0.8))
                 .padding(.horizontal, 16)
 
                 Slider(
-                    value: $localMultiplier,
-                    in: 0.0...3.0,
-                    step: 0.1
+                    value: Binding(
+                        get: { localMultiplier * 5.0 },  // Convert 0-2 to 0-10 for display
+                        set: { displayValue in
+                            let actualValue = displayValue / 5.0  // Convert 0-10 back to 0-2
+                            localMultiplier = actualValue
+                            // Update immediately during dragging for real-time feedback
+                            gameCacheManager.defaultJitterMultiplier = CGFloat(actualValue)
+                            print("🎚️ Real-time Jitter Slider: display=\(displayValue), actual=\(actualValue)")
+                        }
+                    ),
+                    in: 0.0...10.0,
+                    step: 0.5  // 0.5 on 0-10 scale = 0.1 on 0-2 scale
                 )
                 .controlSize(.regular)
                 .padding(.horizontal, 16)
-                .onChange(of: localMultiplier) { _, newValue in
-                    print("🎚️ Global Jitter Slider CHANGED: \(newValue)")
-                    gameCacheManager.defaultJitterMultiplier = CGFloat(newValue)
-                }
 
                 Text("Adjusts how naturally stones are placed off intersections")
                     .font(.caption)

@@ -16,6 +16,12 @@ struct SimpleBoardView: View {
     let bowlRadius: CGFloat
 
     var body: some View {
+        let _ = {
+            if DebugConfig.enableUIDebugging {
+                Logger.debug("SimpleBoardView: BODY COMPUTED - blackStones: \(physicsIntegration.blackStones.count), whiteStones: \(physicsIntegration.whiteStones.count)")
+            }
+        }()
+
         ZStack {
             // Board rendering at explicit position
             BoardContent(
@@ -30,7 +36,8 @@ struct SimpleBoardView: View {
                 physicsIntegration: physicsIntegration,
                 ulCenter: ulBowlCenter,
                 lrCenter: lrBowlCenter,
-                bowlRadius: bowlRadius
+                bowlRadius: bowlRadius,
+                boardFrame: boardFrame
             )
         }
         .allowsHitTesting(false)
@@ -39,17 +46,34 @@ struct SimpleBoardView: View {
 
 // MARK: - Board Content
 struct BoardContent: View {
-    let player: SGFPlayer
+    @ObservedObject var player: SGFPlayer
     let boardStoneDiameter: CGFloat
     let gameCacheManager: GameCacheManager?
     let boardFrame: CGRect
 
     var body: some View {
+        // Calculate proper board size to match grid proportions with uniform borders
+        let gridSize = 19
+        let cellRatio: CGFloat = 15.0 / 14.0
+        let baseCellWidth = boardFrame.width * 0.9 / CGFloat(gridSize - 1)
+        let cellWidth = baseCellWidth
+        let cellHeight = baseCellWidth * cellRatio
+        let gridWidth = cellWidth * CGFloat(gridSize - 1)
+        let gridHeight = cellHeight * CGFloat(gridSize - 1)
+
+        // Calculate border size from current side borders (10% of original width)
+        let borderX = (boardFrame.width - gridWidth) / 2
+        let borderY = borderX  // Use same border size for uniform appearance
+
+        // Calculate board image size to accommodate grid + uniform borders
+        let boardImageWidth = gridWidth + (borderX * 2)
+        let boardImageHeight = gridHeight + (borderY * 2)
+
         ZStack {
-            // Board background with real wood texture
+            // Board background with real wood texture - sized to match grid + borders
             Image("board_kaya")
                 .resizable()
-                .frame(width: boardFrame.width, height: boardFrame.height)
+                .frame(width: boardImageWidth, height: boardImageHeight)
                 .clipShape(Rectangle())
                 .shadow(color: .black.opacity(0.9), radius: 35, x: 16, y: 16)
                 .position(x: boardFrame.midX, y: boardFrame.midY)
@@ -77,20 +101,33 @@ struct GridLines: View {
 
     var body: some View {
         let gridSize = 19
-        let cellWidth = boardFrame.width * 0.9 / CGFloat(gridSize - 1)
-        let cellHeight = boardFrame.height * 0.9 / CGFloat(gridSize - 1)
-        let offsetX = boardFrame.width * 0.05
-        let offsetY = boardFrame.height * 0.05
+        // Traditional Go board cell ratio: height/width = 15/14 ≈ 1.071
+        let cellRatio: CGFloat = 15.0 / 14.0
+
+        // Calculate base cell width from board width
+        let baseCellWidth = boardFrame.width * 0.9 / CGFloat(gridSize - 1)
+
+        // Set proper cell dimensions with traditional ratio
+        let cellWidth = baseCellWidth
+        let cellHeight = baseCellWidth * cellRatio
+
+        // Calculate grid area with proper proportions
+        let gridWidth = cellWidth * CGFloat(gridSize - 1)
+        let gridHeight = cellHeight * CGFloat(gridSize - 1)
+
+        // Center the grid within the board frame
+        let offsetX = (boardFrame.width - gridWidth) / 2
+        let offsetY = (boardFrame.height - gridHeight) / 2
 
         ZStack {
             // Vertical lines
             ForEach(0..<gridSize, id: \.self) { i in
                 Rectangle()
                     .fill(Color.black)
-                    .frame(width: 1, height: boardFrame.height * 0.9)
+                    .frame(width: 1, height: gridHeight)
                     .position(
                         x: boardFrame.minX + offsetX + CGFloat(i) * cellWidth,
-                        y: boardFrame.midY
+                        y: boardFrame.minY + offsetY + gridHeight / 2
                     )
             }
 
@@ -98,9 +135,9 @@ struct GridLines: View {
             ForEach(0..<gridSize, id: \.self) { j in
                 Rectangle()
                     .fill(Color.black)
-                    .frame(width: boardFrame.width * 0.9, height: 1)
+                    .frame(width: gridWidth, height: 1)
                     .position(
-                        x: boardFrame.midX,
+                        x: boardFrame.minX + offsetX + gridWidth / 2,
                         y: boardFrame.minY + offsetY + CGFloat(j) * cellHeight
                     )
             }
@@ -114,10 +151,23 @@ struct HoshiPoints: View {
 
     var body: some View {
         let gridSize = 19
-        let cellWidth = boardFrame.width * 0.9 / CGFloat(gridSize - 1)
-        let cellHeight = boardFrame.height * 0.9 / CGFloat(gridSize - 1)
-        let offsetX = boardFrame.width * 0.05
-        let offsetY = boardFrame.height * 0.05
+        // Traditional Go board cell ratio: height/width = 15/14 ≈ 1.071
+        let cellRatio: CGFloat = 15.0 / 14.0
+
+        // Calculate base cell width from board width
+        let baseCellWidth = boardFrame.width * 0.9 / CGFloat(gridSize - 1)
+
+        // Set proper cell dimensions with traditional ratio
+        let cellWidth = baseCellWidth
+        let cellHeight = baseCellWidth * cellRatio
+
+        // Calculate grid area with proper proportions
+        let gridWidth = cellWidth * CGFloat(gridSize - 1)
+        let gridHeight = cellHeight * CGFloat(gridSize - 1)
+
+        // Center the grid within the board frame
+        let offsetX = (boardFrame.width - gridWidth) / 2
+        let offsetY = (boardFrame.height - gridHeight) / 2
 
         let hoshiPoints = [(3, 3), (3, 9), (3, 15), (9, 3), (9, 9), (9, 15), (15, 3), (15, 9), (15, 15)]
 
@@ -137,68 +187,222 @@ struct HoshiPoints: View {
 
 // MARK: - Game Stones
 struct GameStones: View {
-    let player: SGFPlayer
+    @ObservedObject var player: SGFPlayer
     let boardStoneDiameter: CGFloat
     let gameCacheManager: GameCacheManager?
     let boardFrame: CGRect
+
+    @State private var stoneJitter: StoneJitter?
 
     var body: some View {
         ZStack {
             // Render stones from game state
             let currentGrid = player.board.grid
             let gridSize = 19
-            let cellWidth = boardFrame.width * 0.9 / CGFloat(gridSize - 1)
-            let cellHeight = boardFrame.height * 0.9 / CGFloat(gridSize - 1)
-            let offsetX = boardFrame.width * 0.05
-            let offsetY = boardFrame.height * 0.05
+            let totalStones = currentGrid.flatMap { $0 }.compactMap { $0 }.count
+            let _ = {
+                let stoneDescription = currentGrid[0][0] == nil ? "nil" : (currentGrid[0][0] == .black ? "black" : "white")
+                Logger.warning("🎨 GAMESTONES BODY - totalStones: \(totalStones), grid[0][0]: \(stoneDescription)")
+            }()
+            // Traditional Go board cell ratio: height/width = 15/14 ≈ 1.071
+            let cellRatio: CGFloat = 15.0 / 14.0
 
-            // Debug: Count stones in grid (moved to onAppear to avoid state modification)
-            let stoneCount = currentGrid.flatMap { $0 }.compactMap { $0 }.count
+            // Calculate base cell width from board width
+            let baseCellWidth = boardFrame.width * 0.9 / CGFloat(gridSize - 1)
 
+            // Set proper cell dimensions with traditional ratio
+            let cellWidth = baseCellWidth
+            let cellHeight = baseCellWidth * cellRatio
+
+            // Calculate grid area with proper proportions
+            let gridWidth = cellWidth * CGFloat(gridSize - 1)
+            let gridHeight = cellHeight * CGFloat(gridSize - 1)
+
+            // Center the grid within the board frame
+            let offsetX = (boardFrame.width - gridWidth) / 2
+            let offsetY = (boardFrame.height - gridHeight) / 2
+            // Calculate stone sizes based on real Go stone dimensions
+            // Black stones: 22.2mm diameter, White stones: 21.9mm diameter
+            // Cell width: 22mm, Cell height: 23.7mm
+            let realCellWidth = 22.0 // mm
+            let realCellHeight = 23.7 // mm
+            let realBlackStoneDiameter = 22.2 // mm
+            let realWhiteStoneDiameter = 21.9 // mm
+
+            // Scale to our grid dimensions
+            let blackStoneSize = (realBlackStoneDiameter / realCellWidth) * cellWidth
+            let whiteStoneSize = (realWhiteStoneDiameter / realCellWidth) * cellWidth
+            let stoneRadius = blackStoneSize / 2 // Use black stone size for jitter calculations
+
+            // Render stones from current grid state
             ForEach(0..<gridSize, id: \.self) { row in
                 ForEach(0..<gridSize, id: \.self) { col in
                     if let stone = currentGrid[row][col] {
-                        let stoneX = boardFrame.minX + offsetX + CGFloat(col) * cellWidth
-                        let stoneY = boardFrame.minY + offsetY + CGFloat(row) * cellHeight
+                        let _ = {
+                            // Log first few stones found to verify rendering
+                            if (row < 3 && col < 3) || (row == 0 && col == 0) {
+                                Logger.warning("🎨 STONE RENDERING at (\(col),\(row)) - stone: \(stone)")
+                            }
+                        }()
+
+                        let baseX = boardFrame.minX + offsetX + CGFloat(col) * cellWidth
+                        let baseY = boardFrame.minY + offsetY + CGFloat(row) * cellHeight
+
+                        // Use realistic stone sizes based on color
+                        let stoneSize = stone == .white ? whiteStoneSize : blackStoneSize
+                        let actualStoneRadius = stoneSize / 2
+
+                        // Apply jitter offset using the actual stone radius for this stone
+                        let jitterOffset = getJitterOffset(x: col, y: row, radius: actualStoneRadius, currentGrid: currentGrid, currentMove: player.currentIndex)
+                        let stoneX = baseX + jitterOffset.x
+                        let stoneY = baseY + jitterOffset.y
 
                         Image(stone == .white ? "clam_01" : "stone_black")
                             .resizable()
-                            .frame(width: boardStoneDiameter, height: boardStoneDiameter)
+                            .frame(width: stoneSize, height: stoneSize)
                             .shadow(color: .black.opacity(0.6), radius: 4, x: 2, y: 2)
                             .position(x: stoneX, y: stoneY)
-                            .onAppear {
-                                print("🎯 STONE RENDER: \(stone) at (\(row),\(col)) -> screen (\(stoneX), \(stoneY)), frame: \(boardFrame), diameter: \(boardStoneDiameter)")
-                            }
                     }
                 }
             }
         }
         .onAppear {
-            let stoneCount = player.board.grid.flatMap { $0 }.compactMap { $0 }.count
-            print("🎯 ARCHITECTURE FIX: SimpleBoardView loaded - found \(stoneCount) stones on move \(player.currentIndex)")
-            print("🎯 STONE CHECK: Board has \(player.board.grid.count) rows")
-            for (rowIndex, row) in player.board.grid.enumerated() {
-                let rowStones = row.compactMap { $0 }.count
-                if rowStones > 0 {
-                    print("🎯 ROW \(rowIndex): \(rowStones) stones")
+            setupJitterIfNeeded()
+        }
+        .onChange(of: gameCacheManager?.defaultJitterMultiplier) { oldValue, newValue in
+            if let newValue = newValue, newValue != oldValue {
+                Logger.warning("🎲 DEFAULT JITTER MULTIPLIER CHANGED: \(oldValue ?? 0) -> \(newValue)")
+                DispatchQueue.main.async {
+                    recreateJitter()
                 }
             }
         }
-        .onChange(of: player.currentIndex) { _, newIndex in
-            let stoneCount = player.board.grid.flatMap { $0 }.compactMap { $0 }.count
-            print("🎯 MOVE UPDATE: Changed to move \(newIndex), board has \(stoneCount) stones")
+    }
+
+    // MARK: - Jitter Helper Functions
+
+    private func setupJitterIfNeeded() {
+        guard stoneJitter == nil,
+              let cacheManager = gameCacheManager,
+              let currentGame = cacheManager.currentGame else {
+            Logger.warning("🎲 JITTER SETUP FAILED - stoneJitter exists: \(stoneJitter != nil), cacheManager: \(gameCacheManager != nil), currentGame: \(gameCacheManager?.currentGame != nil)")
+            return
         }
+
+        let jitterMultiplier = cacheManager.defaultJitterMultiplier
+        // Use direct jitter multiplier from slider for more visible effect
+        let adjustedJitterMultiplier = jitterMultiplier
+        let newJitter = StoneJitter(size: 19, eccentricity: adjustedJitterMultiplier)
+        stoneJitter = newJitter
+
+        Logger.warning("🎲 JITTER SETUP SUCCESS - slider: \(jitterMultiplier), adjusted: \(adjustedJitterMultiplier), StoneJitter created: \(stoneJitter != nil)")
+        Logger.warning("🎲 JITTER DEBUG - newJitter.eccentricity: \(newJitter.eccentricity)")
+    }
+
+    private func recreateJitter() {
+        guard let cacheManager = gameCacheManager,
+              let currentGame = cacheManager.currentGame else { return }
+
+        let jitterMultiplier = cacheManager.defaultJitterMultiplier
+        // Use direct jitter multiplier from slider for more visible effect
+        let adjustedJitterMultiplier = jitterMultiplier
+
+        // Update existing jitter instance or create new one
+        if let existingJitter = stoneJitter {
+            existingJitter.eccentricity = adjustedJitterMultiplier
+            existingJitter.clearFinalOffsetsOnly() // Force recalculation of collision effects only
+            Logger.warning("🎲 JITTER UPDATED - eccentricity set to: \(adjustedJitterMultiplier), final offsets cleared")
+        } else {
+            stoneJitter = StoneJitter(size: 19, eccentricity: adjustedJitterMultiplier)
+            Logger.warning("🎲 JITTER CREATED - eccentricity: \(adjustedJitterMultiplier)")
+        }
+    }
+
+
+    private func getJitterOffset(x: Int, y: Int, radius: CGFloat, currentGrid: [[Stone?]], currentMove: Int) -> CGPoint {
+        // Get current jitter multiplier
+        guard let cacheManager = gameCacheManager,
+              let currentGame = cacheManager.currentGame else {
+            return .zero
+        }
+
+        // Use state-managed jitter instance, but recreate if multiplier changed
+        if stoneJitter == nil {
+            setupJitterIfNeeded()
+        }
+
+        guard let jitter = stoneJitter else {
+            return .zero
+        }
+
+        // Only calculate jitter for positions that have stones
+        guard currentGrid[y][x] != nil else {
+            return .zero
+        }
+
+        // Convert Stone grid to Bool occupancy grid
+        let occupied = currentGrid.map { row in
+            row.map { $0 != nil }
+        }
+
+        // Prepare jitter for current move
+        jitter.prepare(
+            forMove: currentMove,
+            boardSize: 19,
+            occupied: occupied
+        )
+
+        // Debug logging for first call
+        if x < 3 && y < 3 {
+            Logger.warning("🎲 CALLING jitter.offset - x:\(x), y:\(y), moveIndex:\(currentMove), radius:\(radius), eccentricity:\(jitter.eccentricity)")
+        }
+
+        // Get jitter offset for this position (returns offset in radius units)
+        let offsetInRadiusUnits = jitter.offset(
+            forX: x,
+            y: y,
+            moveIndex: currentMove,
+            radius: radius,
+            occupied: occupied
+        )
+
+        // Convert from radius units to pixel units (jitter multiplier already applied in StoneJitter)
+        let pixelOffset = CGPoint(
+            x: offsetInRadiusUnits.x * radius,
+            y: offsetInRadiusUnits.y * radius
+        )
+
+        if (x < 3 && y < 3) || (x == 0 && y == 0) {
+            Logger.warning("🎲 JITTER OFFSET for (\(x),\(y)): move=\(currentMove), radius=\(radius), radiusUnits=\(offsetInRadiusUnits), pixels=\(pixelOffset)")
+        }
+
+        return pixelOffset
     }
 }
 
 // MARK: - Bowl Content
 struct BowlContent: View {
-    let physicsIntegration: PhysicsIntegration
+    @ObservedObject var physicsIntegration: PhysicsIntegration
     let ulCenter: CGPoint
     let lrCenter: CGPoint
     let bowlRadius: CGFloat
+    let boardFrame: CGRect
 
     var body: some View {
+        // Calculate stone size based on board cell size for consistency
+        let gridSize = 19
+        let cellWidth = boardFrame.width * 0.9 / CGFloat(gridSize - 1)
+        let boardStoneSize = cellWidth * 0.95
+        let bowlStoneSize = boardStoneSize * 0.8  // Bowl stones slightly smaller than board stones
+
+        let _ = {
+            Logger.warning("🎨 BowlContent: BODY COMPUTED - blackStones: \(physicsIntegration.blackStones.count), whiteStones: \(physicsIntegration.whiteStones.count), bowlRadius: \(bowlRadius)")
+            if DebugConfig.enableUIDebugging {
+                Logger.debug("BowlContent: Stone arrays - BLACK IDs: \(physicsIntegration.blackStones.map { $0.id.uuidString.prefix(8) })")
+                Logger.debug("BowlContent: Stone arrays - WHITE IDs: \(physicsIntegration.whiteStones.map { $0.id.uuidString.prefix(8) })")
+            }
+        }()
+
         ZStack {
             // Upper-left bowl (black stones captured by white)
             Image("go_lid_1")
@@ -208,15 +412,23 @@ struct BowlContent: View {
                 .position(ulCenter)
 
             // Captured black stones
-            ForEach(physicsIntegration.blackStones.indices, id: \.self) { index in
+            ForEach(physicsIntegration.blackStones, id: \.id) { stone in
+                let finalX = ulCenter.x + stone.pos.x
+                let finalY = ulCenter.y + stone.pos.y
+                let _ = {
+                    if DebugConfig.enableUIDebugging {
+                        Logger.debug("🎨🔵 BLACK STONE FOREACH - Stone ID: \(stone.id.uuidString.prefix(8)), pos: \(stone.pos)")
+                    }
+                }()
+
                 Image("stone_black")
                     .resizable()
-                    .frame(width: bowlRadius * 0.3, height: bowlRadius * 0.3)
+                    .frame(width: bowlStoneSize, height: bowlStoneSize)
                     .shadow(color: .black.opacity(0.6), radius: 4, x: 2, y: 2)
-                    .position(
-                        x: ulCenter.x + physicsIntegration.blackStones[index].pos.x,
-                        y: ulCenter.y + physicsIntegration.blackStones[index].pos.y
-                    )
+                    .position(x: finalX, y: finalY)
+                    .onAppear {
+                        Logger.warning("🎨 BLACK STONE RENDERED - ID: \(stone.id.uuidString.prefix(8)), finalPos: (\(finalX), \(finalY))")
+                    }
             }
 
             // Lower-right bowl (white stones captured by black)
@@ -227,15 +439,23 @@ struct BowlContent: View {
                 .position(lrCenter)
 
             // Captured white stones
-            ForEach(physicsIntegration.whiteStones.indices, id: \.self) { index in
+            ForEach(physicsIntegration.whiteStones, id: \.id) { stone in
+                let finalX = lrCenter.x + stone.pos.x
+                let finalY = lrCenter.y + stone.pos.y
+                let _ = {
+                    if DebugConfig.enableUIDebugging {
+                        Logger.debug("🎨⚪ WHITE STONE FOREACH - Stone ID: \(stone.id.uuidString.prefix(8)), pos: \(stone.pos)")
+                    }
+                }()
+
                 Image("clam_01")
                     .resizable()
-                    .frame(width: bowlRadius * 0.3, height: bowlRadius * 0.3)
+                    .frame(width: bowlStoneSize, height: bowlStoneSize)
                     .shadow(color: .black.opacity(0.4), radius: 3, x: 1, y: 1)
-                    .position(
-                        x: lrCenter.x + physicsIntegration.whiteStones[index].pos.x,
-                        y: lrCenter.y + physicsIntegration.whiteStones[index].pos.y
-                    )
+                    .position(x: finalX, y: finalY)
+                    .onAppear {
+                        Logger.warning("🎨 WHITE STONE RENDERED - ID: \(stone.id.uuidString.prefix(8)), finalPos: (\(finalX), \(finalY))")
+                    }
             }
         }
     }
