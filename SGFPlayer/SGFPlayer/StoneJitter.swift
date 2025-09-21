@@ -266,19 +266,30 @@ final class StoneJitter {
                 let overlap = minDistance - distance
                 let pushAmount = overlap * pushStrength
 
-                // Push the neighboring stone away along the contact line
-                var newNeighborOffset = neighborOffset
-                newNeighborOffset.x += pushDir.x * pushAmount
-                newNeighborOffset.y += pushDir.y * pushAmount
+                // Push both stones apart equally (symmetric collision response)
+                let halfPushAmount = pushAmount * 0.5
 
-                // Clamp the neighbor's offset
+                // Push neighbor away from center
+                var newNeighborOffset = neighborOffset
+                newNeighborOffset.x += pushDir.x * halfPushAmount
+                newNeighborOffset.y += pushDir.y * halfPushAmount
+
+                // Push center away from neighbor (opposite direction)
+                var newCenterOffset = finalOffsets[cy][cx] ?? .zero
+                newCenterOffset.x -= pushDir.x * halfPushAmount
+                newCenterOffset.y -= pushDir.y * halfPushAmount
+
+                // Clamp both offsets
                 newNeighborOffset.x = clampValue(newNeighborOffset.x, maxAbs: clamp)
                 newNeighborOffset.y = clampValue(newNeighborOffset.y, maxAbs: clamp)
+                newCenterOffset.x = clampValue(newCenterOffset.x, maxAbs: clamp)
+                newCenterOffset.y = clampValue(newCenterOffset.y, maxAbs: clamp)
 
-                // Safely update the neighbor's offset
+                // Update both stone positions
                 if ny < finalOffsets.count && nx < finalOffsets[ny].count {
                     finalOffsets[ny][nx] = newNeighborOffset
                 }
+                finalOffsets[cy][cx] = newCenterOffset
 
                 // Chain reaction: check if this pushed stone now collides with others
                 resolveCollisions(cx: nx, cy: ny, r: r, occupied: occupied, depth: depth + 1)

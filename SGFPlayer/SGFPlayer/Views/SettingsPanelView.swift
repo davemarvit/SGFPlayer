@@ -210,6 +210,13 @@ struct SettingsPanelView: View {
                         JitterControlsView(gameCacheManager: gameCacheManager)
                     }
 
+                    // COMMENTED OUT: Board Spacing Controls (hard coded values used instead)
+                    /*
+                    if let gameCacheManager = gameCacheManager {
+                        BoardSpacingControlsView(gameCacheManager: gameCacheManager)
+                    }
+                    */
+
                     Divider()
                         .padding(.horizontal, 16)
 
@@ -682,9 +689,10 @@ struct JitterControlsView: View {
                         set: { displayValue in
                             let actualValue = displayValue / 5.0  // Convert 0-10 back to 0-2
                             localMultiplier = actualValue
+                            print("🎚️ SLIDER MOVED: display=\(displayValue), actual=\(actualValue), old=\(gameCacheManager.defaultJitterMultiplier)")
                             // Update immediately during dragging for real-time feedback
                             gameCacheManager.defaultJitterMultiplier = CGFloat(actualValue)
-                            print("🎚️ Real-time Jitter Slider: display=\(displayValue), actual=\(actualValue)")
+                            print("🎚️ SLIDER SET: new value=\(gameCacheManager.defaultJitterMultiplier)")
                         }
                     ),
                     in: 0.0...10.0,
@@ -707,6 +715,94 @@ struct JitterControlsView: View {
         }
     }
 }
+
+// COMMENTED OUT: BoardSpacingControlsView (using hard coded spacing values instead)
+/*
+struct BoardSpacingControlsView: View {
+    @ObservedObject var gameCacheManager: GameCacheManager
+    @State private var localTopSpace: Double = 2.0
+    @State private var localBottomSpace: Double = 4.0
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Board Spacing")
+                .font(.headline)
+                .padding(.horizontal, 16)
+
+            VStack(alignment: .leading, spacing: 12) {
+                // Top Space Slider
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Space Above Board")
+                        Spacer()
+                        Text(String(format: "%.1f cells", localTopSpace))
+                            .monospacedDigit()
+                    }
+                    .font(.caption)
+                    .foregroundColor(.primary.opacity(0.8))
+                    .padding(.horizontal, 16)
+
+                    Slider(
+                        value: Binding(
+                            get: { localTopSpace },
+                            set: { newValue in
+                                localTopSpace = newValue
+                                gameCacheManager.topSpaceCellUnits = CGFloat(newValue)
+                            }
+                        ),
+                        in: 0.0...8.0,
+                        step: 0.5
+                    )
+                    .controlSize(.regular)
+                    .padding(.horizontal, 16)
+                }
+
+                // Bottom Space Slider
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Space Below Board")
+                        Spacer()
+                        Text(String(format: "%.1f cells", localBottomSpace))
+                            .monospacedDigit()
+                    }
+                    .font(.caption)
+                    .foregroundColor(.primary.opacity(0.8))
+                    .padding(.horizontal, 16)
+
+                    Slider(
+                        value: Binding(
+                            get: { localBottomSpace },
+                            set: { newValue in
+                                localBottomSpace = newValue
+                                gameCacheManager.bottomSpaceCellUnits = CGFloat(newValue)
+                            }
+                        ),
+                        in: 1.0...10.0,
+                        step: 0.5
+                    )
+                    .controlSize(.regular)
+                    .padding(.horizontal, 16)
+                }
+
+                Text("Minimum spacing around the board, measured in cell heights")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 16)
+            }
+        }
+        .onAppear {
+            localTopSpace = Double(gameCacheManager.topSpaceCellUnits)
+            localBottomSpace = Double(gameCacheManager.bottomSpaceCellUnits)
+        }
+        .onChange(of: gameCacheManager.topSpaceCellUnits) { _, newValue in
+            localTopSpace = Double(newValue)
+        }
+        .onChange(of: gameCacheManager.bottomSpaceCellUnits) { _, newValue in
+            localBottomSpace = Double(newValue)
+        }
+    }
+}
+*/
 
 // Preview
 struct SettingsPanelView_Previews: PreviewProvider {

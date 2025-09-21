@@ -278,6 +278,25 @@ final class GameCacheManager: ObservableObject {
         }
     }
 
+    // Board spacing settings (in cell height units) - Hard coded values
+    @Published var topSpaceCellUnits: CGFloat = 2.5 // Hard coded: 2.5 cells above
+    @Published var bottomSpaceCellUnits: CGFloat = 4.0 // Hard coded: 4.0 cells below
+
+    // COMMENTED OUT: User-adjustable spacing sliders (can be restored later)
+    /*
+    @Published var topSpaceCellUnits: CGFloat = UserDefaults.standard.object(forKey: "topSpaceCellUnits") as? CGFloat ?? 2.0 {
+        didSet {
+            UserDefaults.standard.set(topSpaceCellUnits, forKey: "topSpaceCellUnits")
+        }
+    }
+
+    @Published var bottomSpaceCellUnits: CGFloat = UserDefaults.standard.object(forKey: "bottomSpaceCellUnits") as? CGFloat ?? 4.0 {
+        didSet {
+            UserDefaults.standard.set(bottomSpaceCellUnits, forKey: "bottomSpaceCellUnits")
+        }
+    }
+    */
+
     private var gameCache: [String: EnhancedSGFGame] = [:]
     private let preCalculationQueue = DispatchQueue(label: "game.precalculation", qos: .background)
 

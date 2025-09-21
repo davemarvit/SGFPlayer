@@ -7,7 +7,7 @@ struct SimpleBoardView: View {
     @ObservedObject var player: SGFPlayer
     let physicsIntegration: PhysicsIntegration  // Only for bowl rendering, NOT board stones
     let boardStoneDiameter: CGFloat
-    let gameCacheManager: GameCacheManager?
+    @ObservedObject var gameCacheManager: GameCacheManager
 
     // Explicit positioning from parent (ContentView)
     let boardFrame: CGRect
@@ -48,7 +48,7 @@ struct SimpleBoardView: View {
 struct BoardContent: View {
     @ObservedObject var player: SGFPlayer
     let boardStoneDiameter: CGFloat
-    let gameCacheManager: GameCacheManager?
+    @ObservedObject var gameCacheManager: GameCacheManager
     let boardFrame: CGRect
 
     var body: some View {
@@ -189,10 +189,11 @@ struct HoshiPoints: View {
 struct GameStones: View {
     @ObservedObject var player: SGFPlayer
     let boardStoneDiameter: CGFloat
-    let gameCacheManager: GameCacheManager?
+    @ObservedObject var gameCacheManager: GameCacheManager
     let boardFrame: CGRect
 
     @State private var stoneJitter: StoneJitter?
+    @State private var jitterUpdateTrigger: Int = 0
 
     var body: some View {
         ZStack {
@@ -253,7 +254,7 @@ struct GameStones: View {
                         let actualStoneRadius = stoneSize / 2
 
                         // Apply jitter offset using the actual stone radius for this stone
-                        let jitterOffset = getJitterOffset(x: col, y: row, radius: actualStoneRadius, currentGrid: currentGrid, currentMove: player.currentIndex)
+                        let jitterOffset = getJitterOffset(x: col, y: row, radius: actualStoneRadius, currentGrid: currentGrid, currentMove: player.currentIndex, updateTrigger: jitterUpdateTrigger)
                         let stoneX = baseX + jitterOffset.x
                         let stoneY = baseY + jitterOffset.y
 
@@ -269,12 +270,19 @@ struct GameStones: View {
         .onAppear {
             setupJitterIfNeeded()
         }
-        .onChange(of: gameCacheManager?.defaultJitterMultiplier) { oldValue, newValue in
-            if let newValue = newValue, newValue != oldValue {
-                Logger.warning("🎲 DEFAULT JITTER MULTIPLIER CHANGED: \(oldValue ?? 0) -> \(newValue)")
-                DispatchQueue.main.async {
-                    recreateJitter()
+        .onChange(of: gameCacheManager.defaultJitterMultiplier) { oldValue, newValue in
+            if newValue != oldValue {
+                print("🚨 JITTER CHANGED: \(oldValue) -> \(newValue)")
+                Logger.warning("🎲 DEFAULT JITTER MULTIPLIER CHANGED: \(oldValue) -> \(newValue)")
+
+                // Update jitter eccentricity and clear ALL cache to force fresh calculations
+                if let existingJitter = stoneJitter {
+                    existingJitter.eccentricity = newValue
+                    existingJitter.clearCache() // Clear ALL jitter data to force complete recalculation
                 }
+
+                print("🚨 JITTER UPDATED AND CACHE CLEARED")
+                Logger.warning("🎲 JITTER UPDATED - eccentricity: \(newValue), full cache cleared")
             }
         }
     }
@@ -282,14 +290,12 @@ struct GameStones: View {
     // MARK: - Jitter Helper Functions
 
     private func setupJitterIfNeeded() {
-        guard stoneJitter == nil,
-              let cacheManager = gameCacheManager,
-              let currentGame = cacheManager.currentGame else {
-            Logger.warning("🎲 JITTER SETUP FAILED - stoneJitter exists: \(stoneJitter != nil), cacheManager: \(gameCacheManager != nil), currentGame: \(gameCacheManager?.currentGame != nil)")
+        guard stoneJitter == nil else {
+            Logger.warning("🎲 JITTER SETUP FAILED - stoneJitter already exists")
             return
         }
 
-        let jitterMultiplier = cacheManager.defaultJitterMultiplier
+        let jitterMultiplier = gameCacheManager.defaultJitterMultiplier
         // Use direct jitter multiplier from slider for more visible effect
         let adjustedJitterMultiplier = jitterMultiplier
         let newJitter = StoneJitter(size: 19, eccentricity: adjustedJitterMultiplier)
@@ -300,10 +306,8 @@ struct GameStones: View {
     }
 
     private func recreateJitter() {
-        guard let cacheManager = gameCacheManager,
-              let currentGame = cacheManager.currentGame else { return }
 
-        let jitterMultiplier = cacheManager.defaultJitterMultiplier
+        let jitterMultiplier = gameCacheManager.defaultJitterMultiplier
         // Use direct jitter multiplier from slider for more visible effect
         let adjustedJitterMultiplier = jitterMultiplier
 
@@ -319,12 +323,7 @@ struct GameStones: View {
     }
 
 
-    private func getJitterOffset(x: Int, y: Int, radius: CGFloat, currentGrid: [[Stone?]], currentMove: Int) -> CGPoint {
-        // Get current jitter multiplier
-        guard let cacheManager = gameCacheManager,
-              let currentGame = cacheManager.currentGame else {
-            return .zero
-        }
+    private func getJitterOffset(x: Int, y: Int, radius: CGFloat, currentGrid: [[Stone?]], currentMove: Int, updateTrigger: Int) -> CGPoint {
 
         // Use state-managed jitter instance, but recreate if multiplier changed
         if stoneJitter == nil {

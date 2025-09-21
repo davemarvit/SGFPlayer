@@ -707,16 +707,36 @@ extension ContentView {
         // First calculate maximum board size that fits the aspect ratio
         let maxWidthBasedSize = screenWidth * 0.9
         let maxHeightBasedSize = screenHeight * 0.75 // Leave more room for spacing
-        let availableSpace = min(maxWidthBasedSize, maxHeightBasedSize)
+        // Calculate spacing requirements using a reference cell size first
+        let referenceCellHeight = min(screenWidth, screenHeight) * 0.8 / 19 / boardAspectRatio
+        let topSpaceRequired = app.gameCacheManager.topSpaceCellUnits * referenceCellHeight
+        let bottomSpaceRequired = app.gameCacheManager.bottomSpaceCellUnits * referenceCellHeight
 
-        let boardWidth = availableSpace
-        let boardHeight = availableSpace / boardAspectRatio
+        // Calculate available space for the board after reserving spacing
+        let availableVerticalSpaceForBoard = screenHeight - topSpaceRequired - bottomSpaceRequired
+        let availableHorizontalSpaceForBoard = screenWidth
 
-        // Calculate board positioning with proper top/bottom space ratio
-        // Bottom space should be larger than top, but not too large
-        let availableVerticalSpace = screenHeight - boardHeight
-        let topSpace = availableVerticalSpace / 4  // 1/4 of available space (small top)
-        let bottomSpace = availableVerticalSpace * 3 / 4  // 3/4 of available space (larger bottom for metadata)
+        // Determine board size based on available space (considering both constraints)
+        let maxBoardWidthFromHeight = availableVerticalSpaceForBoard * boardAspectRatio
+        let maxBoardHeightFromWidth = availableHorizontalSpaceForBoard / boardAspectRatio
+
+        let boardWidth: CGFloat
+        let boardHeight: CGFloat
+
+        if maxBoardWidthFromHeight <= availableHorizontalSpaceForBoard {
+            // Constrained by vertical space (after spacing)
+            boardHeight = availableVerticalSpaceForBoard
+            boardWidth = boardHeight * boardAspectRatio
+        } else {
+            // Constrained by horizontal space
+            boardWidth = availableHorizontalSpaceForBoard
+            boardHeight = boardWidth / boardAspectRatio
+        }
+
+        // Calculate final spacing using actual board cell height
+        let actualCellHeight = boardHeight / 19
+        let topSpace = app.gameCacheManager.topSpaceCellUnits * actualCellHeight
+        let bottomSpace = app.gameCacheManager.bottomSpaceCellUnits * actualCellHeight
 
         let boardX = (screenWidth - boardWidth) / 2
         let boardY = topSpace
@@ -738,7 +758,8 @@ extension ContentView {
         )
 
         // Position metadata bar center midway between board bottom and window bottom
-        let metadataY = boardFrame.maxY + bottomSpace / 2
+        let actualBottomSpace = screenHeight - boardFrame.maxY
+        let metadataY = boardFrame.maxY + actualBottomSpace / 2
 
         return ResponsiveLayout(
             boardFrame: boardFrame,
