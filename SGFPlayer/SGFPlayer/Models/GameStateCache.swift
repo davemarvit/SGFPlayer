@@ -176,7 +176,15 @@ final class EnhancedSGFGame: ObservableObject {
     private func calculateBowlPhysics(blackCaptured: Int, whiteCaptured: Int) -> BowlPhysicsResult {
         // Use the existing physics system to calculate bowl stone positions
         let bowlRadius: CGFloat = 50.0 // This will be passed in from UI in practice
-        let stoneRadius: CGFloat = bowlRadius * 0.18
+
+        // Calculate stone radius using same method as board stones for consistent scaling
+        // bowlRadius = max(boardWidth, boardHeight) / 3 / 2, so max(boardWidth, boardHeight) = bowlRadius * 6
+        let maxBoardDimension = bowlRadius * 6
+        let cellWidth = maxBoardDimension / 19 // assuming 19x19 board
+        let realCellWidth: CGFloat = 22.0 // mm (from SimpleBoardView)
+        let realBlackStoneDiameter: CGFloat = 22.2 // mm (from SimpleBoardView)
+        let boardStoneSize = (realBlackStoneDiameter / realCellWidth) * cellWidth
+        let stoneRadius = boardStoneSize / 2
 
         let physics = GroupDropPhysicsModel()
 

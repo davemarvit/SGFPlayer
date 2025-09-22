@@ -118,6 +118,7 @@ final class SGFPlayer: ObservableObject {
     private func apply(moveAt i: Int) {
         let (color, coord) = _moves[i]
         print("🔍 APPLY: Move \(i): \(color) at \(coord ?? (nil, nil))")
+        print("🔍 TIMING DEBUG: apply() called on player \(Unmanaged.passUnretained(self).toOpaque())")
         guard let (x, y) = coord,
               x >= 0, y >= 0,
               x < board.size, y < board.size else {
@@ -161,8 +162,12 @@ final class SGFPlayer: ObservableObject {
         board = .init(size: board.size, grid: g)
         lastMove = .init(color: color, x: x, y: y)
 
+        // REMOVED: Force objectWillChange.send() - this was causing GeometryReader infinite loop
+        // SwiftUI automatically detects board.grid changes via @Published properties
+
         let totalStones = g.flatMap { $0 }.compactMap { $0 }.count
         print("🔍 APPLY: Move \(i) complete. Total stones on board: \(totalStones)")
+        print("🔍 BOARD UPDATE: Board grid updated, SimpleBoardView will refresh automatically")
     }
 }
 

@@ -78,6 +78,17 @@ class StonePositionViewModel: ObservableObject {
         stoneRadius: CGFloat,
         gameSeed: UInt64
     ) {
+        // Special handling for move 0 or when both counts are 0 - force clear
+        if currentMove == 0 || (blackStoneCount == 0 && whiteStoneCount == 0) {
+            print("🔄 ViewModel: Force clearing stones for move \(currentMove), counts: B=\(blackStoneCount), W=\(whiteStoneCount)")
+            blackStonePositions.removeAll()
+            whiteStonePositions.removeAll()
+            currentBlackStoneCount = 0
+            currentWhiteStoneCount = 0
+            physicsInfo = "Cleared for move \(currentMove)"
+            return
+        }
+
         // Check cache first
         if let cachedLayout = cacheManager.getCachedLayout(forMove: currentMove) {
             print("🔄 ViewModel: Cache hit for move \(currentMove)")

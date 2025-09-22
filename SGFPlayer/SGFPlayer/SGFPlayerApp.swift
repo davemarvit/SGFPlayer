@@ -5,6 +5,10 @@ import SwiftUI
 struct SGFPlayerApp: App {
     @StateObject private var app = AppModel()
 
+    init() {
+        DebugConfig.configureLogging()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

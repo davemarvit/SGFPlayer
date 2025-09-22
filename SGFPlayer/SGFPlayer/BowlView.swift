@@ -115,9 +115,7 @@ struct BowlView: View {
         // If relaxIterations is very low (like 5-10), assume we're using external physics (Physics 4/5)
         // and just use the provided positions directly
         if relaxIterations <= 10 {
-            print("🎯 BowlView: Using external physics positions (relaxIterations=\(relaxIterations), stoneCount=\(stones.count))")
             let result = stones.reduce(into: [UUID: CGPoint]()) { $0[$1.id] = $1.offset }
-            print("🎯 BowlView: External stone positions: \(result.values.map { "(\($0.x), \($0.y))" }.joined(separator: ", "))")
             return result
         }
         

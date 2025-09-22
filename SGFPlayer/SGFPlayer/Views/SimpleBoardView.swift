@@ -392,7 +392,7 @@ struct BowlContent: View {
         let gridSize = 19
         let cellWidth = boardFrame.width * 0.9 / CGFloat(gridSize - 1)
         let boardStoneSize = cellWidth * 0.95
-        let bowlStoneSize = boardStoneSize * 0.8  // Bowl stones slightly smaller than board stones
+        let bowlStoneSize = boardStoneSize  // Bowl stones same size as board stones
 
         let _ = {
             Logger.warning("🎨 BowlContent: BODY COMPUTED - blackStones: \(physicsIntegration.blackStones.count), whiteStones: \(physicsIntegration.whiteStones.count), bowlRadius: \(bowlRadius)")
@@ -412,6 +412,7 @@ struct BowlContent: View {
 
             // Captured black stones
             ForEach(physicsIntegration.blackStones, id: \.id) { stone in
+                // Physics positions are already in correct coordinate system - no scaling needed
                 let finalX = ulCenter.x + stone.pos.x
                 let finalY = ulCenter.y + stone.pos.y
                 let _ = {
@@ -439,6 +440,7 @@ struct BowlContent: View {
 
             // Captured white stones
             ForEach(physicsIntegration.whiteStones, id: \.id) { stone in
+                // Physics positions are already in correct coordinate system - no scaling needed
                 let finalX = lrCenter.x + stone.pos.x
                 let finalY = lrCenter.y + stone.pos.y
                 let _ = {

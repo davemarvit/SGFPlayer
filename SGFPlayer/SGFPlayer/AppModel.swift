@@ -30,9 +30,17 @@ final class AppModel: ObservableObject {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.title = "Choose a folder containing .sgf files"
-        if panel.runModal() == .OK, let url = panel.url {
+
+        print("🔍 FOLDER PICKER: About to show panel")
+        let result = panel.runModal()
+        print("🔍 FOLDER PICKER: Panel result: \(result == .OK ? "OK" : "Cancel"), URL: \(panel.url?.path ?? "none")")
+
+        if result == .OK, let url = panel.url {
+            print("🔍 FOLDER PICKER: Setting folderURL to \(url.path)")
             folderURL = url
             loadFolder(url)
+        } else {
+            print("🔍 FOLDER PICKER: User cancelled or no URL selected")
         }
     }
 

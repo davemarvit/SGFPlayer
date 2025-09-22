@@ -31,9 +31,12 @@ class ContentViewBridge: ObservableObject {
     
     init() {
         // Monitor stone position changes and convert to UI positions
+        // CRITICAL FIX: Use debounce to prevent stale data from being processed
         stoneViewModel.$blackStonePositions
             .combineLatest(stoneViewModel.$whiteStonePositions)
+            .debounce(for: .milliseconds(10), scheduler: RunLoop.main)
             .sink { [weak self] blackStones, whiteStones in
+                print("🔄 ContentViewBridge: Processing stones - Black: \(blackStones.count), White: \(whiteStones.count)")
                 self?.updateUIPositions()
             }
             .store(in: &cancellables)
@@ -82,13 +85,26 @@ class ContentViewBridge: ObservableObject {
         gameSeed: UInt64,
         bowlCenters: (upperLeft: CGPoint, lowerRight: CGPoint)
     ) {
+        print("🔍 ContentViewBridge: ===== UPDATE START =====")
+        print("🔍 ContentViewBridge: bowlRadius=\(bowlRadius), centers=\(bowlCenters)")
+        print("🔍 ContentViewBridge: Captured counts: black=\(blackCapturedCount), white=\(whiteCapturedCount)")
+
         // Store bowl info for position conversion
         lastBowlCenters = bowlCenters
         lastBowlRadius = bowlRadius
-        
-        // Calculate stone radius (approximately 18% of bowl radius, matching new visual stone size)
-        let stoneRadius = bowlRadius * 0.18
-        
+
+        // Calculate stone radius using same method as board stones for consistent scaling
+        // bowlRadius = max(boardWidth, boardHeight) / 3 / 2, so max(boardWidth, boardHeight) = bowlRadius * 6
+        let maxBoardDimension = bowlRadius * 6
+        let cellWidth = maxBoardDimension / 19 // assuming 19x19 board
+        let realCellWidth: CGFloat = 22.0 // mm (from SimpleBoardView)
+        let realBlackStoneDiameter: CGFloat = 22.2 // mm (from SimpleBoardView)
+        let boardStoneSize = (realBlackStoneDiameter / realCellWidth) * cellWidth
+        let stoneRadius = boardStoneSize / 2
+
+        print("🔍 ContentViewBridge: Calculated stoneRadius=\(stoneRadius) from bowlRadius=\(bowlRadius)")
+        print("🔍 ContentViewBridge: Stone count before physics: Black=\(stoneViewModel.blackStonePositions.count), White=\(stoneViewModel.whiteStonePositions.count)")
+
         // Update physics with new stone counts
         stoneViewModel.updateStonePositions(
             currentMove: currentMove,
@@ -98,6 +114,9 @@ class ContentViewBridge: ObservableObject {
             stoneRadius: stoneRadius,
             gameSeed: gameSeed
         )
+
+        print("🔍 ContentViewBridge: Stone count after physics: Black=\(stoneViewModel.blackStonePositions.count), White=\(stoneViewModel.whiteStonePositions.count)")
+        print("🔍 ContentViewBridge: ===== UPDATE END =====")
     }
     
     /// Convert physics positions to UI positions

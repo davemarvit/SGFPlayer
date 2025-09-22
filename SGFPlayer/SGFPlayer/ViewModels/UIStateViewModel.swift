@@ -27,9 +27,12 @@ class UIStateViewModel: ObservableObject {
     @Published var isMouseMoving: Bool = false
     @Published var lastMouseMoveTime: Date = Date()
 
+    // Mouse tracking timer - only active when needed
+    private var mouseTrackingTimer: Timer?
+
     // MARK: - Initialization
     init() {
-        setupMouseTracking()
+        // Don't start mouse tracking timer immediately - start on first mouse move
     }
 
     // MARK: - Public Interface
@@ -89,10 +92,8 @@ class UIStateViewModel: ObservableObject {
             hideButtonsWithDelay()
         }
 
-        // Reset mouse moving flag after delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            self?.isMouseMoving = false
-        }
+        // Start mouse tracking timer if not already running
+        startMouseTrackingIfNeeded()
     }
 
     /// Show UI buttons
@@ -123,7 +124,9 @@ class UIStateViewModel: ObservableObject {
         // Adjust board stone diameter based on window size
         let baseSize: CGFloat = 800
         let scaleFactor = min(newSize.width, newSize.height) / baseSize
-        boardStoneDiameter = max(15.0, min(30.0, 20.0 * scaleFactor))
+        let newDiameter = 20.0 * scaleFactor
+
+        boardStoneDiameter = newDiameter
 
         // Notify observers of size change
         NotificationCenter.default.post(
@@ -174,18 +177,31 @@ class UIStateViewModel: ObservableObject {
 
     // MARK: - Private Implementation
 
-    private func setupMouseTracking() {
-        // Set up timer to track mouse inactivity
-        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+    private func startMouseTrackingIfNeeded() {
+        // Only start timer if not already running
+        guard mouseTrackingTimer == nil else { return }
+
+        mouseTrackingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             self?.checkMouseInactivity()
         }
+    }
+
+    private func stopMouseTracking() {
+        mouseTrackingTimer?.invalidate()
+        mouseTrackingTimer = nil
     }
 
     private func checkMouseInactivity() {
         let timeSinceLastMove = Date().timeIntervalSince(lastMouseMoveTime)
 
         if timeSinceLastMove > 0.5 {
-            isMouseMoving = false
+            if isMouseMoving {
+                isMouseMoving = false
+            }
+            // Stop timer after period of inactivity to save resources
+            if timeSinceLastMove > 2.0 {
+                stopMouseTracking()
+            }
         }
     }
 
