@@ -258,7 +258,7 @@ struct GameStones: View {
                         let stoneX = baseX + jitterOffset.x
                         let stoneY = baseY + jitterOffset.y
 
-                        Image(stone == .white ? "clam_01" : "stone_black")
+                        Image(stone == .white ? "clam_0\((row * 19 + col) % 5 + 1)" : "stone_black")
                             .resizable()
                             .frame(width: stoneSize, height: stoneSize)
                             .shadow(color: .black.opacity(0.6), radius: 4, x: 2, y: 2)
@@ -449,7 +449,7 @@ struct BowlContent: View {
                     }
                 }()
 
-                Image("clam_01")
+                Image("clam_0\((stone.id.hashValue.magnitude % 5) + 1)")
                     .resizable()
                     .frame(width: bowlStoneSize, height: bowlStoneSize)
                     .shadow(color: .black.opacity(0.4), radius: 3, x: 1, y: 1)

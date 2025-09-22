@@ -194,7 +194,9 @@ struct GameBoardView: View {
                     // White stone visualization with clam images (traditional reference size)
                     ForEach(physicsIntegration.whiteStones, id: \.id) { stone in
                         let whiteBowlStoneSize = baseBowlStoneSize // Reference size for white stones
-                        Image("clam_01")
+                        // Use deterministic variation based on stone ID
+                        let clamIndex = (stone.id.hashValue.magnitude % 5) + 1
+                        Image("clam_0\(clamIndex)")
                             .resizable()
                             .aspectRatio(1.0, contentMode: .fit)
                             .frame(width: whiteBowlStoneSize, height: whiteBowlStoneSize)
