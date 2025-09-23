@@ -413,8 +413,8 @@ struct BowlContent: View {
             // Captured black stones
             ForEach(physicsIntegration.blackStones, id: \.id) { stone in
                 // Physics positions are already in correct coordinate system - no scaling needed
-                let finalX = ulCenter.x + stone.pos.x
-                let finalY = ulCenter.y + stone.pos.y
+                let finalX = round(ulCenter.x + stone.pos.x)
+                let finalY = round(ulCenter.y + stone.pos.y)
                 let _ = {
                     if DebugConfig.enableUIDebugging {
                         Logger.debug("🎨🔵 BLACK STONE FOREACH - Stone ID: \(stone.id.uuidString.prefix(8)), pos: \(stone.pos)")
@@ -439,17 +439,18 @@ struct BowlContent: View {
                 .position(lrCenter)
 
             // Captured white stones
-            ForEach(physicsIntegration.whiteStones, id: \.id) { stone in
+            ForEach(Array(physicsIntegration.whiteStones.enumerated()), id: \.element.id) { index, stone in
                 // Physics positions are already in correct coordinate system - no scaling needed
-                let finalX = lrCenter.x + stone.pos.x
-                let finalY = lrCenter.y + stone.pos.y
+                let finalX = round(lrCenter.x + stone.pos.x)
+                let finalY = round(lrCenter.y + stone.pos.y)
                 let _ = {
                     if DebugConfig.enableUIDebugging {
                         Logger.debug("🎨⚪ WHITE STONE FOREACH - Stone ID: \(stone.id.uuidString.prefix(8)), pos: \(stone.pos)")
                     }
                 }()
 
-                Image("clam_0\((stone.id.hashValue.magnitude % 5) + 1)")
+                // Use stable index-based clam selection instead of volatile hashValue
+                Image("clam_0\((index % 5) + 1)")
                     .resizable()
                     .frame(width: bowlStoneSize, height: bowlStoneSize)
                     .shadow(color: .black.opacity(0.4), radius: 3, x: 1, y: 1)

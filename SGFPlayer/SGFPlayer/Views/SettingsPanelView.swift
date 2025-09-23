@@ -87,32 +87,6 @@ struct SettingsPanelView: View {
                     Divider()
                         .padding(.horizontal, 16)
                     
-                    // Physics Model Selection
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("Physics Model")
-                            Spacer()
-                            Picker("Active model", selection: Binding(
-                                get: { activePhysicsModelRaw },
-                                set: { activePhysicsModelRaw = $0 }
-                            )) {
-                                // Use new physics system models
-                                ForEach(Array(physicsIntegration.availableModels.enumerated()), id: \.offset) { index, model in
-                                    Text("Model \(index + 1): \(model.name)").tag(index + 1)
-                                }
-                            }
-                            .pickerStyle(MenuPickerStyle())
-                        }
-                        
-                        Text("Current: Physics Model \(physicsIntegration.activePhysicsModel + 1)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.horizontal, 16)
-                    
-                    Divider()
-                        .padding(.horizontal, 16)
-                    
                     // Auto-play Controls  
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Auto-play Controls")
@@ -139,7 +113,7 @@ struct SettingsPanelView: View {
                                             .monospacedDigit()
                                     }
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
+                                    .foregroundColor(.white)
 
                                     // Log scale slider: 0-10s with 1s at midpoint (0.5)
                                     Slider(
@@ -182,7 +156,7 @@ struct SettingsPanelView: View {
                                     .monospacedDigit()
                             }
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(.white)
                             .padding(.horizontal, 16)
                             
                             Slider(
@@ -294,16 +268,30 @@ struct SettingsPanelView: View {
                     // Advanced Settings
                     DisclosureGroup("Advanced Settings", isExpanded: $advancedExpanded) {
                         VStack(alignment: .leading, spacing: 12) {
-                            
-                            // Physics Controls - Simplified for compiler
+
+                            // Physics Model Selection (moved from main section)
                             VStack(alignment: .leading, spacing: 8) {
-                                Text("Physics Model Controls (Legacy - being replaced)")
+                                HStack {
+                                    Text("Physics Model")
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                    Picker("Active model", selection: Binding(
+                                        get: { activePhysicsModelRaw },
+                                        set: { activePhysicsModelRaw = $0 }
+                                    )) {
+                                        // Use new physics system models
+                                        ForEach(Array(physicsIntegration.availableModels.enumerated()), id: \.offset) { index, model in
+                                            Text("Model \(index + 1): \(model.name)").tag(index + 1)
+                                        }
+                                    }
+                                    .pickerStyle(MenuPickerStyle())
+                                }
+
+                                Text("Current: Physics Model \(physicsIntegration.activePhysicsModel + 1)")
                                     .font(.caption)
-                                    .foregroundColor(.secondary)
-                                Text("Current Model: \(physicsIntegration.activePhysicsModel + 1)")
-                                    .font(.body.bold())
+                                    .foregroundColor(.white)
                             }
-                            .padding(.leading, 16)
+                            .padding(.horizontal, 16)
                             
                             // Debug Layout Toggle
                             Toggle("Debug Layout", isOn: $debugLayout)
@@ -357,7 +345,7 @@ struct SettingsPanelView: View {
                                         }
                                     }
                                 }
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.white)
                             }
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
@@ -451,57 +439,18 @@ struct FolderSelectionSection: View {
 
 struct GameSelectionSection: View {
     @ObservedObject var app: AppModel
-    @State private var searchText: String = ""
-    @FocusState private var isSearchFocused: Bool
 
     var filteredGames: [SGFGameWrapper] {
-        if searchText.isEmpty {
-            return Array(app.games)
-        } else {
-            return app.games.filter { gameWrapper in
-                let info = gameWrapper.game.info
-                let blackPlayer = info.playerBlack?.lowercased() ?? ""
-                let whitePlayer = info.playerWhite?.lowercased() ?? ""
-                let searchLower = searchText.lowercased()
-                return blackPlayer.contains(searchLower) || whitePlayer.contains(searchLower)
-            }
-        }
+        return Array(app.games)
     }
 
     var body: some View {
         if let selection = app.selection {
             VStack(alignment: .leading, spacing: 8) {
-                // Search field - DEBUG VERSION
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Search Players:")
-                        .foregroundColor(.white)
-                        .font(.caption)
-
-                    TextField("Type here to search...", text: $searchText)
-                        .textFieldStyle(.roundedBorder) // Use system style for testing
-                        .focused($isSearchFocused)
-                        .onTapGesture {
-                            isSearchFocused = true
-                            print("🔍 TextField tapped, setting focus")
-                        }
-                        .onSubmit {
-                            print("🔍 Search submitted: '\(searchText)'")
-                        }
-
-                    // Debug info
-                    Text("Current text: '\(searchText)' | Focused: \(isSearchFocused)")
-                        .font(.caption2)
-                        .foregroundColor(.yellow)
-                }
-                .onAppear {
-                    print("🔍 TextField appeared")
-                }
-                .onChange(of: searchText) { _, newValue in
-                    print("🔍 Search text changed: '\(newValue)'")
-                }
-                .onChange(of: isSearchFocused) { _, focused in
-                    print("🔍 Search focus changed: \(focused)")
-                }
+                // Search functionality temporarily disabled due to overlay text input issues
+                Text("Game List:")
+                    .foregroundColor(.white)
+                    .font(.caption)
 
                 // Game list with dark styling (scrollable)
                 ScrollView {
@@ -680,7 +629,7 @@ struct JitterControlsView: View {
                         .monospacedDigit()
                 }
                 .font(.caption)
-                .foregroundColor(.primary.opacity(0.8))
+                .foregroundColor(.white)
                 .padding(.horizontal, 16)
 
                 Slider(
@@ -703,7 +652,7 @@ struct JitterControlsView: View {
 
                 Text("Adjusts how naturally stones are placed off intersections")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.white)
                     .padding(.horizontal, 16)
             }
         }
@@ -739,7 +688,7 @@ struct BoardSpacingControlsView: View {
                             .monospacedDigit()
                     }
                     .font(.caption)
-                    .foregroundColor(.primary.opacity(0.8))
+                    .foregroundColor(.white)
                     .padding(.horizontal, 16)
 
                     Slider(
@@ -766,7 +715,7 @@ struct BoardSpacingControlsView: View {
                             .monospacedDigit()
                     }
                     .font(.caption)
-                    .foregroundColor(.primary.opacity(0.8))
+                    .foregroundColor(.white)
                     .padding(.horizontal, 16)
 
                     Slider(
@@ -786,7 +735,7 @@ struct BoardSpacingControlsView: View {
 
                 Text("Minimum spacing around the board, measured in cell heights")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.white)
                     .padding(.horizontal, 16)
             }
         }
@@ -803,6 +752,56 @@ struct BoardSpacingControlsView: View {
     }
 }
 */
+
+// MARK: - Native Search Field
+struct NativeSearchField: NSViewRepresentable {
+    @Binding var text: String
+
+    func makeNSView(context: Context) -> NSTextField {
+        let textField = NSTextField()
+        textField.placeholderString = "Type here to search..."
+        textField.isBordered = true
+        textField.bezelStyle = .roundedBezel
+        textField.delegate = context.coordinator
+        textField.target = context.coordinator
+        textField.action = #selector(Coordinator.textFieldDidChange(_:))
+        return textField
+    }
+
+    func updateNSView(_ nsView: NSTextField, context: Context) {
+        if nsView.stringValue != text {
+            nsView.stringValue = text
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, NSTextFieldDelegate {
+        let parent: NativeSearchField
+
+        init(_ parent: NativeSearchField) {
+            self.parent = parent
+        }
+
+        @objc func textFieldDidChange(_ textField: NSTextField) {
+            DispatchQueue.main.async {
+                self.parent.text = textField.stringValue
+                print("🔍 Native field changed: '\(textField.stringValue)'")
+            }
+        }
+
+        func controlTextDidChange(_ obj: Notification) {
+            if let textField = obj.object as? NSTextField {
+                DispatchQueue.main.async {
+                    self.parent.text = textField.stringValue
+                    print("🔍 Native field changed (delegate): '\(textField.stringValue)'")
+                }
+            }
+        }
+    }
+}
 
 // Preview
 struct SettingsPanelView_Previews: PreviewProvider {
