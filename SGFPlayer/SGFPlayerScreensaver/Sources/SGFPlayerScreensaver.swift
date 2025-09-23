@@ -4,7 +4,7 @@
 
 import ScreenSaver
 import Cocoa
-import SwiftUI
+// SwiftUI not needed for screensaver
 
 @objc(SGFPlayerScreensaver)
 class SGFPlayerScreensaver: ScreenSaverView {
@@ -129,7 +129,7 @@ class SGFPlayerScreensaver: ScreenSaverView {
         gameEngine?.load(game: game)
 
         // Reset to beginning
-        gameEngine?.seekToBeginning()
+        gameEngine?.reset()
         updatePhysicsForCurrentMove()
 
         print("🔄 SGFPlayerScreensaver: Loaded game with \(game.moves.count) moves")
@@ -151,7 +151,7 @@ class SGFPlayerScreensaver: ScreenSaverView {
     private func advanceGame() {
         guard let engine = gameEngine, let game = currentGame else { return }
 
-        if engine.currentMoveIndex < game.moves.count {
+        if engine.currentIndex < game.moves.count {
             // Advance to next move
             engine.stepForward()
             updatePhysicsForCurrentMove()
@@ -193,7 +193,7 @@ class SGFPlayerScreensaver: ScreenSaverView {
                 targetStoneCount: max(blackCaptured, whiteCaptured),
                 bowlRadius: bowlRadius,
                 stoneRadius: stoneRadius,
-                seed: UInt64(engine.currentMoveIndex),
+                seed: UInt64(engine.currentIndex),
                 isWhiteBowl: blackCaptured > whiteCaptured
             )
         }
@@ -204,7 +204,7 @@ class SGFPlayerScreensaver: ScreenSaverView {
 
     private func calculateCaptures(engine: SGFPlayer) -> (black: Int, white: Int) {
         // Simple capture calculation - in a full implementation this would be more sophisticated
-        let moveIndex = engine.currentMoveIndex
+        let moveIndex = engine.currentIndex
         let blackCaptured = moveIndex / 20 // Demo calculation
         let whiteCaptured = moveIndex / 25 // Demo calculation
         return (blackCaptured, whiteCaptured)
@@ -340,7 +340,7 @@ class SGFPlayerScreensaver: ScreenSaverView {
         // Minimal game info for screensaver
         guard let engine = gameEngine else { return }
 
-        let infoText = "Move \(engine.currentMoveIndex) of \(currentGame?.moves.count ?? 0)"
+        let infoText = "Move \(engine.currentIndex) of \(currentGame?.moves.count ?? 0)"
         let attributes: [NSAttributedString.Key: Any] = [
             .foregroundColor: NSColor.white,
             .font: NSFont.systemFont(ofSize: 18)
@@ -393,14 +393,7 @@ class SGFPlayerScreensaver: ScreenSaverView {
 
 extension SGFPlayerScreensaver {
 
-    // Simplified GeometryProxy for layout calculations
-    private struct GeometryProxy {
-        let size: CGSize
-
-        init(frame: CGRect) {
-            self.size = frame.size
-        }
-    }
+    // Using GeometryProxy from LayoutService
 
     // Stone position for rendering
     private struct StonePosition {

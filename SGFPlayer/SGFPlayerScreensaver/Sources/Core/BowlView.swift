@@ -1,140 +1,81 @@
 // MARK: - File: BowlView.swift
-import SwiftUI
+import Foundation
+import CoreGraphics
+import Cocoa
 
-struct BowlView: View {
-    struct LidStone: Identifiable, Equatable {
-        let id: UUID
-        let imageName: String
-        /// Position **relative to the lid center**, in points/pixels
-        var offset: CGPoint
-    }
-    
-    // Images & layout
-    let lidImageName: String
-    let center: CGPoint
-    let lidSize: CGFloat        // pixels
-    let stones: [LidStone]
-    
-    // Shadows (already scaled by caller)
-    let lidShadowOpacity: CGFloat
-    let lidShadowRadius: CGFloat
-    let lidShadowDX: CGFloat
-    let lidShadowDY: CGFloat
-    
-    let stoneShadowOpacity: CGFloat
-    let stoneShadowRadius: CGFloat
-    let stoneShadowDX: CGFloat
-    let stoneShadowDY: CGFloat
-    
-    // Stone diameter on the **board** right now (so bowl stones match the board stones)
-    let stoneDiameter: CGFloat  // pixels
-    
-    // --- Bowl physics (normalized) ---
+struct LidStone {
+    let id = UUID()
+    let isWhite: Bool
+    var offset: CGPoint
+}
+
+struct BowlRenderer {
+    let lidSize: CGFloat
+    let stoneDiameter: CGFloat
     let repulsion: CGFloat
     let targetSpacingXRadius: CGFloat
     let centerPullPerLid: CGFloat
     let relaxIterations: Int
 
-    // NEW: extra tunables
-    let pressureRadiusXR: CGFloat   // default 2.6 (× stone radius)
-    let pressureKFactor:  CGFloat   // default 0.25 (× repulsion)
-    let maxStepXR:        CGFloat   // default 0.06 (× stone radius per iter)
-    let damping:          CGFloat   // default 0.90
-    let wallK:            CGFloat   // default 0.50
-    let animDuration:     Double    // default 0.14
-    
-    // Local copy so we can animate relaxed positions
-    @State private var layout: [UUID: CGPoint] = [:]
-    
-    var body: some View {
-        ZStack {
-            Image(lidImageName)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: lidSize, height: lidSize)
-                .shadow(color: .black.opacity(lidShadowOpacity),
-                        radius: lidShadowRadius,
-                        x: lidShadowDX, y: lidShadowDY)
-                .position(center)
-            
-            ForEach(stones) { s in
-                let p = layout[s.id] ?? s.offset
-                Image(s.imageName)
-                    .resizable()
-                    .aspectRatio(1.0, contentMode: .fit)  // Force 1:1 aspect ratio
-                    .frame(width: stoneDiameter, height: stoneDiameter)
-                    .clipped()  // Ensure consistent bounds
-                    .shadow(color: .black.opacity(stoneShadowOpacity),
-                            radius: stoneShadowRadius,
-                            x: stoneShadowDX, y: stoneShadowDY)
-                    .position(x: center.x + p.x, y: center.y + p.y)
-            }
+    func renderBowl(at center: CGPoint, with stones: [LidStone], in context: CGContext) {
+        // Draw lid background (simplified circle)
+        context.saveGState()
+        context.setFillColor(NSColor.brown.cgColor)
+        let lidRect = CGRect(
+            x: center.x - lidSize/2,
+            y: center.y - lidSize/2,
+            width: lidSize,
+            height: lidSize
+        )
+        context.fillEllipse(in: lidRect)
+
+        // Draw stones in the bowl
+        let layout = relaxedLayout(stones: stones)
+
+        for stone in stones {
+            guard let position = layout[stone.id] else { continue }
+
+            let stoneX = center.x + position.x - stoneDiameter/2
+            let stoneY = center.y + position.y - stoneDiameter/2
+            let stoneRect = CGRect(x: stoneX, y: stoneY, width: stoneDiameter, height: stoneDiameter)
+
+            // Draw stone
+            context.setFillColor(stone.isWhite ? NSColor.white.cgColor : NSColor.black.cgColor)
+            context.fillEllipse(in: stoneRect)
+
+            // Draw stone border
+            context.setStrokeColor(NSColor.gray.cgColor)
+            context.setLineWidth(1.0)
+            context.strokeEllipse(in: stoneRect)
         }
-        // Recompute & animate relaxed layout whenever any relevant input changes
-        .onAppear { animateRelax() }
-        .onChange(of: stones) { _, _ in animateRelax() }
-        .onChange(of: lidSize) { _, _ in animateRelax() }
-        .onChange(of: stoneDiameter) { _, _ in animateRelax() }
-        .onChange(of: repulsion) { _, _ in animateRelax() }
-        .onChange(of: targetSpacingXRadius) { _, _ in animateRelax() }
-        .onChange(of: centerPullPerLid) { _, _ in animateRelax() }
-        .onChange(of: relaxIterations) { _, _ in animateRelax() }
+
+        context.restoreGState()
     }
-    
-    // Drive the relaxation + animate into @State `layout` (adaptive, uses animDuration)
-    private func animateRelax() {
-        let newLayout = relaxedLayout()
 
-        // If the movement is tiny, animate faster; if anything moved a bit, use a hair longer.
-        var anyBigMove = false
-        for s in stones {
-            if let old = layout[s.id], let new = newLayout[s.id] {
-                let dx = new.x - old.x, dy = new.y - old.y
-                if (dx*dx + dy*dy) > 4.0 { // > ~2 px net
-                    anyBigMove = true
-                    break
-                }
-            } else {
-                anyBigMove = true // initial layout or a newly–added stone
-                break
-            }
-        }
+    private func relaxedLayout(stones: [LidStone]) -> [UUID: CGPoint] {
+        guard !stones.isEmpty else { return [:] }
 
-        // Base timing comes from the slider; keep sensible floors so it never snaps.
-        // Increased durations for more natural, slower stone movements
-        let long  = max(0.4, animDuration * 3.0)      // for bigger moves - much slower
-        let short = max(0.2, animDuration * 2.0)      // for tiny moves - slower
-
-        withAnimation(.easeOut(duration: anyBigMove ? long : short)) {
-            layout = newLayout
-        }
-    }
-    
-    // Compute a size-aware relaxed layout from current inputs
-    private func relaxedLayout() -> [UUID: CGPoint] {
-        // If relaxIterations is very low (like 5-10), assume we're using external physics (Physics 4/5)
-        // and just use the provided positions directly
+        // If very few iterations, use original positions
         if relaxIterations <= 10 {
-            let result = stones.reduce(into: [UUID: CGPoint]()) { $0[$1.id] = $1.offset }
-            return result
+            return stones.reduce(into: [UUID: CGPoint]()) { $0[$1.id] = $1.offset }
         }
-        
-        // Otherwise use BowlView's internal physics
-        let lidRadius = lidSize * 0.46                // conservative inner radius
-        let rStone    = stoneDiameter * 0.5           // board-matched radius
-        let desiredD  = max(0.0, targetSpacingXRadius) * rStone
-        let pullDist  = centerPullPerLid * lidRadius  // pixels per iteration
-        
-        return relax(stones: stones,
-                     desiredCenterDistance: desiredD,
-                     repulsion: repulsion,
-                     pullPerIter: pullDist,
-                     keepWithin: lidRadius * 0.7,  // Keep stones in inner 70% of bowl
-                     iterations: relaxIterations)
+
+        // Simple physics relaxation
+        let lidRadius = lidSize * 0.46
+        let rStone = stoneDiameter * 0.5
+        let desiredD = max(0.0, targetSpacingXRadius) * rStone
+        let pullDist = centerPullPerLid * lidRadius
+
+        return relax(
+            stones: stones,
+            desiredCenterDistance: desiredD,
+            repulsion: repulsion,
+            pullPerIter: pullDist,
+            keepWithin: lidRadius * 0.7,
+            iterations: relaxIterations
+        )
     }
-    
-    // MARK: - Size-aware relaxation (all forces normalized)
-    // MARK: - Size-aware relaxation with pressure + damping
+
     private func relax(
         stones: [LidStone],
         desiredCenterDistance: CGFloat,
@@ -143,148 +84,95 @@ struct BowlView: View {
         keepWithin: CGFloat,
         iterations: Int
     ) -> [UUID: CGPoint] {
-        
+
         guard !stones.isEmpty else { return [:] }
-        
-        // Current positions we’ll be updating
-        var p = stones.reduce(into: [UUID: CGPoint]()) { $0[$1.id] = $1.offset }
-        
-        // --- Tunables (all size-relative) ---------------------------------------
-        // Pressure pushes neighbors apart even when they’re not overlapping.
-        // It acts within a short radius around each stone (a “cone” footprint).
-        let rStoneGuess = max(1.0, desiredCenterDistance * 0.5) // stone radius ≈ desired/2
-        let pressureRadius: CGFloat = 2.6 * rStoneGuess         // area a stone “loads”
-        let pressureK: CGFloat = 0.25 * repulsion               // strength of the weight term
-        
-        // Motion control
-        let maxStep: CGFloat = 0.10 * rStoneGuess               // clamp per iteration
-        let damping: CGFloat = 0.82                              // viscous damping (lower = less slide)
-        
-        // Edge softness (don’t slam against the ring)
-        let wallK: CGFloat = 0.35
-        
-        // Scratch “velocities” for this relaxation pass (purely local)
-        var v = stones.reduce(into: [UUID: CGPoint]()) { $0[$1.id] = .zero }
-        
-        // Handle the trivial single-stone case early.
+
+        var positions = stones.reduce(into: [UUID: CGPoint]()) { $0[$1.id] = $1.offset }
+
+        // Simple single stone case
         if stones.count == 1 {
             let id = stones[0].id
-            var pos = p[id]!
+            var pos = positions[id]!
             let len = max(0.0001, hypot(pos.x, pos.y))
             let pull = min(pullPerIter, len)
             pos.x -= (pos.x / len) * pull
             pos.y -= (pos.y / len) * pull
-            
-            // soft clamp within bowl
+
             let r = max(0.0001, hypot(pos.x, pos.y))
             let maxR = max(0.0, keepWithin)
             if r > maxR {
                 let s = maxR / r
-                pos.x *= s; pos.y *= s
+                pos.x *= s
+                pos.y *= s
             }
-            p[id] = pos
-            return p
+            positions[id] = pos
+            return positions
         }
-        
-        // --- Iterative relaxation ----------------------------------------------
-        let iters = max(1, iterations)
-        for _ in 0..<iters {
-            
-            // Accumulate forces
-            var force = stones.reduce(into: [UUID: CGPoint]()) { $0[$1.id] = .zero }
-            
-            // Pairwise terms: overlap repulsion + pressure cone
+
+        // Iterative relaxation for multiple stones
+        for _ in 0..<max(1, iterations) {
+            var forces = stones.reduce(into: [UUID: CGPoint]()) { $0[$1.id] = .zero }
+
+            // Calculate pairwise repulsion
             for i in 0..<(stones.count - 1) {
                 for j in (i+1)..<stones.count {
-                    let idA = stones[i].id, idB = stones[j].id
-                    let ax = p[idA]!.x, ay = p[idA]!.y
-                    let bx = p[idB]!.x, by = p[idB]!.y
+                    let idA = stones[i].id
+                    let idB = stones[j].id
+                    let posA = positions[idA]!
+                    let posB = positions[idB]!
 
-                    var dx = bx - ax, dy = by - ay
-                    var d  = sqrt(dx*dx + dy*dy)
-                    if d < 0.0001 { d = 0.0001; dx = desiredCenterDistance; dy = 0 }
-                    let ux = dx / d, uy = dy / d
+                    var dx = posB.x - posA.x
+                    var dy = posB.y - posA.y
+                    var distance = sqrt(dx*dx + dy*dy)
 
-                    // 1) Overlap-only push (keeps discs from interpenetrating)
-                    if d < desiredCenterDistance {
-                        let overlap = (desiredCenterDistance - d) * 0.5 * max(0, repulsion)
-                        force[idA]!.x -= ux * overlap
-                        force[idA]!.y -= uy * overlap
-                        force[idB]!.x += ux * overlap
-                        force[idB]!.y += uy * overlap
+                    if distance < 0.0001 {
+                        distance = 0.0001
+                        dx = desiredCenterDistance
+                        dy = 0
                     }
 
-                    // 2) Weight/pressure “cone” (short range, encourages spreading)
-                    if d < pressureRadius {
-                        // Taper with distance; zero at the cone edge
-                        let t = 1 - (d / pressureRadius)
-                        let push = pressureK * t * t    // smooth falloff, bounded
-                        // Push both ways (like two neighboring “loads” seeking area)
-                        force[idA]!.x -= ux * push
-                        force[idA]!.y -= uy * push
-                        force[idB]!.x += ux * push
-                        force[idB]!.y += uy * push
+                    let ux = dx / distance
+                    let uy = dy / distance
+
+                    if distance < desiredCenterDistance {
+                        let overlap = (desiredCenterDistance - distance) * 0.5 * repulsion
+                        forces[idA]!.x -= ux * overlap
+                        forces[idA]!.y -= uy * overlap
+                        forces[idB]!.x += ux * overlap
+                        forces[idB]!.y += uy * overlap
                     }
                 }
             }
 
-            // NEW: simple downward bias from stones above (encourages outward spread)
-            // y grows downward in SwiftUI. Each “above” stone adds a tiny +y force,
-            // tapered by vertical separation. Set `downBiasK = 0` to disable entirely.
-            let downBiasK = max(0, desiredCenterDistance) * 0.02 // px per iter per above-stone
-            if downBiasK > 0, stones.count > 1 {
-                for i in 0..<stones.count {
-                    let idI = stones[i].id
-                    let yi = p[idI]!.y
-                    var acc: CGFloat = 0
-                    for j in 0..<stones.count where j != i {
-                        let yj = p[stones[j].id]!.y
-                        if yj < yi { // stone j is above i
-                            let dy = yi - yj
-                            // gentle falloff so far-above stones contribute less
-                            acc += 1 / (1 + dy / max(1, desiredCenterDistance))
-                        }
-                    }
-                    force[idI]!.y += acc * downBiasK
-                }
-            }
-            
-            // Center pull + soft wall clamp
-            for s in stones {
-                let id = s.id
-                var pos = p[id]!
-                var fx = force[id]!.x
-                var fy = force[id]!.y
-                
-                // Concave pull (acts like friction/settling toward middle of the well)
+            // Apply forces and center pull
+            for stone in stones {
+                let id = stone.id
+                var pos = positions[id]!
+                let force = forces[id]!
+
+                // Center pull
                 let len = max(0.0001, hypot(pos.x, pos.y))
                 let pull = min(pullPerIter, len)
-                fx += (-pos.x / len) * pull
-                fy += (-pos.y / len) * pull
-                
-                // Soft wall (if outside keepWithin, nudge inward smoothly)
+                let centerForceX = (-pos.x / len) * pull
+                let centerForceY = (-pos.y / len) * pull
+
+                // Update position
+                pos.x += force.x + centerForceX
+                pos.y += force.y + centerForceY
+
+                // Keep within bounds
                 let r = max(0.0001, hypot(pos.x, pos.y))
                 let maxR = max(0.0, keepWithin)
                 if r > maxR {
-                    let inward = wallK * (r - maxR)
-                    fx += (-pos.x / r) * inward
-                    fy += (-pos.y / r) * inward
+                    let s = maxR / r
+                    pos.x *= s
+                    pos.y *= s
                 }
-                
-                // Integrate with damping + step cap
-                var vx = (v[id]!.x + fx) * damping
-                var vy = (v[id]!.y + fy) * damping
-                let vm = max(0.0001, sqrt(vx*vx + vy*vy))
-                if vm > maxStep {
-                    vx *= (maxStep / vm)
-                    vy *= (maxStep / vm)
-                }
-                v[id] = CGPoint(x: vx, y: vy)
-                pos.x += vx; pos.y += vy
-                p[id] = pos
+
+                positions[id] = pos
             }
         }
-        
-        return p
+
+        return positions
     }
 }

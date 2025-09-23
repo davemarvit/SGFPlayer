@@ -1,5 +1,5 @@
 // MARK: - File: BowlPhysics.swift
-import SwiftUI
+import Foundation
 import simd
 
 /// Places stones inside a circular lid using

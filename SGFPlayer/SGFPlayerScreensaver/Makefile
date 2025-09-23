@@ -5,7 +5,7 @@
 PRODUCT_NAME = SGFPlayerScreensaver
 BUNDLE_IDENTIFIER = com.sgfplayer.screensaver
 DEPLOYMENT_TARGET = 12.0
-SWIFT_VERSION = 5.0
+SWIFT_VERSION = 5
 
 # Paths
 BUILD_DIR = build
@@ -27,7 +27,7 @@ SWIFT_FLAGS = -target x86_64-apple-macos$(DEPLOYMENT_TARGET) \
               -swift-version $(SWIFT_VERSION) \
               -O \
               -module-name $(PRODUCT_NAME) \
-              -emit-executable \
+              -emit-library \
               -framework ScreenSaver \
               -framework Cocoa \
               -framework CoreGraphics \
