@@ -37,11 +37,6 @@
     "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/ContentView.bc",
     "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/ContentView.o"
   },
-  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ContentView_Original.swift" : {
-    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/ContentView_Original.o",
-    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/ContentView_Original.bc",
-    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/ContentView_Original.o"
-  },
   "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Integration/CompatibilityLayer.swift" : {
     "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/CompatibilityLayer.o",
     "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/CompatibilityLayer.bc",
@@ -117,15 +112,35 @@
     "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SGFPlayerEngine.bc",
     "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SGFPlayerEngine.o"
   },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Services/FileSystemService.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/FileSystemService.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/FileSystemService.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/FileSystemService.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Services/GameAnalysisService.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/GameAnalysisService.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/GameAnalysisService.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/GameAnalysisService.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Services/LayoutService.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/LayoutService.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/LayoutService.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/LayoutService.o"
+  },
   "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/StoneJitter.swift" : {
     "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/StoneJitter.o",
     "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/StoneJitter.bc",
     "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/StoneJitter.o"
   },
-  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ViewModels/PhysicsViewModel.swift" : {
-    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/PhysicsViewModel.o",
-    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/PhysicsViewModel.bc",
-    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/PhysicsViewModel.o"
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Utils/DebugConfig.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/DebugConfig.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/DebugConfig.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/DebugConfig.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Utils/Logger.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/Logger.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/Logger.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/Logger.o"
   },
   "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ViewModels/SGFPlayerViewModel.swift" : {
     "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SGFPlayerViewModel.o",
@@ -166,6 +181,11 @@
     "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SettingsPanelView.o",
     "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SettingsPanelView.bc",
     "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SettingsPanelView.o"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Views/SimpleBoardView.swift" : {
+    "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SimpleBoardView.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SimpleBoardView.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SimpleBoardView.o"
   },
   "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/DerivedSources/GeneratedAssetSymbols.swift" : {
     "index-unit-output-path" : "/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/GeneratedAssetSymbols.o",

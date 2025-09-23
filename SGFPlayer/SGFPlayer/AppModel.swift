@@ -5,42 +5,38 @@ import Foundation
 
 final class AppModel: ObservableObject {
     @Published var folderURL: URL? {
-        didSet { persistFolderURL() }
+        didSet { handleFolderChange() }
     }
     @Published var games: [SGFGameWrapper] = []
     @Published var selection: SGFGameWrapper? = nil {
-        didSet { persistLastGame() }
+        didSet { fileSystemService.persistLastSelectedGame(selection) }
     }
 
     // Game cache manager for pre-calculated states
     @Published var gameCacheManager = GameCacheManager()
 
-    private let folderKey = "sgfplayer.folderURL"
-    private let lastGameKey = "sgfplayer.lastGame"
+    // File system service for folder and file management
+    private let fileSystemService = FileSystemService()
     private var cancellables: Set<AnyCancellable> = []
 
     init() {
-        restoreFolderURL()
+        folderURL = fileSystemService.currentFolderURL
         if let url = folderURL { loadFolder(url) }
     }
 
     func promptForFolder() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.title = "Choose a folder containing .sgf files"
+        print("🔍 APP MODEL: promptForFolder() called")
+        let result = fileSystemService.promptForFolder()
 
-        print("🔍 FOLDER PICKER: About to show panel")
-        let result = panel.runModal()
-        print("🔍 FOLDER PICKER: Panel result: \(result == .OK ? "OK" : "Cancel"), URL: \(panel.url?.path ?? "none")")
-
-        if result == .OK, let url = panel.url {
-            print("🔍 FOLDER PICKER: Setting folderURL to \(url.path)")
+        switch result {
+        case .selected(let url):
+            print("🔍 APP MODEL: Folder selected: \(url.path)")
             folderURL = url
             loadFolder(url)
-        } else {
-            print("🔍 FOLDER PICKER: User cancelled or no URL selected")
+        case .cancelled:
+            print("🔍 APP MODEL: User cancelled folder selection")
+        case .error(let error):
+            print("❗️ APP MODEL: Folder selection error: \(error.localizedDescription)")
         }
     }
 
@@ -66,84 +62,51 @@ final class AppModel: ObservableObject {
     }
 
     private func loadFolder(_ url: URL) {
-        let fm = FileManager.default
-        guard let items = try? fm.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else {
+        print("🔍 APP MODEL: loadFolder() called with: \(url.path)")
+        do {
+            let gameWrappers = try fileSystemService.loadGamesFromCurrentFolder()
+            print("🔍 APP MODEL: Found \(gameWrappers.count) games in folder")
+            games = gameWrappers
+
+            // Pre-calculate upcoming games in background while setting current selection
+            if let first = gameWrappers.first {
+                print("🔍 APP MODEL: Setting first game as selection: \(first.url.lastPathComponent)")
+                // Try to restore last selected game, otherwise use first game
+                let restoredSelection = fileSystemService.restoreLastSelectedGame(from: gameWrappers) ?? first
+                selection = restoredSelection
+                gameCacheManager.loadGame(restoredSelection.game, fingerprint: restoredSelection.fingerprint)
+
+                // Start pre-calculating other games in background (limit to prevent crashes with large folders)
+                let maxPreCalculate = min(3, gameWrappers.count) // Only pre-calculate first 3 games max
+                for index in 1..<maxPreCalculate {
+                    let gameWrapper = gameWrappers[index]
+                    gameCacheManager.preCalculateGame(gameWrapper.game, fingerprint: gameWrapper.fingerprint)
+                }
+            } else {
+                print("🔍 APP MODEL: No games found in folder")
+                selection = nil
+            }
+        } catch {
+            print("❗️ APP MODEL: Failed to load folder: \(error.localizedDescription)")
             games = []
             selection = nil
-            return
         }
-        let sgfURLs = items.filter { $0.pathExtension.lowercased() == "sgf" }
-            .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+    }
 
-        var parsed: [SGFGameWrapper] = []
-        for fileURL in sgfURLs {
-            do {
-                let data = try Data(contentsOf: fileURL)
-                let text = String(data: data, encoding: .utf8) ?? String(decoding: data, as: UTF8.self)
-                let tree = try SGFParser.parse(text: text)
-                let game = SGFGame.from(tree: tree)
-                parsed.append(.init(url: fileURL, game: game))
-            } catch {
-                print("❗️Failed to parse \(fileURL.lastPathComponent):", error)
+    private func handleFolderChange() {
+        if let url = folderURL {
+            let result = fileSystemService.setCurrentFolder(url)
+            switch result {
+            case .selected(_):
+                // Success - folder set and persisted
+                break
+            case .cancelled:
+                // This shouldn't happen in programmatic setting
+                break
+            case .error(let error):
+                print("❗️ APP MODEL: Failed to set folder: \(error.localizedDescription)")
             }
         }
-        games = parsed
-
-        // Pre-calculate upcoming games in background while setting current selection
-        if let first = parsed.first {
-            // Try to restore last selected game, otherwise use first game
-            let restoredSelection = restoreLastGame(from: parsed) ?? first
-            selection = restoredSelection
-            gameCacheManager.loadGame(restoredSelection.game, fingerprint: restoredSelection.fingerprint)
-
-            // Start pre-calculating other games in background (limit to prevent crashes with large folders)
-            let maxPreCalculate = min(3, parsed.count) // Only pre-calculate first 3 games max
-            for index in 1..<maxPreCalculate {
-                let gameWrapper = parsed[index]
-                gameCacheManager.preCalculateGame(gameWrapper.game, fingerprint: gameWrapper.fingerprint)
-            }
-        } else {
-            selection = nil
-        }
-    }
-
-    private func persistFolderURL() {
-        guard let url = folderURL else {
-            UserDefaults.standard.removeObject(forKey: folderKey)
-            return
-        }
-        do {
-            let bookmark = try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
-            UserDefaults.standard.set(bookmark, forKey: folderKey)
-        } catch {
-            print("❗️Failed to persist folder URL: \(error)")
-        }
-    }
-
-    private func restoreFolderURL() {
-        guard let bookmark = UserDefaults.standard.data(forKey: folderKey) else { return }
-        var isStale = false
-        do {
-            let url = try URL(resolvingBookmarkData: bookmark, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &isStale)
-            if url.startAccessingSecurityScopedResource() {
-                folderURL = url
-            }
-        } catch {
-            print("❗️Failed to restore folder URL: \(error)")
-        }
-    }
-
-    private func persistLastGame() {
-        guard let selectedGame = selection else {
-            UserDefaults.standard.removeObject(forKey: lastGameKey)
-            return
-        }
-        UserDefaults.standard.set(selectedGame.url.lastPathComponent, forKey: lastGameKey)
-    }
-
-    private func restoreLastGame(from games: [SGFGameWrapper]) -> SGFGameWrapper? {
-        guard let lastGameName = UserDefaults.standard.string(forKey: lastGameKey) else { return nil }
-        return games.first { $0.url.lastPathComponent == lastGameName }
     }
 }
 

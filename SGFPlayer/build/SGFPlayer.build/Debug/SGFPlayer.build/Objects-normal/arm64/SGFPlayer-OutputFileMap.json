@@ -225,6 +225,26 @@
     "swift-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/StoneJitter.swiftdeps",
     "swiftmodule" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/StoneJitter~partial.swiftmodule"
   },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Utils/DebugConfig.swift" : {
+    "const-values" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/DebugConfig.swiftconstvalues",
+    "dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/DebugConfig.d",
+    "diagnostics" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/DebugConfig.dia",
+    "index-unit-output-path" : "/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/DebugConfig.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/DebugConfig.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/DebugConfig.o",
+    "swift-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/DebugConfig.swiftdeps",
+    "swiftmodule" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/DebugConfig~partial.swiftmodule"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Utils/Logger.swift" : {
+    "const-values" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/Logger.swiftconstvalues",
+    "dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/Logger.d",
+    "diagnostics" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/Logger.dia",
+    "index-unit-output-path" : "/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/Logger.o",
+    "llvm-bc" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/Logger.bc",
+    "object" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/Logger.o",
+    "swift-dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/Logger.swiftdeps",
+    "swiftmodule" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/Logger~partial.swiftmodule"
+  },
   "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ViewModels/SGFPlayerViewModel.swift" : {
     "const-values" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerViewModel.swiftconstvalues",
     "dependencies" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayerViewModel.d",

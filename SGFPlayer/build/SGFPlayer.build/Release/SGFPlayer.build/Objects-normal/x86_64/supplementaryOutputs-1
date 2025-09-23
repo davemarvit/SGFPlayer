@@ -1,9 +1,9 @@
-"/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Integration/PhysicsIntegrationDemo.swift":
-  swiftmodule: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SGFPlayer.swiftmodule"
+"/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/SGFKit.swift":
   const-values: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SGFPlayer-master.swiftconstvalues"
-  diagnostics: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SGFPlayer-master.dia"
   swiftdoc: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SGFPlayer.swiftdoc"
+  swiftmodule: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SGFPlayer.swiftmodule"
   swiftsourceinfo: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SGFPlayer.swiftsourceinfo"
+  abi-baseline-json: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SGFPlayer.abi.json"
+  diagnostics: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SGFPlayer-master.dia"
   objc-header: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SGFPlayer-Swift.h"
   dependencies: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SGFPlayer-master.d"
-  abi-baseline-json: "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/build/SGFPlayer.build/Release/SGFPlayer.build/Objects-normal/x86_64/SGFPlayer.abi.json"

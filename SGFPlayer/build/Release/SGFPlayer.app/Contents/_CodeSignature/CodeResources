@@ -8,9 +8,17 @@
 		<data>
 		IBbOrYuTxXn5zrRugl7MTGUwvh8=
 		</data>
+		<key>Resources/ContentView.swift.backup</key>
+		<data>
+		Nic50VY5XDsJHWSEsWeHglFeCoc=
+		</data>
 		<key>Resources/INTEGRATION_SUMMARY.md</key>
 		<data>
 		RpWTDuKWEISIjDTV3TBc26bR7U0=
+		</data>
+		<key>Resources/PhysicsViewModel.swift.backup</key>
+		<data>
+		R3K0Yv3x0q+42AvFudrW7KlDprk=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -22,11 +30,25 @@
 			s1/vFbtQgmN+Ob5z73TGu/bWHKVE9/sD6FyImDu8bjY=
 			</data>
 		</dict>
+		<key>Resources/ContentView.swift.backup</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			3KO2f9nafDVz7v2NqBw4LvAOO9hkKCRGf7frmserFQI=
+			</data>
+		</dict>
 		<key>Resources/INTEGRATION_SUMMARY.md</key>
 		<dict>
 			<key>hash2</key>
 			<data>
 			KG9rSJgQtN2tk3nK0Tv7gXQ7JjpcNkULS/j426sY4ec=
+			</data>
+		</dict>
+		<key>Resources/PhysicsViewModel.swift.backup</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			ja9uuuEkGvdUkub+5tQAGvH/Pu0fQOehgkZcLspvmxI=
 			</data>
 		</dict>
 	</dict>

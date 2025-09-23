@@ -38,51 +38,22 @@ struct ContentView: View {
 
     // NEW: ViewModels for cleaner architecture (Session 2)
     @StateObject private var uiStateVM = UIStateViewModel()
+
+    // NEW: Services for modular business logic
+    @StateObject private var gameAnalysisService = GameAnalysisService()
+    @StateObject private var layoutService = LayoutService()
+    @StateObject private var settingsPanelService = SettingsPanelService()
     
     // UI State (transitioning to uiStateVM)
-    @State private var isPanelOpen: Bool = false
-    // showFullscreen, buttonsVisible now managed by uiStateVM
-    @State private var showPhysicsDemo: Bool = false
+    // isPanelOpen and showPhysicsDemo now managed by settingsPanelService
     @State private var fadeTimer: Timer? = nil
     
-    // Settings
-    @AppStorage("randomOnStart") private var randomOnStart: Bool = false
-
     // Initialization tracking to prevent repeated app initialization
     @State private var isInitialized: Bool = false
-    @AppStorage("autoNext") private var autoNext: Bool = false
-    @AppStorage("randomNext") private var randomNext: Bool = false
     // Note: boardStoneDiameter is now managed by UIStateViewModel for responsive sizing
-    @AppStorage("activePhysicsModel") private var legacyActivePhysicsModel: Int = 2
+    // Settings now managed by settingsPanelService
     
-    // Shadow parameters
-    @AppStorage("lidShadowOpacity") private var lidShadowOpacity: Double = 0.30
-    @AppStorage("lidShadowRadius") private var lidShadowRadius: Double = 10
-    @AppStorage("lidShadowDX") private var lidShadowDX: Double = 5
-    @AppStorage("lidShadowDY") private var lidShadowDY: Double = 8
-    @AppStorage("stoneShadowOpacity") private var stoneShadowOpacity: Double = 0.40
-    @AppStorage("stoneShadowRadius") private var stoneShadowRadius: Double = 3
-    @AppStorage("stoneShadowDX") private var stoneShadowDX: Double = 2
-    @AppStorage("stoneShadowDY") private var stoneShadowDY: Double = 8
-    
-    // Legacy physics parameters (kept for settings panel compatibility)
-    @AppStorage("m1_repel") private var m1_repel: Double = 1.60
-    @AppStorage("m1_spacing") private var m1_spacing: Double = 2.12
-    @AppStorage("m1_centerPullK") private var m1_centerPullK: Double = 0.0028
-    @AppStorage("m1_relaxIters") private var m1_relaxIters: Int = 12
-    @AppStorage("m1_pressureRadiusXR") private var m1_pressureRadiusXR: Double = 2.6
-    @AppStorage("m1_pressureKFactor") private var m1_pressureKFactor: Double = 0.25
-    @AppStorage("m1_maxStepXR") private var m1_maxStepXR: Double = 0.06
-    @AppStorage("m1_damping") private var m1_damping: Double = 0.82
-    @AppStorage("m1_wallK") private var m1_wallK: Double = 0.60
-    @AppStorage("m1_anim") private var m1_anim: Double = 0.6
-    @AppStorage("m1_stoneStoneK") private var m1_stoneStoneK: Double = 0.15
-    @AppStorage("m1_stoneLidK") private var m1_stoneLidK: Double = 0.25
-    
-    // UI state
-    @State private var debugLayout = false
-    @State private var advancedExpanded: Bool = false
-    @AppStorage("uiMoveDelay") private var uiMoveDelay: Double = 0.75
+    // Shadow parameters, physics parameters, and UI move delay now managed by settingsPanelService
     @State private var currentBowlRadius: CGFloat = 100.0
     
     // Bowl positioning - updated by GameBoardView
@@ -102,13 +73,17 @@ struct ContentView: View {
     @State private var layoutAtMove: [Int: LidLayout] = [:]
     
     // Physics model selection (migrated to new system)
-    @State private var activePhysicsModelRaw: Int = 2
+    // activePhysicsModelRaw now managed by settingsPanelService.activePhysicsModel
     
     var body: some View {
         ZStack {
             // Main content with single-level layout management
             GeometryReader { geometry in
-                let layout = calculateResponsiveLayout(in: geometry)
+                let layout = layoutService.calculateResponsiveLayout(
+                    in: geometry,
+                    topSpaceCellUnits: app.gameCacheManager.topSpaceCellUnits,
+                    bottomSpaceCellUnits: app.gameCacheManager.bottomSpaceCellUnits
+                )
 
                 ZStack {
                     // Tatami background filling entire window
@@ -118,7 +93,7 @@ struct ContentView: View {
                         .ignoresSafeArea()
 
                     // Simple Board View with explicit positioning
-                    let (currentBlackCaptured, currentWhiteCaptured) = calculateCapturesAtMove(player.currentIndex)
+                    let (currentBlackCaptured, currentWhiteCaptured) = getCurrentCaptures()
                     SimpleBoardView(
                         player: player,
                         physicsIntegration: physicsIntegration,  // Only for bowls, not board stones
@@ -151,7 +126,11 @@ struct ContentView: View {
                             print("🔍 Significant geometry change detected: \(sizeChange)")
                             // Defer physics update to break potential feedback loop
                             DispatchQueue.main.async {
-                                let newLayout = calculateResponsiveLayout(in: geometry)
+                                let newLayout = layoutService.calculateResponsiveLayout(
+                                    in: geometry,
+                                    topSpaceCellUnits: app.gameCacheManager.topSpaceCellUnits,
+                                    bottomSpaceCellUnits: app.gameCacheManager.bottomSpaceCellUnits
+                                )
                                 print("🔍 Deferred layout recalc: bowlRadius=\(newLayout.bowlRadius)")
                                 updatePhysicsWithLayout(newLayout, currentBlackCaptured, currentWhiteCaptured)
                             }
@@ -167,7 +146,7 @@ struct ContentView: View {
                     // Settings button (upper left)
                     Button {
                         withAnimation(.easeInOut(duration: 1.0)) {
-                            isPanelOpen.toggle()
+                            settingsPanelService.togglePanel()
                         }
                     } label: {
                         Image(systemName: "gearshape.fill")
@@ -185,7 +164,7 @@ struct ContentView: View {
                     Button {
                         uiStateVM.toggleFullscreen()
                     } label: {
-                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        Image(systemName: uiStateVM.isWindowFullscreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                             .imageScale(.medium)
                             .foregroundColor(.white)
                     }
@@ -217,14 +196,14 @@ struct ContentView: View {
             }
             
             // Settings panel overlay
-            if isPanelOpen {
+            if settingsPanelService.isPanelOpen {
                 ZStack {
                     // Backdrop - visible overlay to catch clicks outside panel
                     Color.black.opacity(0.001) // Minimal but clickable background
                         .ignoresSafeArea()
                         .onTapGesture {
                             withAnimation(.easeInOut(duration: 1.0)) {
-                                isPanelOpen = false
+                                settingsPanelService.closePanel()
                             }
                         }
 
@@ -236,32 +215,14 @@ struct ContentView: View {
 
                         // Settings panel with translucent background
                         SettingsPanelView(
-                            isPanelOpen: $isPanelOpen,
-                            activePhysicsModelRaw: $activePhysicsModelRaw,
+                            settingsService: settingsPanelService,
                             physicsIntegration: physicsIntegration,
-                            m1_repel: $m1_repel,
-                            m1_spacing: $m1_spacing,
-                            m1_centerPullK: $m1_centerPullK,
-                            m1_relaxIters: $m1_relaxIters,
-                            m1_pressureRadiusXR: $m1_pressureRadiusXR,
-                            m1_pressureKFactor: $m1_pressureKFactor,
-                            m1_maxStepXR: $m1_maxStepXR,
-                            m1_damping: $m1_damping,
-                            m1_wallK: $m1_wallK,
-                            m1_anim: $m1_anim,
-                            m1_stoneStoneK: $m1_stoneStoneK,
-                            m1_stoneLidK: $m1_stoneLidK,
-                            autoNext: $autoNext,
-                            randomNext: $randomNext,
-                            uiMoveDelay: $uiMoveDelay,
                             player: player,
                             app: app,
                             onMoveChanged: { newIndex in
                                 player.seek(to: newIndex)
                                 updatePhysicsForMove(newIndex)
                             },
-                            debugLayout: $debugLayout,
-                            advancedExpanded: $advancedExpanded,
                             gameCacheManager: app.gameCacheManager
                         )
                         .frame(width: 320)
@@ -280,7 +241,7 @@ struct ContentView: View {
             }
             
             // Physics Demo overlay
-            if showPhysicsDemo {
+            if settingsPanelService.showPhysicsDemo {
                 ZStack {
                     Color.black.opacity(0.7).ignoresSafeArea()
                     
@@ -294,7 +255,7 @@ struct ContentView: View {
                         HStack {
                             Spacer()
                             Button("Close Demo") {
-                                showPhysicsDemo = false
+                                settingsPanelService.showPhysicsDemo = false
                             }
                             .buttonStyle(.borderedProminent)
                             .padding()
@@ -307,14 +268,18 @@ struct ContentView: View {
 
             // GameInfoBar - positioned using responsive layout
             GeometryReader { geometry in
-                let layout = calculateResponsiveLayout(in: geometry)
-                let (currentBlackCaptured, currentWhiteCaptured) = calculateCapturesAtMove(player.currentIndex)
+                let layout = layoutService.calculateResponsiveLayout(
+                    in: geometry,
+                    topSpaceCellUnits: app.gameCacheManager.topSpaceCellUnits,
+                    bottomSpaceCellUnits: app.gameCacheManager.bottomSpaceCellUnits
+                )
+                let (currentBlackCaptured, currentWhiteCaptured) = getCurrentCaptures()
                 GameInfoBar(
                     gameCacheManager: app.gameCacheManager,
                     blackCapturedCount: currentBlackCaptured,
                     whiteCapturedCount: currentWhiteCaptured,
                     player: player,
-                    autoNext: $autoNext
+                    autoNext: $settingsPanelService.autoNext
                 )
                 .position(
                     x: geometry.size.width / 2,
@@ -342,6 +307,7 @@ struct ContentView: View {
             if let gameWrapper = newSelection {
                 // Clear all cached data BEFORE loading new game to prevent stale capture counts
                 tallyAtMove.removeAll()
+                gameAnalysisService.clearCache()
                 physicsIntegration.reset()
 
                 // Now load the new game
@@ -354,7 +320,7 @@ struct ContentView: View {
                 print("🧹 Physics integration and capture cache cleared before new game")
             }
         }
-        .onChange(of: autoNext) { _, isAutoPlay in
+        .onChange(of: settingsPanelService.autoNext) { _, isAutoPlay in
             if isAutoPlay {
                 player.play()
                 print("🎮 Auto-play started")
@@ -363,20 +329,20 @@ struct ContentView: View {
                 print("🎮 Auto-play paused")
             }
         }
-        .onChange(of: uiMoveDelay) { _, newDelay in
+        .onChange(of: settingsPanelService.uiMoveDelay) { _, newDelay in
             player.setPlayInterval(newDelay)
             print("🎮 Play interval updated to \(newDelay)s")
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            if randomOnStart, app.selection == nil { pickRandomGame() }
+            if settingsPanelService.randomOnStart, app.selection == nil { pickRandomGame() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .gameDidFinish)) { _ in
-            if randomNext {
+            if settingsPanelService.randomNext {
                 // Wait 5 seconds, then pick the next random game and restart if auto-play is on
                 DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
                     pickRandomGame()
                     // If auto-play is enabled, automatically start the new game
-                    if autoNext {
+                    if settingsPanelService.autoNext {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             player.play()
                         }
@@ -397,7 +363,7 @@ struct ContentView: View {
         switch keyPress.key {
         case .leftArrow:
             // Arrow keys stop autoplay
-            autoNext = false
+            settingsPanelService.autoNext = false
             if keyPress.modifiers.contains(.shift) {
                 // Shift + Left: Jump back 10 moves
                 let newIndex = max(0, player.currentIndex - 10)
@@ -413,7 +379,7 @@ struct ContentView: View {
             }
         case .rightArrow:
             // Arrow keys stop autoplay
-            autoNext = false
+            settingsPanelService.autoNext = false
             if keyPress.modifiers.contains(.shift) {
                 // Shift + Right: Jump forward 10 moves
                 let newIndex = min(player.moves.count, player.currentIndex + 10)
@@ -430,8 +396,8 @@ struct ContentView: View {
             }
         case .space:
             // Space: Toggle auto-play
-            autoNext.toggle()
-            print("🎮 Keyboard: Toggled auto-play to \(autoNext)")
+            settingsPanelService.autoNext.toggle()
+            print("🎮 Keyboard: Toggled auto-play to \(settingsPanelService.autoNext)")
         case .escape:
             // Escape: Exit fullscreen mode
             if let window = NSApplication.shared.windows.first, window.styleMask.contains(.fullScreen) {
@@ -447,9 +413,9 @@ struct ContentView: View {
     
     private func initializeApp() {
         print("🚀 INIT: initializeApp() called")
-        // Sync legacy physics model to new system
-        if physicsIntegration.activePhysicsModel != (legacyActivePhysicsModel - 1) {
-            physicsIntegration.activePhysicsModel = max(0, min(5, legacyActivePhysicsModel - 1))
+        // Sync physics model from settings service to integration system
+        if physicsIntegration.activePhysicsModel != (settingsPanelService.activePhysicsModel - 1) {
+            physicsIntegration.activePhysicsModel = max(0, min(5, settingsPanelService.activePhysicsModel - 1))
         }
         
         // DEBUG STONES - Comment out to remove test stones in lids
@@ -497,7 +463,7 @@ struct ContentView: View {
         print("🎯 BOARD STONES: \(player.board.grid.flatMap { $0 }.compactMap { $0 }.count)")
         
         // Start autoplay if enabled
-        if autoNext {
+        if settingsPanelService.autoNext {
             print("🎮 Auto-play enabled")
         }
         
@@ -508,7 +474,7 @@ struct ContentView: View {
     
     private func updatePhysicsForMove(_ moveIndex: Int) {
         // Calculate captures based on current move
-        let (blackCapturedCount, whiteCapturedCount) = calculateCapturesAtMove(moveIndex)
+        let (blackCapturedCount, whiteCapturedCount) = getCurrentCaptures(for: moveIndex)
         
         print("🎮 UpdatePhysics for move \(moveIndex): Black captured: \(blackCapturedCount), White captured: \(whiteCapturedCount)")
         
@@ -554,60 +520,24 @@ struct ContentView: View {
     }
     
     
-    private func calculateCapturesAtMove(_ moveIndex: Int) -> (black: Int, white: Int) {
-        // Check cache first
-        if let cached = tallyAtMove[moveIndex] {
-            return (cached.b, cached.w)
-        }
-        
-        // Calculate total captures from start of game to this point
-        var totalBlackCaptured = 0
-        var totalWhiteCaptured = 0
-        
+    // MARK: - Capture Calculation (using GameAnalysisService)
+
+    private func getCurrentCaptures() -> (black: Int, white: Int) {
+        return getCurrentCaptures(for: player.currentIndex)
+    }
+
+    private func getCurrentCaptures(for moveIndex: Int) -> (black: Int, white: Int) {
         guard let game = app.selection?.game else {
-            tallyAtMove[moveIndex] = (w: 0, b: 0)
             return (0, 0)
         }
-        
-        // Create a temporary player to simulate the game up to moveIndex
-        let tempPlayer = SGFPlayer()
-        tempPlayer.load(game: game)
-        
-        // Play through moves one by one and count captures
-        for move in 0..<moveIndex {
-            if move >= tempPlayer.moves.count { break }
-            
-            let beforeBoard = tempPlayer.board
-            tempPlayer.stepForward() // This applies the move and handles captures
-            let afterBoard = tempPlayer.board
-            
-            // Count stones that disappeared (were captured)
-            for row in 0..<beforeBoard.size {
-                for col in 0..<beforeBoard.size {
-                    if let beforeStone = beforeBoard.grid[row][col],
-                       afterBoard.grid[row][col] == nil {
-                        // Stone was captured
-                        switch beforeStone {
-                        case .black:
-                            totalBlackCaptured += 1
-                        case .white:
-                            totalWhiteCaptured += 1
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Cache result
-        tallyAtMove[moveIndex] = (w: totalWhiteCaptured, b: totalBlackCaptured)
-        
-        return (totalBlackCaptured, totalWhiteCaptured)
+        return gameAnalysisService.calculateCapturesAtMove(moveIndex, for: game)
     }
     
     private func clearCacheAndRefresh() {
         tallyAtMove = [0:(0,0)]
         gridAtMove.removeAll()
         layoutAtMove.removeAll()
+        gameAnalysisService.clearCache()
         bowls.refresh(using: player, gameFingerprint: currentFingerprint())
     }
     
@@ -708,98 +638,7 @@ struct ContentView: View {
 
 // MARK: - Responsive Layout Management
 
-struct ResponsiveLayout {
-    let boardFrame: CGRect
-    let ulBowlCenter: CGPoint
-    let lrBowlCenter: CGPoint
-    let bowlRadius: CGFloat
-    let metadataY: CGFloat
-}
-
-extension ContentView {
-    func calculateResponsiveLayout(in geometry: GeometryProxy) -> ResponsiveLayout {
-        let screenWidth = geometry.size.width
-        let screenHeight = geometry.size.height
-
-        // Calculate board dimensions with proper aspect ratio (1.07:1 for Go)
-        let boardAspectRatio: CGFloat = 1.07
-
-        // First calculate maximum board size that fits the aspect ratio
-        let maxWidthBasedSize = screenWidth * 0.9
-        let maxHeightBasedSize = screenHeight * 0.75 // Leave more room for spacing
-        // Calculate spacing requirements using a reference cell size first
-        let referenceCellHeight = min(screenWidth, screenHeight) * 0.8 / 19 / boardAspectRatio
-        let topSpaceRequired = app.gameCacheManager.topSpaceCellUnits * referenceCellHeight
-        let bottomSpaceRequired = app.gameCacheManager.bottomSpaceCellUnits * referenceCellHeight
-
-        // Calculate available space for the board after reserving spacing
-        let availableVerticalSpaceForBoard = screenHeight - topSpaceRequired - bottomSpaceRequired
-        let availableHorizontalSpaceForBoard = screenWidth
-
-        // Determine board size based on available space (considering both constraints)
-        let maxBoardWidthFromHeight = availableVerticalSpaceForBoard * boardAspectRatio
-        let maxBoardHeightFromWidth = availableHorizontalSpaceForBoard / boardAspectRatio
-
-        let boardWidth: CGFloat
-        let boardHeight: CGFloat
-
-        if maxBoardWidthFromHeight <= availableHorizontalSpaceForBoard {
-            // Constrained by vertical space (after spacing)
-            boardHeight = availableVerticalSpaceForBoard
-            boardWidth = boardHeight * boardAspectRatio
-        } else {
-            // Constrained by horizontal space
-            boardWidth = availableHorizontalSpaceForBoard
-            boardHeight = boardWidth / boardAspectRatio
-        }
-
-        // Calculate final spacing using actual board cell height
-        let actualCellHeight = boardHeight / 19
-        let topSpace = app.gameCacheManager.topSpaceCellUnits * actualCellHeight
-        let bottomSpace = app.gameCacheManager.bottomSpaceCellUnits * actualCellHeight
-
-        let boardX = (screenWidth - boardWidth) / 2
-        let boardY = topSpace
-
-        let boardFrame = CGRect(x: boardX, y: boardY, width: boardWidth, height: boardHeight)
-
-        // Calculate bowl positions relative to board - bowls should be 1/3 the long side
-        let bowlRadius = max(boardWidth, boardHeight) / 3 / 2 // divide by 2 since radius = diameter/2
-        let bowlOffset = bowlRadius * 1.1 // Tighter spacing
-
-        let ulBowlCenter = CGPoint(
-            x: boardFrame.minX - bowlOffset,
-            y: boardFrame.minY + bowlOffset
-        )
-
-        let lrBowlCenter = CGPoint(
-            x: boardFrame.maxX + bowlOffset,
-            y: boardFrame.maxY - bowlOffset + bowlRadius * 1.25
-        )
-
-        // Position metadata bar center midway between board bottom and window bottom
-        let actualBottomSpace = screenHeight - boardFrame.maxY
-        let metadataY = boardFrame.maxY + actualBottomSpace / 2
-
-        // Debug: Print layout values
-        print("🎯 METADATA POSITIONING:")
-        print("   screenHeight: \(screenHeight)")
-        print("   boardFrame.maxY: \(boardFrame.maxY)")
-        print("   actualBottomSpace: \(actualBottomSpace)")
-        print("   metadataY: \(metadataY)")
-        print("   boardBottom to metadataY: \(metadataY - boardFrame.maxY)")
-        print("   metadataY to windowBottom: \(screenHeight - metadataY)")
-        print("   Expected center Y: \(boardFrame.maxY + actualBottomSpace / 2)")
-
-        return ResponsiveLayout(
-            boardFrame: boardFrame,
-            ulBowlCenter: ulBowlCenter,
-            lrBowlCenter: lrBowlCenter,
-            bowlRadius: bowlRadius,
-            metadataY: metadataY
-        )
-    }
-}
+// MARK: - Layout calculations now handled by LayoutService
 
 // MARK: - Button Styles
 

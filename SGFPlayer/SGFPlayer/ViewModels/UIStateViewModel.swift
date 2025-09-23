@@ -3,12 +3,14 @@
 
 import SwiftUI
 import Combine
+import AppKit
 
 /// ViewModel responsible for UI state, window management, and visual feedback
 @MainActor
 class UIStateViewModel: ObservableObject {
     // MARK: - Window State
     @Published var showFullscreen: Bool = false
+    @Published var isWindowFullscreen: Bool = false
     @Published var buttonsVisible: Bool = true
     @Published var fadeTimer: Timer? = nil
 
@@ -33,31 +35,31 @@ class UIStateViewModel: ObservableObject {
     // MARK: - Initialization
     init() {
         // Don't start mouse tracking timer immediately - start on first mouse move
+        setupWindowStateMonitoring()
     }
 
     // MARK: - Public Interface
 
     /// Toggle fullscreen mode
     func toggleFullscreen() {
-        showFullscreen.toggle()
-
-        if showFullscreen {
-            hideButtonsWithDelay()
-        } else {
-            showButtons()
-        }
+        guard let window = NSApplication.shared.windows.first else { return }
+        window.toggleFullScreen(nil)
     }
 
     /// Enter fullscreen mode
     func enterFullscreen() {
-        showFullscreen = true
-        hideButtonsWithDelay()
+        guard let window = NSApplication.shared.windows.first else { return }
+        if !window.styleMask.contains(.fullScreen) {
+            window.toggleFullScreen(nil)
+        }
     }
 
     /// Exit fullscreen mode
     func exitFullscreen() {
-        showFullscreen = false
-        showButtons()
+        guard let window = NSApplication.shared.windows.first else { return }
+        if window.styleMask.contains(.fullScreen) {
+            window.toggleFullScreen(nil)
+        }
     }
 
     /// Toggle physics demo visualization
@@ -87,7 +89,7 @@ class UIStateViewModel: ObservableObject {
         lastMouseMoveTime = Date()
         isMouseMoving = true
 
-        if showFullscreen {
+        if isWindowFullscreen {
             showButtons()
             hideButtonsWithDelay()
         }
@@ -139,7 +141,7 @@ class UIStateViewModel: ObservableObject {
     /// Get current window state for layout calculations
     func getWindowState() -> WindowState {
         return WindowState(
-            isFullscreen: showFullscreen,
+            isFullscreen: isWindowFullscreen,
             buttonsVisible: buttonsVisible,
             debugLayout: debugLayout,
             boardStoneDiameter: boardStoneDiameter,
@@ -160,7 +162,7 @@ class UIStateViewModel: ObservableObject {
 
     /// Handle escape key (exit fullscreen)
     func handleEscapeKey() {
-        if showFullscreen {
+        if isWindowFullscreen {
             exitFullscreen()
         }
     }
@@ -208,6 +210,38 @@ class UIStateViewModel: ObservableObject {
     private func cancelFadeTimer() {
         fadeTimer?.invalidate()
         fadeTimer = nil
+    }
+
+    // MARK: - Window State Monitoring
+
+    private func setupWindowStateMonitoring() {
+        NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)
+            .sink { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.onWindowEnteredFullscreen()
+                }
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)
+            .sink { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.onWindowExitedFullscreen()
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func onWindowEnteredFullscreen() {
+        isWindowFullscreen = true
+        showFullscreen = true
+        hideButtonsWithDelay()
+    }
+
+    private func onWindowExitedFullscreen() {
+        isWindowFullscreen = false
+        showFullscreen = false
+        showButtons()
     }
 
     // MARK: - Combine Support
