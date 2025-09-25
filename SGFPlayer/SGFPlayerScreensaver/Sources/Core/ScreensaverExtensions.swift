@@ -50,5 +50,59 @@ extension NSColor {
     }
 }
 
-// MARK: - SGF and Game Types
-// Note: SGFParser, SGFGame, and SGFPlayer are defined in other files
+// MARK: - SGF and Game Types - Screensaver Simplified Versions
+
+struct SGFGameTree {
+    let moves: [(Stone, (Int, Int)?)]
+}
+
+extension SGFGame {
+    static func from(tree: SGFGameTree) -> SGFGame {
+        var game = SGFGame()
+        game.boardSize = 19
+        game.moves = tree.moves
+        game.setup = []
+        return game
+    }
+}
+
+extension SGFParser {
+    static func parseToGameTree(text: String) throws -> SGFGameTree {
+        // Use the real SGF parser but extract just the moves
+        let realTree = try SGFParser.parse(text: text)
+
+        var moves: [(Stone, (Int, Int)?)] = []
+
+        for node in realTree.nodes {
+            // Check for black moves
+            if let blackMoves = node.props["B"] {
+                for move in blackMoves {
+                    if move.isEmpty {
+                        moves.append((.black, nil)) // Pass
+                    } else if move.count == 2 {
+                        let chars = Array(move)
+                        let x = Int(chars[0].asciiValue! - 97) // 'a' = 0
+                        let y = Int(chars[1].asciiValue! - 97)
+                        moves.append((.black, (x, y)))
+                    }
+                }
+            }
+
+            // Check for white moves
+            if let whiteMoves = node.props["W"] {
+                for move in whiteMoves {
+                    if move.isEmpty {
+                        moves.append((.white, nil)) // Pass
+                    } else if move.count == 2 {
+                        let chars = Array(move)
+                        let x = Int(chars[0].asciiValue! - 97) // 'a' = 0
+                        let y = Int(chars[1].asciiValue! - 97)
+                        moves.append((.white, (x, y)))
+                    }
+                }
+            }
+        }
+
+        return SGFGameTree(moves: moves)
+    }
+}

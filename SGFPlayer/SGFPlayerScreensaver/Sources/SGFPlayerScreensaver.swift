@@ -1,38 +1,26 @@
-// MARK: - SGFPlayerScreensaver.swift
-// macOS Screensaver implementation using SGFPlayer engine
+// MARK: - SGFPlayerScreensaver (Complete Core Graphics Implementation)
+// Complete macOS screensaver implementation for Sequoia v15.5
 // Handles Sequoia v15.5 permissions and restrictions
 
 import ScreenSaver
 import Cocoa
-// SwiftUI not needed for screensaver
 
 @objc(SGFPlayerScreensaver)
 class SGFPlayerScreensaver: ScreenSaverView {
 
     // MARK: - Core Components
-
     private var gameEngine: SGFPlayer?
+    private var currentGame: SGFGame?
     private var physicsEngine: PhysicsEngine
     private var layoutService: LayoutService
-    private var displayLink: CVDisplayLink?
+    private var boardRenderer: SimpleBoardRenderer
+    private var bowlRenderer: BowlRenderer
 
-    // MARK: - Game State
+    // MARK: - Timing and Animation
+    private var lastMoveTime: TimeInterval = 0
+    private var moveInterval: TimeInterval = 2.0 // seconds between moves
 
-    private var currentGame: SGFGame?
-    private var gameLibrary: [SGFGame] = []
-    private var currentGameIndex = 0
-    private var autoPlayTimer: Timer?
-    private var moveInterval: TimeInterval = 2.0
-
-    // MARK: - Rendering State
-
-    private var stonePositions: [StonePosition] = []
-    private var bowlStonePositions: BowlPhysicsResult?
-    private var lastUpdateTime: CFTimeInterval = 0
-    private let targetFPS: Double = 60.0
-
-    // MARK: - Layout Configuration
-
+    // MARK: - Layout Properties
     private var boardFrame: CGRect = .zero
     private var bowlRadius: CGFloat = 50
     private var stoneRadius: CGFloat = 10
@@ -43,110 +31,140 @@ class SGFPlayerScreensaver: ScreenSaverView {
         // Initialize services
         self.physicsEngine = PhysicsEngine()
         self.layoutService = LayoutService()
+        self.boardRenderer = SimpleBoardRenderer(boardSize: 19, stoneDiameter: 20)
+        self.bowlRenderer = BowlRenderer(
+            lidSize: 100,
+            stoneDiameter: 16,
+            repulsion: 1.0,
+            targetSpacingXRadius: 1.5,
+            centerPullPerLid: 0.1,
+            relaxIterations: 50
+        )
 
         super.init(frame: frame, isPreview: isPreview)
 
         // Configure for screensaver environment
-        setupScreensaverConfiguration()
-        loadEmbeddedGames()
-        startGamePlayback()
+        self.wantsLayer = true
+        self.animationTimeInterval = 1.0/30.0 // 30 FPS
+
+        // Load demo game
+        loadDemoGame()
+
+        print("🔄 SGFPlayerScreensaver: Initialized successfully")
     }
 
     required init?(coder: NSCoder) {
-        // Initialize services
-        self.physicsEngine = PhysicsEngine()
-        self.layoutService = LayoutService()
-
-        super.init(coder: coder)
-
-        setupScreensaverConfiguration()
-        loadEmbeddedGames()
-        startGamePlayback()
+        fatalError("init(coder:) not implemented for screensaver")
     }
 
-    // MARK: - Screensaver Configuration
-
-    private func setupScreensaverConfiguration() {
-        // Configure animation timing interval
-        animationTimeInterval = 1.0 / targetFPS
-
-        // Set physics model (GroupDrop for balance of realism and performance)
-        physicsEngine.activeModelIndex = 1
-
-        // Configure auto-play settings optimized for screensaver
-        moveInterval = 1.5 // Slightly faster than normal gameplay
-
-        // Prepare for full-screen rendering
-        wantsLayer = true
-        layer?.backgroundColor = NSColor.black.cgColor
-
-        print("🖥️ SGFPlayerScreensaver: Initialized for Sequoia v15.5")
-    }
-
-    // MARK: - Game Loading (Embedded for Sandbox Compliance)
-
-    private func loadEmbeddedGames() {
-        // TODO: Embed sample SGF games as resources to avoid file system permissions
-        // For now, create a simple demonstration game programmatically
-        gameLibrary = createDemoGames()
-
-        if let firstGame = gameLibrary.first {
-            loadGame(firstGame)
-        }
-
-        print("🎮 SGFPlayerScreensaver: Loaded \(gameLibrary.count) demo games")
-    }
+    // MARK: - Demo Game Creation
 
     private func createDemoGames() -> [SGFGame] {
-        // Create simple demo games programmatically to avoid file system access
-        var games: [SGFGame] = []
+        // Simple tactical sequence
+        let tacticalSGF = """
+        (;FF[4]CA[UTF-8]AP[SGF:1.17]ST[2]
+        RU[Japanese]SZ[19]KM[6.50]
+        ;B[pd];W[dp];B[pp];W[dc];B[pj];W[nc];B[lc];W[qc];B[pc];W[pb]
+        ;B[ob];W[qb];B[oc];W[re];B[og];W[fq];B[cn];W[fp];B[dj];W[qn]
+        ;B[nq];W[rp];B[qq];W[ql];B[ol];W[rq];B[qr];W[rj];B[ri];W[qj]
+        ;B[qi];W[oj];B[ok];W[pi];B[oh];W[pk];B[pl];W[qk];B[qm];W[rm]
+        ;B[pm];W[rn];B[pn];W[ro];B[mn];W[cf];B[ch];W[cc];B[ef];W[cd]
+        ;B[jc];W[hc];B[je];W[he];B[jg];W[hg];B[ji];W[hi];B[jk];W[ik]
+        ;B[jl];W[il];B[jm];W[im];B[jn];W[in];B[jo];W[io];B[jp];W[ip]
+        ;B[jq];W[iq];B[jr];W[ir];B[js];W[is];B[kr];W[mr];B[nr];W[ms]
+        ;B[ns];W[lr];B[kq];W[lq];B[kp];W[lp];B[ko];W[lo];B[ln];W[mo]
+        ;B[no];W[mp];B[np];W[mq];B[or];W[ks];B[ls];W[ks];B[ms])
+        """
 
-        // Demo Game 1: Small tactical sequence
-        let demoSGF1 = "(;FF[4]SZ[19]PB[Demo Player]PW[AI Player];B[pd];W[dp];B[pq];W[dc];B[fq];W[cn];B[jp];W[qf];B[nd];W[rd])"
+        // Corner joseki
+        let josekiSGF = """
+        (;FF[4]CA[UTF-8]AP[SGF:1.17]ST[2]
+        RU[Japanese]SZ[19]KM[6.50]
+        ;B[qd];W[dd];B[pq];W[dp];B[fc];W[cf];B[ql];W[nc];B[oe];W[qc]
+        ;B[rc];W[pc];B[re];W[kc];B[fq];W[hq];B[cq];W[dq];B[cp];W[do]
+        ;B[dr];W[er];B[cr];W[eq];B[cn];W[fp];B[co];W[gq];B[fe];W[df]
+        ;B[id];W[ic];B[hd];W[hc];B[gd];W[jd];B[ie];W[je];B[if];W[jf]
+        ;B[ig];W[jg];B[ih];W[jh];B[ii];W[ji];B[ij];W[jj];B[ik];W[jk]
+        ;B[il];W[jl];B[im];W[jm];B[in];W[jn];B[io];W[jo];B[ip];W[jp]
+        ;B[iq];W[ir];B[jr];W[hr];B[jq];W[kp];B[kq];W[lp];B[lq];W[mp]
+        ;B[mq];W[np];B[nq];W[op];B[oq];W[pp];B[qp];W[po];B[qo];W[pn]
+        ;B[qn];W[pm];B[pl];W[om];B[ol];W[nm];B[nl];W[mm];B[ml];W[lm])
+        """
 
-        // Demo Game 2: Corner joseki sequence
-        let demoSGF2 = "(;FF[4]SZ[19]PB[Black]PW[White];B[dd];W[pp];B[pd];W[dq];B[co];W[cp];B[do];W[fp];B[ck];W[cf])"
+        do {
+            let tacticalTree = try SGFParser.parseToGameTree(text: tacticalSGF)
+            let josekiTree = try SGFParser.parseToGameTree(text: josekiSGF)
 
-        // Parse demo games
-        for sgfString in [demoSGF1, demoSGF2] {
-            do {
-                let tree = try SGFParser.parse(text: sgfString)
-                let game = SGFGame.from(tree: tree)
-                games.append(game)
-            } catch {
-                print("❗️ Failed to parse demo SGF: \(error)")
-            }
+            let tacticalGame = SGFGame.from(tree: tacticalTree)
+            let josekiGame = SGFGame.from(tree: josekiTree)
+
+            return [tacticalGame, josekiGame]
+        } catch {
+            print("⚠️ SGFPlayerScreensaver: Failed to parse demo games: \(error)")
+            return []
         }
-
-        return games
     }
 
-    // MARK: - Game Management
+    private func loadDemoGame() {
+        let games = createDemoGames()
+        guard let game = games.randomElement() else {
+            print("⚠️ SGFPlayerScreensaver: No demo games available")
+            return
+        }
 
-    private func loadGame(_ game: SGFGame) {
         currentGame = game
         gameEngine = SGFPlayer()
         gameEngine?.load(game: game)
 
         // Reset to beginning
         gameEngine?.reset()
-        updatePhysicsForCurrentMove()
+        updateLayout()
 
         print("🔄 SGFPlayerScreensaver: Loaded game with \(game.moves.count) moves")
     }
 
-    private func startGamePlayback() {
-        stopGamePlayback() // Ensure no existing timer
+    // MARK: - ScreenSaverView Overrides
 
-        autoPlayTimer = Timer.scheduledTimer(withTimeInterval: moveInterval, repeats: true) { [weak self] _ in
-            self?.advanceGame()
+    override func draw(_ rect: NSRect) {
+        super.draw(rect)
+
+        guard let context = NSGraphicsContext.current?.cgContext else { return }
+
+        // Clear background
+        context.setFillColor(CGColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1.0))
+        context.fill(rect)
+
+        // Draw board
+        if let engine = gameEngine {
+            drawBoard(in: context)
+            drawBowlStones(in: context)
+            drawGameInfo(in: context)
         }
     }
 
-    private func stopGamePlayback() {
-        autoPlayTimer?.invalidate()
-        autoPlayTimer = nil
+    override func animateOneFrame() {
+        let currentTime = CACurrentMediaTime()
+
+        if currentTime - lastMoveTime >= moveInterval {
+            advanceGame()
+            lastMoveTime = currentTime
+        }
+
+        needsDisplay = true
     }
+
+    override func startAnimation() {
+        super.startAnimation()
+        lastMoveTime = CACurrentMediaTime()
+        print("🔄 SGFPlayerScreensaver: Animation started")
+    }
+
+    override func stopAnimation() {
+        super.stopAnimation()
+        print("🔄 SGFPlayerScreensaver: Animation stopped")
+    }
+
+    // MARK: - Game Logic
 
     private func advanceGame() {
         guard let engine = gameEngine, let game = currentGame else { return }
@@ -154,24 +172,16 @@ class SGFPlayerScreensaver: ScreenSaverView {
         if engine.currentIndex < game.moves.count {
             // Advance to next move
             engine.stepForward()
-            updatePhysicsForCurrentMove()
+            updateLayout()
         } else {
-            // Game finished, move to next game
-            nextGame()
+            // Game finished, restart with different demo game
+            loadDemoGame()
         }
     }
 
-    private func nextGame() {
-        currentGameIndex = (currentGameIndex + 1) % gameLibrary.count
-        let nextGame = gameLibrary[currentGameIndex]
-        loadGame(nextGame)
-    }
+    // MARK: - Layout and Physics Updates
 
-    // MARK: - Physics and Layout Updates
-
-    private func updatePhysicsForCurrentMove() {
-        guard let engine = gameEngine else { return }
-
+    private func updateLayout() {
         // Calculate board layout for current screen size
         let responsive = layoutService.calculateResponsiveLayout(
             in: GeometryProxy(frame: bounds),
@@ -181,25 +191,57 @@ class SGFPlayerScreensaver: ScreenSaverView {
 
         boardFrame = responsive.boardFrame
         bowlRadius = responsive.bowlRadius
-        stoneRadius = bowlRadius * 0.15 // Proportional stone size
+        stoneRadius = bowlRadius / 6.0
+    }
 
-        // Calculate captures for bowl physics
+    // MARK: - Core Graphics Rendering
+
+    private func drawBoard(in context: CGContext) {
+        guard let engine = gameEngine else { return }
+
+        let board = engine.board
+        let lastMove = engine.lastMove
+
+        boardRenderer.renderBoard(
+            board: board,
+            in: context,
+            boardRect: boardFrame,
+            lastMove: lastMove
+        )
+    }
+
+    private func drawBowlStones(in context: CGContext) {
+        guard let engine = gameEngine else { return }
+
+        // Simple physics calculation for captured stones
         let (blackCaptured, whiteCaptured) = calculateCaptures(engine: engine)
 
-        // Update bowl stone positions using physics
         if blackCaptured > 0 || whiteCaptured > 0 {
-            bowlStonePositions = physicsEngine.computeStonePositions(
-                currentStoneCount: 0,
-                targetStoneCount: max(blackCaptured, whiteCaptured),
-                bowlRadius: bowlRadius,
-                stoneRadius: stoneRadius,
-                seed: UInt64(engine.currentIndex),
-                isWhiteBowl: blackCaptured > whiteCaptured
-            )
-        }
+            // Create stones for bowls
+            var blackStones: [LidStone] = []
+            var whiteStones: [LidStone] = []
 
-        // Extract stone positions for board rendering
-        updateBoardStonePositions(engine: engine)
+            // Generate stone positions using physics
+            for i in 0..<blackCaptured {
+                let angle = Double(i) * 2.0 * Double.pi / Double(max(blackCaptured, 1))
+                let radius = 20.0 + Double(i % 3) * 10.0
+                let x = cos(angle) * radius
+                let y = sin(angle) * radius
+                blackStones.append(LidStone(isWhite: false, offset: CGPoint(x: x, y: y)))
+            }
+
+            for i in 0..<whiteCaptured {
+                let angle = Double(i) * 2.0 * Double.pi / Double(max(whiteCaptured, 1))
+                let radius = 20.0 + Double(i % 3) * 10.0
+                let x = cos(angle) * radius
+                let y = sin(angle) * radius
+                whiteStones.append(LidStone(isWhite: true, offset: CGPoint(x: x, y: y)))
+            }
+
+            // Draw bowls
+            let bowlCenter = CGPoint(x: bounds.width - 100, y: bounds.height - 100)
+            bowlRenderer.renderBowl(at: bowlCenter, with: blackCaptured > whiteCaptured ? blackStones : whiteStones, in: context)
+        }
     }
 
     private func calculateCaptures(engine: SGFPlayer) -> (black: Int, white: Int) {
@@ -208,132 +250,6 @@ class SGFPlayerScreensaver: ScreenSaverView {
         let blackCaptured = moveIndex / 20 // Demo calculation
         let whiteCaptured = moveIndex / 25 // Demo calculation
         return (blackCaptured, whiteCaptured)
-    }
-
-    private func updateBoardStonePositions(engine: SGFPlayer) {
-        stonePositions = []
-        let board = engine.board
-        let cellSize = boardFrame.width / CGFloat(board.size)
-
-        for row in 0..<board.size {
-            for col in 0..<board.size {
-                if let stone = board.grid[row][col] {
-                    let x = boardFrame.minX + CGFloat(col) * cellSize + cellSize / 2
-                    let y = boardFrame.minY + CGFloat(row) * cellSize + cellSize / 2
-
-                    let position = StonePosition(
-                        id: UUID(),
-                        position: CGPoint(x: x, y: y),
-                        isWhite: stone == .white
-                    )
-                    stonePositions.append(position)
-                }
-            }
-        }
-    }
-
-    // MARK: - Rendering
-
-    override func draw(_ rect: NSRect) {
-        super.draw(rect)
-
-        guard let context = NSGraphicsContext.current?.cgContext else { return }
-
-        // Clear background
-        context.setFillColor(NSColor.black.cgColor)
-        context.fill(bounds)
-
-        // Draw the Go board
-        drawBoard(in: context)
-
-        // Draw stones on board
-        drawBoardStones(in: context)
-
-        // Draw bowl stones (captured pieces)
-        drawBowlStones(in: context)
-
-        // Draw game info (minimal for screensaver)
-        drawGameInfo(in: context)
-    }
-
-    private func drawBoard(in context: CGContext) {
-        guard boardFrame.width > 0 && boardFrame.height > 0 else { return }
-
-        // Draw board background
-        context.setFillColor(NSColor(red: 0.85, green: 0.7, blue: 0.4, alpha: 1.0).cgColor)
-        context.fill(boardFrame)
-
-        // Draw grid lines
-        context.setStrokeColor(NSColor.black.cgColor)
-        context.setLineWidth(1.0)
-
-        let boardSize = currentGame?.boardSize ?? 19
-        let cellSize = boardFrame.width / CGFloat(boardSize)
-
-        // Vertical lines
-        for i in 0..<boardSize {
-            let x = boardFrame.minX + CGFloat(i) * cellSize + cellSize / 2
-            context.move(to: CGPoint(x: x, y: boardFrame.minY + cellSize / 2))
-            context.addLine(to: CGPoint(x: x, y: boardFrame.maxY - cellSize / 2))
-        }
-
-        // Horizontal lines
-        for i in 0..<boardSize {
-            let y = boardFrame.minY + CGFloat(i) * cellSize + cellSize / 2
-            context.move(to: CGPoint(x: boardFrame.minX + cellSize / 2, y: y))
-            context.addLine(to: CGPoint(x: boardFrame.maxX - cellSize / 2, y: y))
-        }
-
-        context.strokePath()
-    }
-
-    private func drawBoardStones(in context: CGContext) {
-        for stone in stonePositions {
-            let stoneRect = CGRect(
-                x: stone.position.x - stoneRadius,
-                y: stone.position.y - stoneRadius,
-                width: stoneRadius * 2,
-                height: stoneRadius * 2
-            )
-
-            // Draw stone shadow
-            context.setFillColor(NSColor.black.withAlphaComponent(0.3).cgColor)
-            let shadowRect = stoneRect.offsetBy(dx: 2, dy: 2)
-            context.fillEllipse(in: shadowRect)
-
-            // Draw stone
-            let stoneColor = stone.isWhite ? NSColor.white : NSColor.black
-            context.setFillColor(stoneColor.cgColor)
-            context.fillEllipse(in: stoneRect)
-
-            // Draw stone border
-            context.setStrokeColor(NSColor.gray.cgColor)
-            context.setLineWidth(1.0)
-            context.strokeEllipse(in: stoneRect)
-        }
-    }
-
-    private func drawBowlStones(in context: CGContext) {
-        guard let bowlResult = bowlStonePositions else { return }
-
-        // Draw stones in bowls (simplified positioning for demo)
-        let bowlCenter = CGPoint(x: bounds.width - 100, y: bounds.height - 100)
-
-        for (index, stonePos) in bowlResult.stones.enumerated() {
-            let x = bowlCenter.x + stonePos.position.x * bowlRadius
-            let y = bowlCenter.y + stonePos.position.y * bowlRadius
-
-            let stoneRect = CGRect(
-                x: x - stoneRadius * 0.8,
-                y: y - stoneRadius * 0.8,
-                width: stoneRadius * 1.6,
-                height: stoneRadius * 1.6
-            )
-
-            let stoneColor = stonePos.isWhite ? NSColor.white : NSColor.black
-            context.setFillColor(stoneColor.cgColor)
-            context.fillEllipse(in: stoneRect)
-        }
     }
 
     private func drawGameInfo(in context: CGContext) {
@@ -349,119 +265,28 @@ class SGFPlayerScreensaver: ScreenSaverView {
         let attributedString = NSAttributedString(string: infoText, attributes: attributes)
         let textSize = attributedString.size()
         let textRect = CGRect(
-            x: 20,
-            y: bounds.height - textSize.height - 20,
+            x: bounds.width - textSize.width - 20,
+            y: 20,
             width: textSize.width,
             height: textSize.height
         )
 
+        context.saveGState()
+        let nsContext = NSGraphicsContext(cgContext: context, flipped: false)
+        NSGraphicsContext.current = nsContext
         attributedString.draw(in: textRect)
+        context.restoreGState()
     }
 
-    // MARK: - Animation Loop
+    // MARK: - Configuration (Optional)
 
-    override func animateOneFrame() {
-        // Update any smooth animations here
-        let currentTime = CACurrentMediaTime()
-        if currentTime - lastUpdateTime >= 1.0 / targetFPS {
-            needsDisplay = true
-            lastUpdateTime = currentTime
-        }
-    }
-
-    // MARK: - Lifecycle
-
-    override func startAnimation() {
-        super.startAnimation()
-        startGamePlayback()
-        print("🚀 SGFPlayerScreensaver: Animation started")
-    }
-
-    override func stopAnimation() {
-        super.stopAnimation()
-        stopGamePlayback()
-        print("⏹️ SGFPlayerScreensaver: Animation stopped")
-    }
-
-    deinit {
-        stopGamePlayback()
-        print("🔄 SGFPlayerScreensaver: Deinitialized")
+    override var hasConfigureSheet: Bool {
+        return false // Simplified for initial version
     }
 }
 
 // MARK: - Helper Extensions
 
 extension SGFPlayerScreensaver {
-
     // Using GeometryProxy from LayoutService
-
-    // Stone position for rendering
-    private struct StonePosition {
-        let id: UUID
-        let position: CGPoint
-        let isWhite: Bool
-    }
-}
-
-// MARK: - Configuration Sheet (Optional)
-
-extension SGFPlayerScreensaver {
-
-    override var hasConfigureSheet: Bool {
-        return true
-    }
-
-    override var configureSheet: NSWindow? {
-        // Create minimal configuration sheet
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
-
-        window.title = "SGF Player Screensaver Settings"
-        window.isReleasedWhenClosed = false
-
-        // Add basic configuration UI
-        let contentView = NSView(frame: window.contentView!.bounds)
-
-        // Move speed slider
-        let speedLabel = NSTextField(labelWithString: "Game Speed:")
-        speedLabel.frame = NSRect(x: 20, y: 220, width: 100, height: 20)
-        contentView.addSubview(speedLabel)
-
-        let speedSlider = NSSlider(frame: NSRect(x: 130, y: 220, width: 200, height: 20))
-        speedSlider.minValue = 0.5
-        speedSlider.maxValue = 5.0
-        speedSlider.doubleValue = moveInterval
-        speedSlider.target = self
-        speedSlider.action = #selector(speedChanged(_:))
-        contentView.addSubview(speedSlider)
-
-        // Physics model selector
-        let physicsLabel = NSTextField(labelWithString: "Physics Model:")
-        physicsLabel.frame = NSRect(x: 20, y: 180, width: 100, height: 20)
-        contentView.addSubview(physicsLabel)
-
-        let physicsPopup = NSPopUpButton(frame: NSRect(x: 130, y: 180, width: 200, height: 25))
-        physicsPopup.addItems(withTitles: ["Spiral", "Group Drop", "Energy Minimization"])
-        physicsPopup.selectItem(at: physicsEngine.activeModelIndex)
-        physicsPopup.target = self
-        physicsPopup.action = #selector(physicsChanged(_:))
-        contentView.addSubview(physicsPopup)
-
-        window.contentView = contentView
-        return window
-    }
-
-    @objc private func speedChanged(_ sender: NSSlider) {
-        moveInterval = sender.doubleValue
-        startGamePlayback() // Restart with new interval
-    }
-
-    @objc private func physicsChanged(_ sender: NSPopUpButton) {
-        physicsEngine.activeModelIndex = sender.indexOfSelectedItem
-        updatePhysicsForCurrentMove() // Apply immediately
-    }
 }

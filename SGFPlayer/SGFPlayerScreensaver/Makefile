@@ -23,7 +23,7 @@ EXECUTABLE = $(BUNDLE_DIR)/Contents/MacOS/$(PRODUCT_NAME)
 INFO_PLIST = $(BUNDLE_DIR)/Contents/Info.plist
 
 # Compiler flags
-SWIFT_FLAGS = -target x86_64-apple-macos$(DEPLOYMENT_TARGET) \
+SWIFT_FLAGS = -target arm64-apple-macos$(DEPLOYMENT_TARGET) \
               -swift-version $(SWIFT_VERSION) \
               -O \
               -module-name $(PRODUCT_NAME) \
@@ -40,6 +40,8 @@ all: $(EXECUTABLE)
 $(EXECUTABLE): $(SWIFT_SOURCES) | $(BUNDLE_DIR)/Contents/MacOS
 	@echo "🔨 Building $(PRODUCT_NAME) for macOS Sequoia..."
 	@swiftc $(SWIFT_FLAGS) -o $@ $(SWIFT_SOURCES)
+	@echo "🔐 Code signing for macOS Sequoia compatibility..."
+	@codesign --force --sign - $@
 	@echo "✅ Build complete: $@"
 
 $(BUNDLE_DIR)/Contents/MacOS:
