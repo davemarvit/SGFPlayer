@@ -47,6 +47,16 @@ struct ContentView: View {
 
     // Settings
     @AppStorage("randomOnStart") private var randomOnStart: Bool = false
+    @AppStorage("autoStartOnLaunch") private var autoStartOnLaunch: Bool = true
+    @AppStorage("loopGames") private var loopGames: Bool = true
+
+    // Filtered games for navigation (when search is active)
+    @State private var filteredGames: [SGFGameWrapper] = []
+    @State private var isSearchActive: Bool = false
+
+    // Persist search state between launches
+    @AppStorage("lastSearchQuery") private var lastSearchQuery: String = ""
+    @AppStorage("isSearchActivePersisted") private var isSearchActivePersisted: Bool = false
 
     // Initialization tracking to prevent repeated app initialization
     @State private var isInitialized: Bool = false
@@ -85,6 +95,21 @@ struct ContentView: View {
     @AppStorage("uiMoveDelay") private var uiMoveDelay: Double = 0.75
     @State private var currentBowlRadius: CGFloat = 100.0
 
+    // Window title computation
+    private var windowTitle: String {
+        guard let selection = app.selection else {
+            return "SGFPlayer"
+        }
+        let info = selection.game.info
+        let blackPlayer = info.playerBlack ?? "?"
+        let whitePlayer = info.playerWhite ?? "?"
+        var title = "\(blackPlayer) vs \(whitePlayer)"
+        if let date = info.date, !date.isEmpty {
+            title += " - \(date)"
+        }
+        return title
+    }
+
     // Bowl positioning - updated by GameBoardView
     @State private var actualUlCenter: CGPoint = CGPoint(x: 150, y: 150)
     @State private var actualLrCenter: CGPoint = CGPoint(x: 650, y: 450)
@@ -103,6 +128,11 @@ struct ContentView: View {
 
     // Physics model selection (migrated to new system)
     @State private var activePhysicsModelRaw: Int = 2
+
+    // Computed property for active game list (filtered or all games)
+    private var activeGamesList: [SGFGameWrapper] {
+        return isSearchActive && !filteredGames.isEmpty ? filteredGames : app.games
+    }
 
     var body: some View {
         ZStack {
@@ -144,9 +174,20 @@ struct ContentView: View {
                 // Load game into cache manager for jitter system
                 app.gameCacheManager.loadGame(gameWrapper.game, fingerprint: gameWrapper.fingerprint)
 
+                // Update window title
+                updateWindowTitle()
+
                 print("🎮 Loaded new game: \(gameWrapper.game.moves.count) moves, board size \(gameWrapper.game.boardSize)")
                 print("🎯 Game cache updated with fingerprint: \(gameWrapper.fingerprint)")
                 print("🧹 Physics integration and capture cache cleared before new game")
+
+                // Auto-start playback if autoplay is enabled
+                if autoNext {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        player.play()
+                        print("🔄 Auto-started playback for new game selection")
+                    }
+                }
             }
         }
         .onChange(of: autoNext) { _, isAutoPlay in
@@ -172,7 +213,18 @@ struct ContentView: View {
                     pickRandomGame()
                     // If auto-play is enabled, automatically start the new game
                     if autoNext {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            player.play()
+                        }
+                    }
+                }
+            } else if loopGames {
+                // Wait 5 seconds, then advance to next game in sequence (or loop back to first)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                    advanceToNextGame()
+                    // If auto-play is enabled, automatically start the new game
+                    if autoNext {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             player.play()
                         }
                     }
@@ -313,6 +365,8 @@ struct ContentView: View {
                             m1_stoneLidK: $m1_stoneLidK,
                             autoNext: $autoNext,
                             randomNext: $randomNext,
+                            autoStartOnLaunch: $autoStartOnLaunch,
+                            loopGames: $loopGames,
                             uiMoveDelay: $uiMoveDelay,
                             player: player,
                             app: app,
@@ -322,14 +376,46 @@ struct ContentView: View {
                             },
                             debugLayout: $debugLayout,
                             advancedExpanded: $advancedExpanded,
-                            gameCacheManager: app.gameCacheManager
+                            gameCacheManager: app.gameCacheManager,
+                            onSearchResultsChanged: { searchResults in
+                                filteredGames = searchResults
+                                isSearchActive = !searchResults.isEmpty
+
+                                // Persist search state
+                                isSearchActivePersisted = isSearchActive
+                                if isSearchActive && searchResults.count < app.games.count {
+                                    // Extract search query by finding the common pattern in search results
+                                    if let firstGame = searchResults.first {
+                                        let info = firstGame.game.info
+                                        let blackPlayer = info.playerBlack ?? ""
+                                        let whitePlayer = info.playerWhite ?? ""
+                                        // For now, just save the first player name as a simple heuristic
+                                        lastSearchQuery = blackPlayer.isEmpty ? whitePlayer : blackPlayer
+                                    }
+                                } else if !isSearchActive {
+                                    lastSearchQuery = ""
+                                }
+
+                                print("🔍 ContentView: Updated filtered games to \(searchResults.count) games, search active: \(isSearchActive)")
+
+                                // Always switch to first game in search results
+                                if !searchResults.isEmpty {
+                                    print("🔍 Switching to first game in search results")
+                                    app.selection = searchResults.first
+                                    player.reset()
+
+                                    // Start autoplay if it was already enabled
+                                    if autoNext {
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                            player.play()
+                                            print("🔍 Started autoplay after search switch")
+                                        }
+                                    }
+                                }
+                            }
                         )
                         .frame(width: 320)
                         .frame(maxHeight: .infinity)
-                        .background(
-                            .thinMaterial.opacity(0.6),
-                            in: RoundedRectangle(cornerRadius: 0)
-                        )
 
                         Spacer()
                     }
@@ -391,6 +477,37 @@ struct ContentView: View {
 
     // MARK: - Helper Functions
 
+    private func updateWindowTitle() {
+        DispatchQueue.main.async {
+            if let window = NSApplication.shared.windows.first {
+                window.title = windowTitle
+                print("🏷️ Updated window title to: \(windowTitle)")
+            }
+        }
+    }
+
+    private func restoreSearchState() {
+        // Restore search filter if one was persisted
+        if isSearchActivePersisted && !lastSearchQuery.isEmpty {
+            print("🔍 Restoring search state: '\(lastSearchQuery)'")
+            performSearch(query: lastSearchQuery)
+        }
+    }
+
+    private func performSearch(query: String) {
+        let searchLower = query.lowercased()
+        let searchResults = app.games.filter { gameWrapper in
+            let info = gameWrapper.game.info
+            let blackPlayer = info.playerBlack?.lowercased() ?? ""
+            let whitePlayer = info.playerWhite?.lowercased() ?? ""
+            return blackPlayer.contains(searchLower) || whitePlayer.contains(searchLower)
+        }
+
+        filteredGames = searchResults
+        isSearchActive = !searchResults.isEmpty
+        print("🔍 Search restored: \(searchResults.count) games found for '\(query)'")
+    }
+
     private func initializeApp() {
         print("🚀 INIT: initializeApp() called")
         // Sync legacy physics model to new system
@@ -409,10 +526,25 @@ struct ContentView: View {
         print("🎯 TOTAL MOVES: \(player.moves.count)")
         print("🎯 BOARD STONES: \(player.board.grid.flatMap { $0 }.compactMap { $0 }.count)")
 
+        // Restore search state if it was persisted
+        restoreSearchState()
+
         // Start autoplay if enabled
         if autoNext {
             print("🎮 Auto-play enabled")
         }
+
+        // Auto-start playing on launch if enabled and we have a game selected
+        if autoStartOnLaunch && app.selection != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                autoNext = true
+                player.play()
+                print("🚀 Auto-started playback on launch")
+            }
+        }
+
+        // Set initial window title
+        updateWindowTitle()
 
         print("🚀 NEW MODULAR PHYSICS: ContentView initialized with resolved stone clustering")
         print("   - Black stones in UL bowl: \(physicsIntegration.blackStones.count)")
@@ -522,12 +654,35 @@ struct ContentView: View {
     }
 
     private func pickRandomGame() {
-        guard !app.games.isEmpty else { return }
+        guard !activeGamesList.isEmpty else { return }
 
-        let randomIndex = Int.random(in: 0..<app.games.count)
-        let randomGame = app.games[randomIndex]
+        let randomIndex = Int.random(in: 0..<activeGamesList.count)
+        let randomGame = activeGamesList[randomIndex]
         app.selectGame(randomGame)
         print("🎲 Random game selected: \(randomGame.url.lastPathComponent)")
+    }
+
+    private func advanceToNextGame() {
+        guard !activeGamesList.isEmpty else { return }
+
+        if let currentSelection = app.selection,
+           let currentIndex = activeGamesList.firstIndex(where: { $0.id == currentSelection.id }) {
+            // Move to next game, or loop back to first if at end
+            let nextIndex = (currentIndex + 1) % activeGamesList.count
+            let nextGame = activeGamesList[nextIndex]
+            app.selectGame(nextGame)
+
+            if nextIndex == 0 {
+                print("🔄 Looped back to first game: \(nextGame.url.lastPathComponent)")
+            } else {
+                print("⏭️ Advanced to next game: \(nextGame.url.lastPathComponent)")
+            }
+        } else {
+            // No current selection, start with first game
+            let firstGame = activeGamesList[0]
+            app.selectGame(firstGame)
+            print("🎯 Started with first game: \(firstGame.url.lastPathComponent)")
+        }
     }
 
     private func resetButtonFadeTimer() {

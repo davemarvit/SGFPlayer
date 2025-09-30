@@ -13,8 +13,11 @@ struct GameSelectionSection: View {
     @FocusState private var isSearchFocused: Bool
     @StateObject private var searchController: SearchWindowController
 
-    init(app: AppModel) {
+    var onSearchResultsChanged: (([SGFGameWrapper]) -> Void)? = nil
+
+    init(app: AppModel, onSearchResultsChanged: (([SGFGameWrapper]) -> Void)? = nil) {
         self.app = app
+        self.onSearchResultsChanged = onSearchResultsChanged
         self._searchController = StateObject(wrappedValue: SearchWindowController(appModel: app))
         print("🔍 GameSelectionSection INIT called - games count: \(app.games.count)")
     }
@@ -39,7 +42,8 @@ struct GameSelectionSection: View {
                 Button("🔍 Open Search Window") {
                     searchController.onSearchComplete = { results in
                         searchResults = results
-                        print("🔍 Applied \(results.count) search results to panel")
+                        onSearchResultsChanged?(results)
+                        print("🔍 Applied \(results.count) search results to panel and navigation")
                     }
                     searchController.showSearchWindow()
                 }
@@ -86,7 +90,7 @@ struct GameSelectionSection: View {
                         }
                     }
                 }
-                .scrollIndicators(.visible) // Always show scrollbar when scrollable
+                .scrollIndicators(.hidden)
                 .frame(maxHeight: 200)
                 .padding(.vertical, 8)
                 .background(

@@ -46,44 +46,49 @@ struct SettingsPanelView: View {
     var onSearchResultsChanged: (([SGFGameWrapper]) -> Void)? = nil
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header with gear icon
-            HStack(spacing: 12) {
-                Button {
-                    withAnimation(.easeInOut(duration: 1.0)) {
-                        isPanelOpen = false
+        ZStack {
+            // Background for entire panel
+            Rectangle()
+                .fill(.thinMaterial.opacity(0.6))
+
+            VStack(spacing: 0) {
+                // Header with gear icon
+                HStack(spacing: 12) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 1.0)) {
+                            isPanelOpen = false
+                        }
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                            .font(.title2)
+                            .foregroundColor(.white)
                     }
-                } label: {
-                    Image(systemName: "gearshape.fill")
-                        .font(.title2)
+                    .buttonStyle(.plain)
+
+                    Text("Settings")
+                        .font(.title2.bold())
                         .foregroundColor(.white)
-                }
-                .buttonStyle(.plain)
 
-                Text("Settings")
-                    .font(.title2.bold())
-                    .foregroundColor(.white)
+                    Spacer()
 
-                Spacer()
-
-                Button {
-                    withAnimation(.easeInOut(duration: 1.0)) {
-                        isPanelOpen = false
+                    Button {
+                        withAnimation(.easeInOut(duration: 1.0)) {
+                            isPanelOpen = false
+                        }
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.title3)
+                            .foregroundColor(.white.opacity(0.8))
                     }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.title3)
-                        .foregroundColor(.white.opacity(0.8))
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-            }
-            .padding(.leading, 32)
-            .padding(.trailing, 50)
-            .padding(.top, 32)
-            .padding(.bottom, 16)
+                .padding(.leading, 32)
+                .padding(.trailing, 50)
+                .padding(.top, 32)
+                .padding(.bottom, 16)
 
-            // Scrollable content
-            ScrollView {
+                // Scrollable content
+                ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     FolderSelectionSection(app: app)
                         .padding(.horizontal, 16)
@@ -393,6 +398,8 @@ struct SettingsPanelView: View {
                     .padding(.horizontal, 16)
                 }
                 .padding(.bottom, 20)
+            }
+            .scrollIndicators(.automatic)
             }
         }
         .frame(width: 320)
