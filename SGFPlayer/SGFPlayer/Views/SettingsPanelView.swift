@@ -26,6 +26,8 @@ struct SettingsPanelView: View {
     // Auto-play controls moved from main UI
     @Binding var autoNext: Bool
     @Binding var randomNext: Bool
+    @Binding var autoStartOnLaunch: Bool
+    @Binding var loopGames: Bool
     @Binding var uiMoveDelay: Double
 
     // Move controls moved from main UI
@@ -39,6 +41,9 @@ struct SettingsPanelView: View {
 
     // Game cache manager for jitter controls
     var gameCacheManager: GameCacheManager? = nil
+
+    // Search results callback
+    var onSearchResultsChanged: (([SGFGameWrapper]) -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -82,7 +87,7 @@ struct SettingsPanelView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     FolderSelectionSection(app: app)
                         .padding(.horizontal, 16)
-                    GameSelectionSection(app: app)
+                    GameSelectionSection(app: app, onSearchResultsChanged: onSearchResultsChanged)
                         .padding(.horizontal, 16)
 
                     Divider()
@@ -130,6 +135,17 @@ struct SettingsPanelView: View {
                                     .toggleStyle(SwitchToggleStyle(tint: .blue))
                             }
                             .padding(.horizontal, 16)
+
+                            // Additional playback settings
+                            HStack(spacing: 20) {
+                                Toggle("Auto-start on launch", isOn: $autoStartOnLaunch)
+                                    .toggleStyle(SwitchToggleStyle(tint: .blue))
+
+                                Toggle("Loop games", isOn: $loopGames)
+                                    .toggleStyle(SwitchToggleStyle(tint: .blue))
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.top, 8)
 
                             if autoNext {
                                 VStack(alignment: .leading, spacing: 6) {
@@ -191,8 +207,10 @@ struct SettingsPanelView: View {
                                     get: { Double(player.currentIndex) },
                                     set: { newValue in
                                         let newIndex = Int(newValue)
+                                        // Stop autoplay when manually seeking
+                                        autoNext = false
                                         onMoveChanged?(newIndex)
-                                        print("🎮 Settings move slider changed to: \(newIndex)")
+                                        print("🎮 Settings move slider changed to: \(newIndex), autoplay stopped")
                                     }
                                 ),
                                 in: 0...Double(max(1, player.moves.count)),
@@ -230,6 +248,7 @@ struct SettingsPanelView: View {
                         HStack(spacing: 12) {
                             // Scan backward (10 moves back) - <<
                             Button {
+                                autoNext = false
                                 let newIndex = max(0, player.currentIndex - 10)
                                 onMoveChanged?(newIndex)
                             } label: {
@@ -242,6 +261,7 @@ struct SettingsPanelView: View {
 
                             // Step backward (1 move back) - <
                             Button {
+                                autoNext = false
                                 let newIndex = max(0, player.currentIndex - 1)
                                 onMoveChanged?(newIndex)
                             } label: {
@@ -265,6 +285,7 @@ struct SettingsPanelView: View {
 
                             // Step forward (1 move forward) - >
                             Button {
+                                autoNext = false
                                 let maxMoves = max(1, player.moves.count)
                                 let newIndex = min(maxMoves - 1, player.currentIndex + 1)
                                 onMoveChanged?(newIndex)
@@ -278,6 +299,7 @@ struct SettingsPanelView: View {
 
                             // Scan forward (10 moves forward) - >>
                             Button {
+                                autoNext = false
                                 let maxMoves = max(1, player.moves.count)
                                 let newIndex = min(maxMoves - 1, player.currentIndex + 10)
                                 onMoveChanged?(newIndex)
@@ -606,6 +628,8 @@ struct SettingsPanelView_Previews: PreviewProvider {
             m1_stoneLidK: .constant(0.25),
             autoNext: .constant(true),
             randomNext: .constant(false),
+            autoStartOnLaunch: .constant(true),
+            loopGames: .constant(true),
             uiMoveDelay: .constant(1.0),
             player: SGFPlayer(),
             app: AppModel(),
