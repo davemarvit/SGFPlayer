@@ -2,27 +2,51 @@
 // Extracted from ContentView to reduce complexity
 
 import SwiftUI
+import AppKit
 
 struct SettingsPanelView: View {
-    // ARCHITECTURAL IMPROVEMENT: Use service directly instead of 23+ individual bindings
-    @ObservedObject var settingsService: SettingsPanelService
+    @Binding var isPanelOpen: Bool
+    @Binding var activePhysicsModelRaw: Int
     @ObservedObject var physicsIntegration: PhysicsIntegration
 
-    // Core dependencies for functionality
+    // Physics model parameters - kept for compatibility
+    @Binding var m1_repel: Double
+    @Binding var m1_spacing: Double
+    @Binding var m1_centerPullK: Double
+    @Binding var m1_relaxIters: Int
+    @Binding var m1_pressureRadiusXR: Double
+    @Binding var m1_pressureKFactor: Double
+    @Binding var m1_maxStepXR: Double
+    @Binding var m1_damping: Double
+    @Binding var m1_wallK: Double
+    @Binding var m1_anim: Double
+    @Binding var m1_stoneStoneK: Double
+    @Binding var m1_stoneLidK: Double
+
+    // Auto-play controls moved from main UI
+    @Binding var autoNext: Bool
+    @Binding var randomNext: Bool
+    @Binding var uiMoveDelay: Double
+
+    // Move controls moved from main UI
     @ObservedObject var player: SGFPlayer
     @ObservedObject var app: AppModel
     var onMoveChanged: ((Int) -> Void)?
 
+    // Additional settings
+    @Binding var debugLayout: Bool
+    @Binding var advancedExpanded: Bool
+
     // Game cache manager for jitter controls
     var gameCacheManager: GameCacheManager? = nil
-    
+
     var body: some View {
         VStack(spacing: 0) {
             // Header with gear icon
             HStack(spacing: 12) {
                 Button {
                     withAnimation(.easeInOut(duration: 1.0)) {
-                        settingsService.isPanelOpen = false
+                        isPanelOpen = false
                     }
                 } label: {
                     Image(systemName: "gearshape.fill")
@@ -39,7 +63,7 @@ struct SettingsPanelView: View {
 
                 Button {
                     withAnimation(.easeInOut(duration: 1.0)) {
-                        settingsService.isPanelOpen = false
+                        isPanelOpen = false
                     }
                 } label: {
                     Image(systemName: "xmark")
@@ -60,51 +84,77 @@ struct SettingsPanelView: View {
                         .padding(.horizontal, 16)
                     GameSelectionSection(app: app)
                         .padding(.horizontal, 16)
-                    
+
                     Divider()
                         .padding(.horizontal, 16)
-                    
-                    // Auto-play Controls  
+
+                    // Physics Model Selection
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Physics Model")
+                            Spacer()
+                            Picker("Active model", selection: Binding(
+                                get: { activePhysicsModelRaw },
+                                set: { activePhysicsModelRaw = $0 }
+                            )) {
+                                // Use new physics system models
+                                ForEach(Array(physicsIntegration.availableModels.enumerated()), id: \.offset) { index, model in
+                                    Text("Model \(index + 1): \(model.name)").tag(index + 1)
+                                }
+                            }
+                            .pickerStyle(MenuPickerStyle())
+                        }
+
+                        Text("Current: Physics Model \(physicsIntegration.activePhysicsModel + 1)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 16)
+
+                    Divider()
+                        .padding(.horizontal, 16)
+
+                    // Auto-play Controls
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Auto-play Controls")
                             .font(.headline)
                             .padding(.horizontal, 16)
-                        
+
                         VStack(spacing: 12) {
                             // Put both toggles on the same line with consistent blue color
                             HStack(spacing: 20) {
-                                Toggle("Auto-play", isOn: $settingsService.autoNext)
+                                Toggle("Auto-play", isOn: $autoNext)
                                     .toggleStyle(SwitchToggleStyle(tint: .blue))
 
-                                Toggle("Random next", isOn: $settingsService.randomNext)
+                                Toggle("Random next", isOn: $randomNext)
                                     .toggleStyle(SwitchToggleStyle(tint: .blue))
                             }
                             .padding(.horizontal, 16)
-                            
-                            if settingsService.autoNext {
+
+                            if autoNext {
                                 VStack(alignment: .leading, spacing: 6) {
                                     HStack {
                                         Text("Move Delay")
                                         Spacer()
-                                        Text("\(String(format: "%.1f", settingsService.uiMoveDelay))s")
+                                        Text("\(String(format: "%.1f", uiMoveDelay))s")
                                             .monospacedDigit()
                                     }
                                     .font(.caption)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.secondary)
 
                                     // Log scale slider: 0-10s with 1s at midpoint (0.5)
                                     Slider(
                                         value: Binding(
                                             get: {
                                                 // Convert delay to log position (0.0 to 1.0)
-                                                if settingsService.uiMoveDelay <= 0.1 { return 0.0 }
-                                                let logValue = log10(settingsService.uiMoveDelay / 0.1) / log10(100.0) // 0.1s to 10s mapped to 0-1
+                                                if uiMoveDelay <= 0.1 { return 0.0 }
+                                                let logValue = log10(uiMoveDelay / 0.1) / log10(100.0) // 0.1s to 10s mapped to 0-1
                                                 return min(max(logValue, 0.0), 1.0)
                                             },
                                             set: { sliderValue in
                                                 // Convert log position back to delay (0.1s to 10s)
                                                 let delay = 0.1 * pow(100.0, sliderValue) // 100x range: 0.1s to 10s
-                                                settingsService.uiMoveDelay = min(max(delay, 0.1), 10.0)
+                                                uiMoveDelay = min(max(delay, 0.1), 10.0)
                                             }
                                         ),
                                         in: 0.0...1.0
@@ -115,16 +165,16 @@ struct SettingsPanelView: View {
                             }
                         }
                     }
-                    
+
                     Divider()
                         .padding(.horizontal, 16)
-                    
+
                     // Move Control Slider
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Move Navigation")
                             .font(.headline)
                             .padding(.horizontal, 16)
-                        
+
                         VStack(spacing: 12) {
                             HStack {
                                 Text("Move")
@@ -133,13 +183,13 @@ struct SettingsPanelView: View {
                                     .monospacedDigit()
                             }
                             .font(.caption)
-                            .foregroundColor(.white)
+                            .foregroundColor(.secondary)
                             .padding(.horizontal, 16)
-                            
+
                             Slider(
                                 value: Binding(
                                     get: { Double(player.currentIndex) },
-                                    set: { newValue in 
+                                    set: { newValue in
                                         let newIndex = Int(newValue)
                                         onMoveChanged?(newIndex)
                                         print("🎮 Settings move slider changed to: \(newIndex)")
@@ -176,7 +226,7 @@ struct SettingsPanelView: View {
                         Text("Playback Controls")
                             .font(.headline)
                             .padding(.horizontal, 16)
-                        
+
                         HStack(spacing: 12) {
                             // Scan backward (10 moves back) - <<
                             Button {
@@ -189,7 +239,7 @@ struct SettingsPanelView: View {
                             }
                             .disabled(player.currentIndex <= 0)
                             .buttonStyle(.bordered)
-                            
+
                             // Step backward (1 move back) - <
                             Button {
                                 let newIndex = max(0, player.currentIndex - 1)
@@ -201,18 +251,18 @@ struct SettingsPanelView: View {
                             }
                             .disabled(player.currentIndex <= 0)
                             .buttonStyle(.bordered)
-                            
+
                             // Play/Pause - solid triangle / pause bars
                             Button {
                                 // Toggle auto-play
-                                settingsService.autoNext.toggle()
+                                autoNext.toggle()
                             } label: {
-                                Image(systemName: settingsService.autoNext ? "pause.fill" : "play.fill")
+                                Image(systemName: autoNext ? "pause.fill" : "play.fill")
                                     .font(.system(.body))
                                     .frame(width: 35, height: 28)
                             }
                             .buttonStyle(.bordered)
-                            
+
                             // Step forward (1 move forward) - >
                             Button {
                                 let maxMoves = max(1, player.moves.count)
@@ -225,7 +275,7 @@ struct SettingsPanelView: View {
                             }
                             .disabled(player.currentIndex >= max(1, player.moves.count) - 1)
                             .buttonStyle(.bordered)
-                            
+
                             // Scan forward (10 moves forward) - >>
                             Button {
                                 let maxMoves = max(1, player.moves.count)
@@ -241,38 +291,26 @@ struct SettingsPanelView: View {
                         }
                         .padding(.horizontal, 16)
                     }
-                    
+
                     // Advanced Settings
-                    DisclosureGroup("Advanced Settings", isExpanded: $settingsService.advancedExpanded) {
+                    DisclosureGroup("Advanced Settings", isExpanded: $advancedExpanded) {
                         VStack(alignment: .leading, spacing: 12) {
 
-                            // Physics Model Selection (moved from main section)
+                            // Physics Controls - Simplified for compiler
                             VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Text("Physics Model")
-                                        .foregroundColor(.white)
-                                    Spacer()
-                                    // PERFORMANCE: Show active model name instead of expensive picker
-                                    Text("Model \(physicsIntegration.activePhysicsModel + 1)")
-                                        .foregroundColor(.blue)
-                                        .onTapGesture {
-                                            // Cycle to next model
-                                            let nextModel = (physicsIntegration.activePhysicsModel + 1) % physicsIntegration.availableModels.count
-                                            settingsService.activePhysicsModel = nextModel
-                                        }
-                                }
-
-                                Text("Current: Physics Model \(physicsIntegration.activePhysicsModel + 1)")
+                                Text("Physics Model Controls (Legacy - being replaced)")
                                     .font(.caption)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.secondary)
+                                Text("Current Model: \(physicsIntegration.activePhysicsModel + 1)")
+                                    .font(.body.bold())
                             }
-                            .padding(.horizontal, 16)
-                            
+                            .padding(.leading, 16)
+
                             // Debug Layout Toggle
-                            Toggle("Debug Layout", isOn: $settingsService.debugLayout)
+                            Toggle("Debug Layout", isOn: $debugLayout)
                                 .padding(.horizontal, 16)
-                            
-                            // PERFORMANCE: Simplified diagnostics - no expensive ForEach calculations
+
+                            // Diagnostics Section
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
                                     Text("🔍 Diagnostics")
@@ -288,14 +326,39 @@ struct SettingsPanelView: View {
                                     .controlSize(.mini)
                                 }
 
-                                // Simplified diagnostics - avoid expensive stone iteration
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Move: \(player.currentIndex)/\(player.moves.count) • Model: \(physicsIntegration.activePhysicsModel + 1)")
+                                Group {
+                                    Text("Player State:")
                                         .font(.caption)
-                                    Text("Stones: ⚫\(physicsIntegration.blackStones.count) ⚪\(physicsIntegration.whiteStones.count)")
+                                        .fontWeight(.semibold)
+                                    Text("  • Current Move: \(player.currentIndex)")
+                                        .font(.caption2)
+                                    Text("  • Total Moves: \(player.moves.count)")
+                                        .font(.caption2)
+                                    Text("  • Board Size: \(player.board.size)")
+                                        .font(.caption2)
+
+                                    Text("Physics State:")
                                         .font(.caption)
+                                        .fontWeight(.semibold)
+                                    Text("  • Active Model: \(physicsIntegration.activePhysicsModel + 1)")
+                                        .font(.caption2)
+                                    Text("  • Black Stones: \(physicsIntegration.blackStones.count)")
+                                        .font(.caption2)
+                                    Text("  • White Stones: \(physicsIntegration.whiteStones.count)")
+                                        .font(.caption2)
+
+                                    if !physicsIntegration.blackStones.isEmpty {
+                                        Text("Black Stone Positions (first 3):")
+                                            .font(.caption)
+                                            .fontWeight(.semibold)
+                                        ForEach(physicsIntegration.blackStones.prefix(3), id: \.id) { stone in
+                                            Text("  • (\(String(format: "%.1f", stone.pos.x)), \(String(format: "%.1f", stone.pos.y)))")
+                                                .font(.caption2)
+                                                .foregroundColor(stone.pos.x == 0 && stone.pos.y == 0 ? .red : .primary)
+                                        }
+                                    }
                                 }
-                                .foregroundColor(.white)
+                                .foregroundColor(.secondary)
                             }
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
@@ -387,177 +450,25 @@ struct FolderSelectionSection: View {
     }
 }
 
-struct GameSelectionSection: View {
-    @ObservedObject var app: AppModel
-    @State private var visibleGames: [SGFGameWrapper] = []
-    @State private var isLoadingMore = false
+// Import the extracted game search components
+// (GameSelectionSection is now in GameSearchView.swift)
 
-    var filteredGames: [SGFGameWrapper] {
-        return visibleGames
-    }
+// GameListItem is now in GameSearchView.swift
 
-    var body: some View {
-        if let selection = app.selection {
-            VStack(alignment: .leading, spacing: 8) {
-                // Search functionality temporarily disabled due to overlay text input issues
-                Text("Game List:")
-                    .foregroundColor(.white)
-                    .font(.caption)
-
-                // Game list with dark styling (scrollable) + progressive loading
-                ScrollView {
-                    VStack(spacing: 4) {
-                        ForEach(Array(filteredGames.enumerated()), id: \.element.id) { index, gameWrapper in
-                            GameListItem(
-                                gameWrapper: gameWrapper,
-                                isSelected: gameWrapper.id == selection.id,
-                                onTap: { app.selection = gameWrapper }
-                            )
-                        }
-
-                        // Loading indicator when more games are available
-                        if isLoadingMore {
-                            HStack {
-                                ProgressView()
-                                    .controlSize(.mini)
-                                Text("Loading more games...")
-                                    .font(.caption)
-                                    .foregroundColor(.white.opacity(0.6))
-                            }
-                            .padding(.vertical, 8)
-                        } else if visibleGames.count < app.games.count {
-                            Text("+ \(app.games.count - visibleGames.count) more games")
-                                .font(.caption)
-                                .foregroundColor(.blue.opacity(0.7))
-                                .padding(.vertical, 4)
-                        }
-                    }
-                }
-                .scrollIndicators(.visible) // Always show scrollbar when scrollable
-                .frame(maxHeight: 200)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(.black.opacity(0.3))
-                        .stroke(.white.opacity(0.1), lineWidth: 1)
-                )
-                .onAppear {
-                    loadInitialGames()
-                }
-                .onChange(of: app.games) { _, _ in
-                    loadInitialGames()
-                }
-
-                GameMetadataView(gameWrapper: selection)
-            }
-        }
-    }
-
-    // PERFORMANCE: Ultra-fast loading - minimal games initially
-    private func loadInitialGames() {
-        // Load only 1 game initially for ultra-fast panel opening
-        let initialGames = Array(app.games.prefix(1))
-        visibleGames = initialGames
-
-        // Load ALL remaining games after panel slide animation completes
-        if app.games.count > 1 {
-            Task {
-                // Wait for panel slide animation to complete (~500ms)
-                try? await Task.sleep(nanoseconds: 500_000_000) // 500ms delay
-                await loadRemainingGames()
-            }
-        }
-    }
-
-    @MainActor
-    private func loadRemainingGames() async {
-        isLoadingMore = true
-
-        // Load games in batches to avoid UI freezing
-        let batchSize = 50
-        let remaining = Array(app.games.dropFirst(1)) // Skip first 1 game already loaded
-
-        for batch in remaining.chunked(into: batchSize) {
-            visibleGames.append(contentsOf: batch)
-
-            // Small delay between batches to keep UI responsive
-            try? await Task.sleep(nanoseconds: 25_000_000) // 25ms between batches (faster)
-        }
-
-        isLoadingMore = false
-    }
-}
-
-struct GameListItem: View {
-    let gameWrapper: SGFGameWrapper
-    let isSelected: Bool
-    let onTap: () -> Void
-
-    var body: some View {
-        let playerInfo = formatGameDisplayText(gameWrapper.game.info)
-
-        HStack {
-            Text(playerInfo)
-                .font(.system(size: 13))
-                .foregroundColor(isSelected ? Color.cyan.opacity(0.9) : .white.opacity(0.9))
-                .lineLimit(1)
-            Spacer()
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(isSelected ? Color.cyan.opacity(0.8) : Color.clear, lineWidth: 1.5)
-        )
-        .onTapGesture { onTap() }
-    }
-
-    private func formatGameDisplayText(_ info: SGFGame.Info) -> String {
-        let blackPlayer = info.playerBlack ?? "Unknown"
-        let whitePlayer = info.playerWhite ?? "Unknown"
-        let date = info.date ?? ""
-
-        if !date.isEmpty {
-            return "\(blackPlayer) vs \(whitePlayer) · \(date)"
-        } else {
-            return "\(blackPlayer) vs \(whitePlayer)"
-        }
-    }
-}
-
-struct GameMetadataView: View {
-    let gameWrapper: SGFGameWrapper
-
-    var body: some View {
-        let game = gameWrapper.game
-        let blackPlayer = game.info.playerBlack ?? "—"
-        let whitePlayer = game.info.playerWhite ?? "—"
-        let result = game.info.result ?? "B+3"
-        let filename = gameWrapper.url.lastPathComponent
-
-        VStack(alignment: .leading, spacing: 2) {
-            Text("Date: — · Black: \(blackPlayer) · White: \(whitePlayer)")
-                .font(.system(size: 11))
-                .foregroundColor(.white.opacity(0.7))
-            Text("· Result: \(result) · File: \(filename)")
-                .font(.system(size: 11))
-                .foregroundColor(.white.opacity(0.7))
-        }
-    }
-}
+// GameMetadataView is now in GameSearchView.swift
 
 // Move these methods back to SettingsPanelView where they belong
 extension SettingsPanelView {
     private func exportDiagnostics() {
         let timestamp = DateFormatter().string(from: Date())
         let diagnosticData = generateDiagnosticReport()
-        
+
         let panel = NSSavePanel()
         panel.title = "Export Diagnostics"
         panel.nameFieldStringValue = "SGFPlayer_Diagnostics_\(timestamp.replacingOccurrences(of: " ", with: "_")).txt"
         panel.allowedContentTypes = [.plainText]
         panel.message = "Choose location to save diagnostic report"
-        
+
         if panel.runModal() == .OK {
             if let url = panel.url {
                 do {
@@ -569,23 +480,23 @@ extension SettingsPanelView {
             }
         }
     }
-    
+
     private func generateDiagnosticReport() -> String {
         let timestamp = Date().description
         var report = "SGFPlayer Diagnostic Report\n"
         report += "Generated: \(timestamp)\n"
         report += "Version: v2.3\n\n"
-        
+
         report += "=== Player State ===\n"
         report += "Current Move: \(player.currentIndex)\n"
         report += "Total Moves: \(player.moves.count)\n"
         report += "Board Size: \(player.board.size)\n\n"
-        
+
         report += "=== Physics State ===\n"
         report += "Active Model: \(physicsIntegration.activePhysicsModel + 1)\n"
         report += "Black Stones: \(physicsIntegration.blackStones.count)\n"
         report += "White Stones: \(physicsIntegration.whiteStones.count)\n\n"
-        
+
         if !physicsIntegration.blackStones.isEmpty {
             report += "=== Black Stone Positions (first 10) ===\n"
             for (index, stone) in physicsIntegration.blackStones.prefix(10).enumerated() {
@@ -594,7 +505,7 @@ extension SettingsPanelView {
             }
             report += "\n"
         }
-        
+
         if !physicsIntegration.whiteStones.isEmpty {
             report += "=== White Stone Positions (first 10) ===\n"
             for (index, stone) in physicsIntegration.whiteStones.prefix(10).enumerated() {
@@ -603,7 +514,7 @@ extension SettingsPanelView {
             }
             report += "\n"
         }
-        
+
         report += "=== Game Files ===\n"
         report += "Selected Folder: \(app.folderURL?.path ?? "None")\n"
         report += "Games Found: \(app.games.count)\n"
@@ -614,7 +525,7 @@ extension SettingsPanelView {
                 report += "... and \(app.games.count - 20) more\n"
             }
         }
-        
+
         return report
     }
 }
@@ -638,7 +549,7 @@ struct JitterControlsView: View {
                         .monospacedDigit()
                 }
                 .font(.caption)
-                .foregroundColor(.white)
+                .foregroundColor(.primary.opacity(0.8))
                 .padding(.horizontal, 16)
 
                 Slider(
@@ -661,7 +572,7 @@ struct JitterControlsView: View {
 
                 Text("Adjusts how naturally stones are placed off intersections")
                     .font(.caption)
-                    .foregroundColor(.white)
+                    .foregroundColor(.secondary)
                     .padding(.horizontal, 16)
             }
         }
@@ -674,165 +585,36 @@ struct JitterControlsView: View {
     }
 }
 
-// COMMENTED OUT: BoardSpacingControlsView (using hard coded spacing values instead)
-/*
-struct BoardSpacingControlsView: View {
-    @ObservedObject var gameCacheManager: GameCacheManager
-    @State private var localTopSpace: Double = 2.0
-    @State private var localBottomSpace: Double = 4.0
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Board Spacing")
-                .font(.headline)
-                .padding(.horizontal, 16)
-
-            VStack(alignment: .leading, spacing: 12) {
-                // Top Space Slider
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text("Space Above Board")
-                        Spacer()
-                        Text(String(format: "%.1f cells", localTopSpace))
-                            .monospacedDigit()
-                    }
-                    .font(.caption)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-
-                    Slider(
-                        value: Binding(
-                            get: { localTopSpace },
-                            set: { newValue in
-                                localTopSpace = newValue
-                                gameCacheManager.topSpaceCellUnits = CGFloat(newValue)
-                            }
-                        ),
-                        in: 0.0...8.0,
-                        step: 0.5
-                    )
-                    .controlSize(.regular)
-                    .padding(.horizontal, 16)
-                }
-
-                // Bottom Space Slider
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text("Space Below Board")
-                        Spacer()
-                        Text(String(format: "%.1f cells", localBottomSpace))
-                            .monospacedDigit()
-                    }
-                    .font(.caption)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-
-                    Slider(
-                        value: Binding(
-                            get: { localBottomSpace },
-                            set: { newValue in
-                                localBottomSpace = newValue
-                                gameCacheManager.bottomSpaceCellUnits = CGFloat(newValue)
-                            }
-                        ),
-                        in: 1.0...10.0,
-                        step: 0.5
-                    )
-                    .controlSize(.regular)
-                    .padding(.horizontal, 16)
-                }
-
-                Text("Minimum spacing around the board, measured in cell heights")
-                    .font(.caption)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-            }
-        }
-        .onAppear {
-            localTopSpace = Double(gameCacheManager.topSpaceCellUnits)
-            localBottomSpace = Double(gameCacheManager.bottomSpaceCellUnits)
-        }
-        .onChange(of: gameCacheManager.topSpaceCellUnits) { _, newValue in
-            localTopSpace = Double(newValue)
-        }
-        .onChange(of: gameCacheManager.bottomSpaceCellUnits) { _, newValue in
-            localBottomSpace = Double(newValue)
-        }
-    }
-}
-*/
-
-// MARK: - Native Search Field
-struct NativeSearchField: NSViewRepresentable {
-    @Binding var text: String
-
-    func makeNSView(context: Context) -> NSTextField {
-        let textField = NSTextField()
-        textField.placeholderString = "Type here to search..."
-        textField.isBordered = true
-        textField.bezelStyle = .roundedBezel
-        textField.delegate = context.coordinator
-        textField.target = context.coordinator
-        textField.action = #selector(Coordinator.textFieldDidChange(_:))
-        return textField
-    }
-
-    func updateNSView(_ nsView: NSTextField, context: Context) {
-        if nsView.stringValue != text {
-            nsView.stringValue = text
-        }
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-
-    class Coordinator: NSObject, NSTextFieldDelegate {
-        let parent: NativeSearchField
-
-        init(_ parent: NativeSearchField) {
-            self.parent = parent
-        }
-
-        @objc func textFieldDidChange(_ textField: NSTextField) {
-            DispatchQueue.main.async {
-                self.parent.text = textField.stringValue
-                print("🔍 Native field changed: '\(textField.stringValue)'")
-            }
-        }
-
-        func controlTextDidChange(_ obj: Notification) {
-            if let textField = obj.object as? NSTextField {
-                DispatchQueue.main.async {
-                    self.parent.text = textField.stringValue
-                    print("🔍 Native field changed (delegate): '\(textField.stringValue)'")
-                }
-            }
-        }
-    }
-}
-
 // Preview
 struct SettingsPanelView_Previews: PreviewProvider {
     static var previews: some View {
         SettingsPanelView(
-            settingsService: SettingsPanelService(),
+            isPanelOpen: .constant(true),
+            activePhysicsModelRaw: .constant(2),
             physicsIntegration: PhysicsIntegration(),
+            m1_repel: .constant(1.6),
+            m1_spacing: .constant(2.1),
+            m1_centerPullK: .constant(0.003),
+            m1_relaxIters: .constant(12),
+            m1_pressureRadiusXR: .constant(2.6),
+            m1_pressureKFactor: .constant(0.25),
+            m1_maxStepXR: .constant(0.06),
+            m1_damping: .constant(0.82),
+            m1_wallK: .constant(0.6),
+            m1_anim: .constant(0.6),
+            m1_stoneStoneK: .constant(0.15),
+            m1_stoneLidK: .constant(0.25),
+            autoNext: .constant(true),
+            randomNext: .constant(false),
+            uiMoveDelay: .constant(1.0),
             player: SGFPlayer(),
             app: AppModel(),
             onMoveChanged: { index in
                 print("Preview move changed to: \(index)")
-            }
+            },
+            debugLayout: .constant(false),
+            advancedExpanded: .constant(false)
         )
         .frame(width: 320, height: 600)
-    }
-}
-
-// MARK: - Array Extension for Progressive Loading
-extension Array {
-    func chunked(into size: Int) -> [[Element]] {
-        return stride(from: 0, to: count, by: size).map {
-            Array(self[$0..<Swift.min($0 + size, count)])
-        }
     }
 }
