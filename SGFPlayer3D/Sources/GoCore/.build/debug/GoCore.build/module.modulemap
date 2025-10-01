@@ -1,0 +1,4 @@
+module GoCore {
+    header "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/GoCore-Swift.h"
+    requires objc
+}
