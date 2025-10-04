@@ -69,9 +69,22 @@ struct SettingsPanelView3D: View {
                         Divider()
                             .padding(.horizontal, 16)
 
-                        // Game selection list
-                        GameSelectionSection3D(app: app, onGameSelected: onGameSelected)
-                            .padding(.horizontal, 16)
+                        // Game selection list with search
+                        GameSelectionSection(app: app, onSearchResultsChanged: { results in
+                            // When search results change, update the active playlist
+                            if !results.isEmpty {
+                                // User has searched - set active playlist to search results
+                                app.activePlaylist = results
+                                if let firstResult = results.first {
+                                    app.selection = firstResult
+                                    onGameSelected?(firstResult)
+                                }
+                            } else {
+                                // Empty search - reset to all games
+                                app.activePlaylist = Array(app.games)
+                            }
+                        })
+                        .padding(.horizontal, 16)
 
                         Divider()
                             .padding(.horizontal, 16)

@@ -4,6 +4,143 @@
 import SwiftUI
 import SceneKit
 
+// MARK: - CameraControlHandler
+// Helper view to capture all camera control events
+struct CameraControlHandler: NSViewRepresentable {
+    @Binding var rotationX: Float
+    @Binding var rotationY: Float
+    @Binding var distance: CGFloat
+    @Binding var panX: CGFloat
+    @Binding var panY: CGFloat
+    let sceneManager: SceneManager3D
+
+    func makeNSView(context: Context) -> NSView {
+        let view = CameraControlView()
+        view.rotationX = rotationX
+        view.rotationY = rotationY
+        view.distance = distance
+        view.panX = panX
+        view.panY = panY
+        view.sceneManager = sceneManager
+        view.onUpdate = { rotX, rotY, dist, pX, pY in
+            DispatchQueue.main.async {
+                self.rotationX = rotX
+                self.rotationY = rotY
+                self.distance = dist
+                self.panX = pX
+                self.panY = pY
+            }
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        if let controlView = nsView as? CameraControlView {
+            controlView.rotationX = rotationX
+            controlView.rotationY = rotationY
+            controlView.distance = distance
+            controlView.panX = panX
+            controlView.panY = panY
+        }
+    }
+
+    class CameraControlView: NSView {
+        var rotationX: Float = 0
+        var rotationY: Float = 0
+        var distance: CGFloat = 25
+        var panX: CGFloat = 0
+        var panY: CGFloat = 0
+        var sceneManager: SceneManager3D?
+        var onUpdate: ((Float, Float, CGFloat, CGFloat, CGFloat) -> Void)?
+
+        private var lastDragPoint: NSPoint = .zero
+        private var magnification: CGFloat = 1.0
+
+        override init(frame frameRect: NSRect) {
+            super.init(frame: frameRect)
+            // Accept mouse events but allow them to pass through when not handled
+            wantsLayer = true
+        }
+
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+
+        override func mouseDown(with event: NSEvent) {
+            // Accept the event to enable dragging
+        }
+
+        override func mouseDragged(with event: NSEvent) {
+            let isShiftPressed = event.modifierFlags.contains(.shift)
+
+            if isShiftPressed {
+                // Pan mode
+                let panSensitivity: CGFloat = 0.02
+                panX -= event.deltaX * panSensitivity  // Negate for correct direction
+                panY += event.deltaY * panSensitivity
+
+                sceneManager?.updateCameraPosition(
+                    distance: distance,
+                    rotationX: rotationX,
+                    rotationY: rotationY,
+                    panX: panX,
+                    panY: panY
+                )
+            } else {
+                // Rotate mode
+                let sensitivity: CGFloat = 0.005
+                rotationY -= Float(event.deltaX * sensitivity)  // Negate for correct direction
+                rotationX -= Float(event.deltaY * sensitivity)  // Negate for correct direction
+
+                sceneManager?.pivotNode.eulerAngles.y = CGFloat(rotationY)
+                sceneManager?.pivotNode.eulerAngles.x = CGFloat(rotationX)
+            }
+
+            onUpdate?(rotationX, rotationY, distance, panX, panY)
+        }
+
+        override func scrollWheel(with event: NSEvent) {
+            // Zoom with scroll wheel
+            let zoomSensitivity: CGFloat = 0.5
+            distance -= event.scrollingDeltaY * zoomSensitivity
+            distance = max(10, min(100, distance))
+
+            sceneManager?.updateCameraPosition(
+                distance: distance,
+                rotationX: rotationX,
+                rotationY: rotationY,
+                panX: panX,
+                panY: panY
+            )
+
+            onUpdate?(rotationX, rotationY, distance, panX, panY)
+        }
+
+        override func magnify(with event: NSEvent) {
+            // Pinch to zoom
+            distance /= (1.0 + event.magnification)
+            distance = max(10, min(100, distance))
+
+            sceneManager?.updateCameraPosition(
+                distance: distance,
+                rotationX: rotationX,
+                rotationY: rotationY,
+                panX: panX,
+                panY: panY
+            )
+
+            onUpdate?(rotationX, rotationY, distance, panX, panY)
+        }
+
+        override var acceptsFirstResponder: Bool { true }
+
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            // Return self to accept events
+            return self
+        }
+    }
+}
+
 // Helper for logging to file
 extension String {
     func appendToFile(at path: String) throws {
@@ -24,10 +161,13 @@ struct ContentView3D: View {
     @StateObject private var player = SGFPlayer()
     @StateObject private var sceneManager = SceneManager3D()
 
-    // Rotation tracking
+    // Camera control tracking
     @State private var lastDragPosition: CGPoint = .zero
     @State private var currentRotationX: Float = 0.0
     @State private var currentRotationY: Float = 0.0
+    @State private var cameraDistance: CGFloat = 25.0
+    @State private var cameraPanX: CGFloat = 0.0
+    @State private var cameraPanY: CGFloat = 0.0
 
     // Playback control
     @State private var isPlaying: Bool = false
@@ -83,6 +223,16 @@ struct ContentView3D: View {
         .onChange(of: playbackSpeed) { _, newSpeed in
             UserDefaults.standard.set(newSpeed, forKey: "playbackSpeed")
         }
+        .onChange(of: isPlaying) { _, nowPlaying in
+            if nowPlaying {
+                // Auto-play turned on - start playback immediately
+                startPlayback()
+            } else {
+                // Auto-play turned off - stop playback
+                playbackTimer?.invalidate()
+                playbackTimer = nil
+            }
+        }
         .onChange(of: app.gameCacheManager.defaultJitterMultiplier) { _, newJitter in
             NSLog("DEBUG3D: 🎲 Jitter changed to: \(newJitter)")
             updateStonesWithJitter()
@@ -109,28 +259,23 @@ struct ContentView3D: View {
     }
 
     var sceneView: some View {
-        SceneView(
-            scene: sceneManager.scene,
-            pointOfView: sceneManager.cameraNode,
-            options: []  // Use our custom lighting only
-        )
-        .gesture(
-            DragGesture()
-                .onChanged { value in
-                    let sensitivity: CGFloat = 0.005
-                    let deltaX = CGFloat(value.translation.width) * sensitivity
-                    let deltaY = CGFloat(value.translation.height) * sensitivity
+        ZStack {
+            SceneView(
+                scene: sceneManager.scene,
+                pointOfView: sceneManager.cameraNode,
+                options: []  // Use our custom lighting only
+            )
 
-                    currentRotationY = Float(-deltaX)
-                    currentRotationX = Float(-deltaY)
-
-                    sceneManager.pivotNode.eulerAngles.y = CGFloat(currentRotationY)
-                    sceneManager.pivotNode.eulerAngles.x = CGFloat(currentRotationX)
-                }
-                .onEnded { _ in
-                    // Keep current rotation
-                }
-        )
+            // Overlay to capture all camera control events
+            CameraControlHandler(
+                rotationX: $currentRotationX,
+                rotationY: $currentRotationY,
+                distance: $cameraDistance,
+                panX: $cameraPanX,
+                panY: $cameraPanY,
+                sceneManager: sceneManager
+            )
+        }
         .ignoresSafeArea()
     }
 
@@ -282,15 +427,15 @@ struct ContentView3D: View {
     }
 
     private func advanceToNextGame() {
-        guard !app.games.isEmpty else { return }
+        guard !app.activePlaylist.isEmpty else { return }
 
         if let currentSelection = app.selection,
-           let currentIndex = app.games.firstIndex(where: { $0.id == currentSelection.id }) {
+           let currentIndex = app.activePlaylist.firstIndex(where: { $0.id == currentSelection.id }) {
             // Move to next game, or loop to beginning
-            let nextIndex = (currentIndex + 1) % app.games.count
-            app.selection = app.games[nextIndex]
-            player.load(game: app.games[nextIndex].game)
-            app.selectGame(app.games[nextIndex])  // Load into cache manager
+            let nextIndex = (currentIndex + 1) % app.activePlaylist.count
+            app.selection = app.activePlaylist[nextIndex]
+            player.load(game: app.activePlaylist[nextIndex].game)
+            app.selectGame(app.activePlaylist[nextIndex])  // Load into cache manager
             player.seek(to: 0)
             updateStonesWithJitter()
 
@@ -298,7 +443,7 @@ struct ContentView3D: View {
             if isPlaying {
                 startPlayback()
             }
-        } else if let first = app.games.first {
+        } else if let first = app.activePlaylist.first {
             // No selection, start with first game
             app.selection = first
             player.load(game: first.game)
@@ -689,6 +834,13 @@ class SceneManager3D: ObservableObject {
         }
         material.specular.contents = NSColor(white: 0.3, alpha: 1.0)
         material.shininess = 0.1
+
+        // Make board fully opaque - no transparency
+        material.transparency = 1.0
+        material.isDoubleSided = false  // Only render front face
+        material.writesToDepthBuffer = true
+        material.readsFromDepthBuffer = true
+
         boardGeometry.materials = [material]
 
         let boardNode = SCNNode(geometry: boardGeometry)
@@ -697,15 +849,35 @@ class SceneManager3D: ObservableObject {
         scene.rootNode.addChildNode(boardNode)
         self.boardNode = boardNode
 
+        // Add opaque blocker plane INSIDE the board to prevent see-through
+        // Make it slightly smaller so it's hidden inside
+        let blockerPlane = SCNBox(
+            width: boardWidth * 0.98,  // Slightly smaller
+            height: 0.01,  // Very thin
+            length: boardLength * 0.98,  // Slightly smaller
+            chamferRadius: 0
+        )
+        let blockerMaterial = SCNMaterial()
+        blockerMaterial.diffuse.contents = NSColor(red: 0.7, green: 0.5, blue: 0.3, alpha: 1.0)  // Wood color
+        blockerMaterial.isDoubleSided = false
+        blockerMaterial.transparency = 1.0  // Fully opaque
+        blockerMaterial.writesToDepthBuffer = true
+        blockerPlane.materials = [blockerMaterial]
+
+        let blockerNode = SCNNode(geometry: blockerPlane)
+        blockerNode.position = SCNVector3(x: 0, y: -boardThickness / 4.0, z: 0)  // Inside the board, halfway down
+        blockerNode.renderingOrder = -1  // Render before everything else
+        scene.rootNode.addChildNode(blockerNode)
+
         // Create grid lines
         createGridLines(boardThickness: boardThickness)
     }
 
     private func createGridLines(boardThickness: CGFloat) {
         let lineThickness: CGFloat = 0.02
-        let lineHeight: CGFloat = 0.01
+        let lineHeight: CGFloat = 0.002  // Very thin lines
         let lineColor = NSColor.black
-        let boardTopY = boardThickness / 2.0 + 0.01  // Position lines on top of board
+        let boardTopY = boardThickness / 2.0 + 0.02  // Position lines well above board surface
 
         let totalWidth = CGFloat(boardSize - 1) * cellWidth
         let totalHeight = CGFloat(boardSize - 1) * cellHeight
@@ -723,10 +895,13 @@ class SceneManager3D: ObservableObject {
             )
             let material = SCNMaterial()
             material.diffuse.contents = lineColor
+            material.isDoubleSided = false
+            material.writesToDepthBuffer = true
             line.materials = [material]
 
             let lineNode = SCNNode(geometry: line)
             lineNode.position = SCNVector3(x: 0, y: boardTopY, z: z)
+            lineNode.renderingOrder = 1  // Render on top
             scene.rootNode.addChildNode(lineNode)
         }
 
@@ -741,10 +916,13 @@ class SceneManager3D: ObservableObject {
             )
             let material = SCNMaterial()
             material.diffuse.contents = lineColor
+            material.isDoubleSided = false
+            material.writesToDepthBuffer = true
             line.materials = [material]
 
             let lineNode = SCNNode(geometry: line)
             lineNode.position = SCNVector3(x: x, y: boardTopY, z: 0)
+            lineNode.renderingOrder = 1  // Render on top
             scene.rootNode.addChildNode(lineNode)
         }
 
@@ -757,10 +935,13 @@ class SceneManager3D: ObservableObject {
             let star = SCNSphere(radius: 0.08)
             let material = SCNMaterial()
             material.diffuse.contents = lineColor
+            material.isDoubleSided = false
+            material.writesToDepthBuffer = true
             star.materials = [material]
 
             let starNode = SCNNode(geometry: star)
             starNode.position = SCNVector3(x: xPos, y: boardTopY + 0.01, z: zPos)
+            starNode.renderingOrder = 1  // Render on top
             scene.rootNode.addChildNode(starNode)
         }
     }
@@ -772,6 +953,29 @@ class SceneManager3D: ObservableObject {
 
         cameraNode.position = SCNVector3(x: CGFloat(x), y: CGFloat(y), z: CGFloat(z))
         cameraNode.look(at: SCNVector3(x: 0, y: 0, z: 0))
+    }
+
+    func updateCameraPosition(distance: CGFloat, rotationX: Float, rotationY: Float, panX: CGFloat, panY: CGFloat) {
+        // Update pivot rotation
+        pivotNode.eulerAngles.y = CGFloat(rotationY)
+        pivotNode.eulerAngles.x = CGFloat(rotationX)
+
+        // Update camera distance and pan
+        // Calculate base position at distance
+        let baseY: CGFloat = 15
+        let baseZ: CGFloat = 20
+
+        // Scale the base position by the distance ratio
+        let distanceRatio = distance / 25.0  // 25 was the original distance
+
+        cameraNode.position = SCNVector3(
+            x: panX,
+            y: baseY * distanceRatio + panY,
+            z: baseZ * distanceRatio
+        )
+
+        // Look at the pan offset point
+        cameraNode.look(at: SCNVector3(x: panX, y: panY, z: 0))
     }
 }
 

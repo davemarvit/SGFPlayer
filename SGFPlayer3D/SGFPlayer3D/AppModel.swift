@@ -12,6 +12,9 @@ final class AppModel: ObservableObject {
         didSet { persistLastGame() }
     }
 
+    // Active playlist - either all games or filtered search results
+    @Published var activePlaylist: [SGFGameWrapper] = []
+
     // Game cache manager for pre-calculated states
     @Published var gameCacheManager = GameCacheManager()
 
@@ -94,6 +97,7 @@ final class AppModel: ObservableObject {
             }
         }
         games = parsed
+        activePlaylist = parsed  // Initialize active playlist with all games
 
         // Pre-calculate upcoming games in background while setting current selection
         if let first = parsed.first {
