@@ -112,7 +112,7 @@ struct ContentView3D: View {
         SceneView(
             scene: sceneManager.scene,
             pointOfView: sceneManager.cameraNode,
-            options: [.autoenablesDefaultLighting]
+            options: []  // Use our custom lighting only
         )
         .gesture(
             DragGesture()
@@ -399,9 +399,15 @@ class SceneManager3D: ObservableObject {
 
     // Board configuration
     private let boardSize: Int = 19
-    private let cellSize: CGFloat = 1.0
+    // Traditional Japanese board: cells are taller than they are wide
+    // Ratio is approximately 1:1.0773 (width:height)
+    private let cellWidth: CGFloat = 1.0
+    private let cellHeight: CGFloat = 1.0773
     private let boardThickness: CGFloat = 2.0
-    private let stoneRadius: CGFloat = 0.45
+    // Traditional Japanese stone sizes: black 22.2mm, white 21.9mm
+    // Scale to our units where cellWidth = 1.0
+    private let blackStoneRadius: CGFloat = 0.456  // 22.2mm / 22mm * 0.45
+    private let whiteStoneRadius: CGFloat = 0.450  // 21.9mm / 22mm * 0.45
 
     init() {
         setupCamera()
@@ -452,84 +458,7 @@ class SceneManager3D: ObservableObject {
         NSLog("DEBUG3D: Created \(starCount) 3D stars at radius \(starFieldRadius)")
     }
 
-    private func loadTestGame() {
-        NSLog("DEBUG3D: v0.1.3 loadTestGame START - creating embedded test game")
 
-        // Create a simple embedded test game instead of loading from file
-        let testSGF = "(;FF[4]GM[1]SZ[19];B[pd];W[dd];B[pq];W[dp];B[qo];W[nc];B[pf];W[pb];B[qc];W[kc])"
-
-        do {
-            let tree = try SGFParser.parse(text: testSGF)
-            NSLog("DEBUG3D: v0.1.3 Test SGF parsed successfully")
-
-            let game = SGFGame.from(tree: tree)
-            NSLog("DEBUG3D: v0.1.3 Game created, moves: \(game.moves.count)")
-
-            // Create a temporary player to get the board state
-            let tempPlayer = SGFPlayer()
-            tempPlayer.load(game: game)
-            NSLog("DEBUG3D: v0.1.3 Game loaded into player")
-
-            tempPlayer.seek(to: game.moves.count)  // Show all moves
-            NSLog("DEBUG3D: v0.1.3 Seeked to move \(game.moves.count)")
-
-            let board = tempPlayer.board
-            NSLog("DEBUG3D: v0.1.3 Board size: \(board.size)")
-
-            // Count stones on board
-            var stoneCount = 0
-            for row in 0..<board.size {
-                for col in 0..<board.size {
-                    if board.grid[row][col] != nil {
-                        stoneCount += 1
-                    }
-                }
-            }
-            NSLog("DEBUG3D: v0.1.3 Stones on board before addStones: \(stoneCount)")
-
-            // Add stones from the player
-            NSLog("DEBUG3D: v0.1.4 About to call addStonesFromBoard")
-            addStonesFromBoard(tempPlayer.board)
-            NSLog("DEBUG3D: v0.1.4 Returned from addStonesFromBoard")
-
-            NSLog("DEBUG3D: v0.1.3 loadTestGame COMPLETE")
-        } catch {
-            NSLog("DEBUG3D: v0.1.3 Failed to load test game: \(error)")
-        }
-    }
-
-    private func addStonesFromBoard(_ board: BoardSnapshot) {
-        NSLog("DEBUG3D: v0.1.4 addStonesFromBoard START - board size: \(board.size)")
-        let totalSize = CGFloat(boardSize - 1) * cellSize
-        let offset = -totalSize / 2.0
-        let boardTopY = boardThickness / 2.0
-        NSLog("DEBUG3D: v0.1.4 Calculated offset: \(offset), boardTopY: \(boardTopY)")
-
-        var count = 0
-        for row in 0..<board.size {
-            for col in 0..<board.size {
-                if let stone = board.grid[row][col] {
-                    let x = CGFloat(col) * cellSize + offset
-                    let z = CGFloat(row) * cellSize + offset
-                    // Position stone so bottom just touches board
-                    // Stone is ellipsoid scaled by thicknessRatio (0.486) in Y
-                    let thicknessRatio: CGFloat = 0.486
-                    let stoneScaledHalfHeight = stoneRadius * thicknessRatio
-                    let y = boardTopY + stoneScaledHalfHeight
-
-                    NSLog("DEBUG3D: v0.1.4 Creating stone #\(count+1) at (\(col),\(row)) - position (\(x),\(y),\(z)) - color: \(stone)")
-                    let stoneNode = createStone(color: stone, at: SCNVector3(x: x, y: y, z: z))
-                    NSLog("DEBUG3D: v0.1.4 Stone node created, adding to scene")
-                    scene.rootNode.addChildNode(stoneNode)
-                    stoneNodes.append(stoneNode)
-                    count += 1
-                    NSLog("DEBUG3D: v0.1.4 Stone #\(count) added successfully")
-                }
-            }
-        }
-        NSLog("DEBUG3D: v0.1.4 Added \(count) stones to scene.rootNode")
-        NSLog("DEBUG3D: v0.1.4 Total nodes in scene: \(scene.rootNode.childNodes.count)")
-    }
 
     private func setupCamera() {
         let camera = SCNCamera()
@@ -559,12 +488,18 @@ class SceneManager3D: ObservableObject {
         ambientLight.light!.color = NSColor(white: 0.4, alpha: 1.0)
         scene.rootNode.addChildNode(ambientLight)
 
-        // Directional light
+        // Directional light from upper left (180 degrees from upper right)
+        // Was (10, 20, 10) - now (-10, 20, -10) for upper left
         let directionalLight = SCNNode()
         directionalLight.light = SCNLight()
         directionalLight.light!.type = .directional
         directionalLight.light!.color = NSColor(white: 0.8, alpha: 1.0)
-        directionalLight.position = SCNVector3(x: 10, y: 20, z: 10)
+        directionalLight.light!.castsShadow = true
+        directionalLight.light!.shadowMode = .deferred
+        directionalLight.light!.shadowRadius = 3.0  // Soft shadow edges
+        directionalLight.light!.shadowSampleCount = 16  // Smooth shadows
+        directionalLight.light!.shadowColor = NSColor(white: 0.0, alpha: 0.3)  // Gentle shadow opacity
+        directionalLight.position = SCNVector3(x: -10, y: 20, z: -10)
         directionalLight.look(at: SCNVector3(x: 0, y: 0, z: 0))
         scene.rootNode.addChildNode(directionalLight)
     }
@@ -581,25 +516,32 @@ class SceneManager3D: ObservableObject {
 
         // Create stones based on current board state
         let board = player.board
-        let totalSize = CGFloat(boardSize - 1) * cellSize
-        let offset = -totalSize / 2.0
+        let totalWidth = CGFloat(boardSize - 1) * cellWidth
+        let totalHeight = CGFloat(boardSize - 1) * cellHeight
+        let offsetX = -totalWidth / 2.0
+        let offsetZ = -totalHeight / 2.0
         let boardTopY = boardThickness / 2.0
 
         NSLog("DEBUG3D: 🎯 updateStones called - board size: \(board.size), current index: \(player.currentIndex), jitter: \(jitterMultiplier)")
+
+        // Track stone positions and radii for collision detection
+        var stonePositions: [(position: SCNVector3, radius: CGFloat)] = []
 
         var stoneCount = 0
         for row in 0..<board.size {
             for col in 0..<board.size {
                 if let stone = board.grid[row][col] {
-                    var x = CGFloat(col) * cellSize + offset
-                    var z = CGFloat(row) * cellSize + offset
+                    let stoneRadius = stone == .black ? blackStoneRadius : whiteStoneRadius
+
+                    var x = CGFloat(col) * cellWidth + offsetX
+                    var z = CGFloat(row) * cellHeight + offsetZ
 
                     // Apply jitter if available
                     let position = BoardPosition(x: col, y: row)
                     if let jitterOffset = jitterOffsets[position] {
                         // Jitter is in fraction of stone radius (0-0.22 range)
                         // Scale by stone diameter for more visible effect
-                        let stoneDiameter = stoneRadius * 2.0  // ~0.9 units
+                        let stoneDiameter = stoneRadius * 2.0
                         let jitterX = jitterOffset.x * jitterMultiplier * stoneDiameter
                         let jitterZ = jitterOffset.y * jitterMultiplier * stoneDiameter
                         x += jitterX
@@ -615,9 +557,15 @@ class SceneManager3D: ObservableObject {
                     let stoneScaledHalfHeight = stoneRadius * thicknessRatio
                     let y = boardTopY + stoneScaledHalfHeight
 
-                    let stoneNode = createStone(color: stone, at: SCNVector3(x: x, y: y, z: z))
+                    var finalPosition = SCNVector3(x: x, y: y, z: z)
+
+                    // Check for collisions with existing stones and resolve
+                    finalPosition = resolveCollisions(proposedPosition: finalPosition, radius: stoneRadius, existingStones: stonePositions)
+
+                    let stoneNode = createStone(color: stone, at: finalPosition)
                     scene.rootNode.addChildNode(stoneNode)
                     stoneNodes.append(stoneNode)
+                    stonePositions.append((finalPosition, stoneRadius))
                     stoneCount += 1
                 }
             }
@@ -625,13 +573,55 @@ class SceneManager3D: ObservableObject {
         NSLog("DEBUG3D: 🎯 Created \(stoneCount) stone nodes")
     }
 
+    private func resolveCollisions(proposedPosition: SCNVector3, radius: CGFloat, existingStones: [(position: SCNVector3, radius: CGFloat)]) -> SCNVector3 {
+        var adjustedPosition = proposedPosition
+
+        // Try to resolve collisions by nudging the stone
+        for _ in 0..<10 {  // Max 10 iterations
+            var hasCollision = false
+
+            for existing in existingStones {
+                let dx = adjustedPosition.x - existing.position.x
+                let dz = adjustedPosition.z - existing.position.z
+                let distance = sqrt(dx * dx + dz * dz)
+
+                // Minimum distance is sum of both radii
+                let minDistance = radius + existing.radius
+
+                if distance < minDistance {
+                    hasCollision = true
+
+                    // Push the stone away from the collision
+                    if distance > 0.001 {
+                        let pushDistance = (minDistance - distance) / 2.0
+                        let pushX = (dx / distance) * pushDistance
+                        let pushZ = (dz / distance) * pushDistance
+                        adjustedPosition.x += pushX
+                        adjustedPosition.z += pushZ
+                    } else {
+                        // Stones exactly on top of each other - push in random direction
+                        adjustedPosition.x += CGFloat.random(in: -0.1...0.1)
+                        adjustedPosition.z += CGFloat.random(in: -0.1...0.1)
+                    }
+                }
+            }
+
+            if !hasCollision {
+                break
+            }
+        }
+
+        return adjustedPosition
+    }
+
     private func createStone(color: Stone, at position: SCNVector3) -> SCNNode {
         // Create bi-convex lens shape (like M&M or lentil)
-        // Real Go stones: ~22mm diameter, 10.7mm thick for size 36
-        // Our scale: cellSize = 1.0 unit, stoneRadius = 0.45 (diameter ~0.9)
+        // Real Go stones: black 22.2mm, white 21.9mm diameter, 10.7mm thick for size 36
+        // Our scale: cellSize = 1.0 unit
         // Thickness ratio: 10.7 / 22 = 0.486
 
-        let stoneDiameter = stoneRadius * 2.0  // 0.9 units
+        // Use appropriate radius for stone color
+        let stoneRadius = color == .black ? blackStoneRadius : whiteStoneRadius
         let thicknessRatio: CGFloat = 0.486  // 10.7mm / 22mm from real stones
 
         // Create ellipsoid (sphere scaled to lens shape)
@@ -672,16 +662,17 @@ class SceneManager3D: ObservableObject {
     }
 
     private func createBoard() {
-        // Create a 3D Go board
-        let boardSize: CGFloat = 19.0
-        let cellSize: CGFloat = 1.0
-        let boardThickness: CGFloat = 2.0  // Thicker board for better appearance
+        // Create a 3D Go board with traditional Japanese proportions
+        // Board has (boardSize - 1) cells, plus 1 cell width border on each side
+        // So total = (boardSize - 1) * cellWidth + 2 * cellWidth = (boardSize + 1) * cellWidth
+        let boardWidth = CGFloat(boardSize + 1) * cellWidth
+        let boardLength = CGFloat(boardSize + 1) * cellHeight
 
         // Board base
         let boardGeometry = SCNBox(
-            width: boardSize * cellSize,
+            width: boardWidth,
             height: boardThickness,
-            length: boardSize * cellSize,
+            length: boardLength,
             chamferRadius: 0.15
         )
 
@@ -702,27 +693,30 @@ class SceneManager3D: ObservableObject {
 
         let boardNode = SCNNode(geometry: boardGeometry)
         boardNode.position = SCNVector3(x: 0, y: 0, z: 0)
+        boardNode.castsShadow = false  // Board doesn't cast shadows
         scene.rootNode.addChildNode(boardNode)
         self.boardNode = boardNode
 
         // Create grid lines
-        createGridLines(boardSize: Int(boardSize), cellSize: cellSize, boardThickness: boardThickness)
+        createGridLines(boardThickness: boardThickness)
     }
 
-    private func createGridLines(boardSize: Int, cellSize: CGFloat, boardThickness: CGFloat) {
+    private func createGridLines(boardThickness: CGFloat) {
         let lineThickness: CGFloat = 0.02
         let lineHeight: CGFloat = 0.01
         let lineColor = NSColor.black
         let boardTopY = boardThickness / 2.0 + 0.01  // Position lines on top of board
 
-        let totalSize = CGFloat(boardSize - 1) * cellSize
-        let offset = -totalSize / 2.0
+        let totalWidth = CGFloat(boardSize - 1) * cellWidth
+        let totalHeight = CGFloat(boardSize - 1) * cellHeight
+        let offsetX = -totalWidth / 2.0
+        let offsetZ = -totalHeight / 2.0
 
-        // Horizontal lines
+        // Horizontal lines (run along X axis, spaced in Z direction)
         for i in 0..<boardSize {
-            let z = CGFloat(i) * cellSize + offset
+            let z = CGFloat(i) * cellHeight + offsetZ
             let line = SCNBox(
-                width: totalSize,
+                width: totalWidth,
                 height: lineHeight,
                 length: lineThickness,
                 chamferRadius: 0
@@ -736,13 +730,13 @@ class SceneManager3D: ObservableObject {
             scene.rootNode.addChildNode(lineNode)
         }
 
-        // Vertical lines
+        // Vertical lines (run along Z axis, spaced in X direction)
         for i in 0..<boardSize {
-            let x = CGFloat(i) * cellSize + offset
+            let x = CGFloat(i) * cellWidth + offsetX
             let line = SCNBox(
                 width: lineThickness,
                 height: lineHeight,
-                length: totalSize,
+                length: totalHeight,
                 chamferRadius: 0
             )
             let material = SCNMaterial()
@@ -756,9 +750,9 @@ class SceneManager3D: ObservableObject {
 
         // Star points (for 19x19 board)
         let starPoints = [(3, 3), (3, 9), (3, 15), (9, 3), (9, 9), (9, 15), (15, 3), (15, 9), (15, 15)]
-        for (x, z) in starPoints {
-            let xPos = CGFloat(x) * cellSize + offset
-            let zPos = CGFloat(z) * cellSize + offset
+        for (col, row) in starPoints {
+            let xPos = CGFloat(col) * cellWidth + offsetX
+            let zPos = CGFloat(row) * cellHeight + offsetZ
 
             let star = SCNSphere(radius: 0.08)
             let material = SCNMaterial()
