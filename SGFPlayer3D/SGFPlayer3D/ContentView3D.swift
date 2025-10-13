@@ -160,20 +160,27 @@ struct ContentView3D: View {
     @EnvironmentObject private var app: AppModel
     @StateObject private var player = SGFPlayer()
     @StateObject private var sceneManager = SceneManager3D()
+    @StateObject private var settingsVM = SettingsViewModel()
+    @StateObject private var soundManager = SoundManager.shared
+    @StateObject private var ogsClient = OGSClient()
 
-    // Camera control tracking
+    // Camera control tracking - load from UserDefaults
     @State private var lastDragPosition: CGPoint = .zero
-    @State private var currentRotationX: Float = 0.0
-    @State private var currentRotationY: Float = 0.0
-    @State private var cameraDistance: CGFloat = 25.0
-    @State private var cameraPanX: CGFloat = 0.0
-    @State private var cameraPanY: CGFloat = 0.0
+    @State private var currentRotationX: Float = UserDefaults.standard.float(forKey: "cameraRotationX")
+    @State private var currentRotationY: Float = UserDefaults.standard.float(forKey: "cameraRotationY")
+    @State private var cameraDistance: CGFloat = UserDefaults.standard.object(forKey: "cameraDistance") as? CGFloat ?? 25.0
+    @State private var cameraPanX: CGFloat = UserDefaults.standard.object(forKey: "cameraPanX") as? CGFloat ?? 0.0
+    @State private var cameraPanY: CGFloat = UserDefaults.standard.object(forKey: "cameraPanY") as? CGFloat ?? 0.0
 
     // Playback control
     @State private var isPlaying: Bool = false
     @State private var playbackSpeed: Double = UserDefaults.standard.object(forKey: "playbackSpeed") as? Double ?? 1.0
     @State private var playbackTimer: Timer? = nil
     @State private var gameEndTimer: Timer? = nil
+
+    // OGS polling
+    @State private var ogsPollingTimer: Timer? = nil
+    @State private var lastMoveCount: Int = 0
 
     // UI State
     @State private var isFullscreen: Bool = false
@@ -188,15 +195,17 @@ struct ContentView3D: View {
         return ZStack {
             sceneView
                 .contentShape(Rectangle())
-                .onTapGesture {
-                    if showSettings {
+
+            if showSettings {
+                // Background overlay that closes settings when tapped
+                Color.black.opacity(0.001)
+                    .ignoresSafeArea()
+                    .onTapGesture {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             showSettings = false
                         }
                     }
-                }
 
-            if showSettings {
                 settingsPanel
             }
 
@@ -237,13 +246,43 @@ struct ContentView3D: View {
             NSLog("DEBUG3D: 🎲 Jitter changed to: \(newJitter)")
             updateStonesWithJitter()
         }
+        .onChange(of: currentRotationX) { _, newValue in
+            saveCameraState()
+        }
+        .onChange(of: currentRotationY) { _, newValue in
+            saveCameraState()
+        }
+        .onChange(of: cameraDistance) { _, newValue in
+            saveCameraState()
+        }
+        .onChange(of: cameraPanX) { _, newValue in
+            saveCameraState()
+        }
+        .onChange(of: cameraPanY) { _, newValue in
+            saveCameraState()
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { _ in
             isFullscreen = true
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { _ in
             isFullscreen = false
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameDataReceived"))) { notification in
+            handleOGSGameData(notification)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSMoveReceived"))) { notification in
+            handleOGSMove(notification)
+        }
         .onAppear {
+            // Restore camera position on appear
+            sceneManager.updateCameraPosition(
+                distance: cameraDistance,
+                rotationX: currentRotationX,
+                rotationY: currentRotationY,
+                panX: cameraPanX,
+                panY: cameraPanY
+            )
+
             sceneManager.setupInitialScene(player: player)
 
             // Load the initial game if one is selected
@@ -285,6 +324,9 @@ struct ContentView3D: View {
                 isPanelOpen: $showSettings,
                 app: app,
                 player: player,
+                settingsVM: settingsVM,
+                soundManager: soundManager,
+                ogsClient: ogsClient,
                 autoPlay: $isPlaying,
                 playbackSpeed: $playbackSpeed,
                 onGameSelected: { game in
@@ -358,65 +400,70 @@ struct ContentView3D: View {
                 // Version number in lower right
                 HStack {
                     Spacer()
-                    Text("v0.10.2")
+                    Text("v3.13")
                         .foregroundColor(.gray)
                         .font(.caption)
                         .padding(.trailing, 20)
                         .padding(.bottom, 8)
                 }
 
-                // Bottom controls
-                HStack(spacing: 20) {
-                    // Playback controls
-                    VStack {
-                        Text("Playback")
+                // Bottom controls - single line playback
+                HStack(spacing: 12) {
+                    Button(action: {
+                        player.seek(to: max(0, player.currentIndex - 1))
+                        updateStonesWithJitter()
+                    }) {
+                        Image(systemName: "backward.fill")
                             .foregroundColor(.white)
-                            .font(.headline)
-                            .padding(.bottom, 4)
-
-                        HStack(spacing: 12) {
-                            Button(action: {
-                                player.seek(to: max(0, player.currentIndex - 1))
-                                updateStonesWithJitter()
-                            }) {
-                                Image(systemName: "backward.fill")
-                                    .foregroundColor(.white)
-                            }
-                            .disabled(player.currentIndex <= 0)
-
-                            Button(action: {
-                                togglePlayPause()
-                            }) {
-                                Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                                    .foregroundColor(.white)
-                            }
-                            .keyboardShortcut(.space, modifiers: [])
-
-                            Button(action: {
-                                player.seek(to: min(player.moves.count, player.currentIndex + 1))
-                                updateStonesWithJitter()
-                            }) {
-                                Image(systemName: "forward.fill")
-                                    .foregroundColor(.white)
-                            }
-                            .disabled(player.currentIndex >= player.moves.count)
-                        }
-
-                        Slider(value: Binding(
-                            get: { Double(player.currentIndex) },
-                            set: { newValue in
-                                player.seek(to: Int(newValue))
-                                updateStonesWithJitter()
-                            }
-                        ), in: 0...Double(max(1, player.moves.count)), step: 1)
-                        .frame(width: 200)
+                            .font(.system(size: 16))
                     }
-                    .padding()
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(12)
+                    .buttonStyle(.plain)
+                    .disabled(player.currentIndex <= 0)
+
+                    Button(action: {
+                        togglePlayPause()
+                    }) {
+                        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                            .foregroundColor(.white)
+                            .font(.system(size: 16))
+                    }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut(.space, modifiers: [])
+
+                    Button(action: {
+                        player.seek(to: min(player.moves.count, player.currentIndex + 1))
+                        updateStonesWithJitter()
+                    }) {
+                        Image(systemName: "forward.fill")
+                            .foregroundColor(.white)
+                            .font(.system(size: 16))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(player.currentIndex >= player.moves.count)
+
+                    Slider(value: Binding(
+                        get: { Double(player.currentIndex) },
+                        set: { newValue in
+                            player.seek(to: Int(newValue))
+                            updateStonesWithJitter()
+                        }
+                    ), in: 0...Double(max(1, player.moves.count)), step: 1)
+                    .frame(width: 300)
                 }
-                .padding()
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(.ultraThinMaterial)
+                .cornerRadius(8)
+                .padding(.bottom, 20)
         }
+    }
+
+    private func saveCameraState() {
+        UserDefaults.standard.set(currentRotationX, forKey: "cameraRotationX")
+        UserDefaults.standard.set(currentRotationY, forKey: "cameraRotationY")
+        UserDefaults.standard.set(cameraDistance, forKey: "cameraDistance")
+        UserDefaults.standard.set(cameraPanX, forKey: "cameraPanX")
+        UserDefaults.standard.set(cameraPanY, forKey: "cameraPanY")
     }
 
     private func toggleFullscreen() {
@@ -527,6 +574,121 @@ struct ContentView3D: View {
         }
 
         sceneManager.updateStones(from: player, jitterMultiplier: jitterMultiplier, jitterOffsets: jitterOffsets)
+    }
+
+    private func handleOGSMove(_ notification: Notification) {
+        NSLog("DEBUG3D: 🎯 Received OGSMoveReceived notification")
+        guard let userInfo = notification.userInfo,
+              let x = userInfo["x"] as? Int,
+              let y = userInfo["y"] as? Int,
+              let isPass = userInfo["isPass"] as? Bool else {
+            NSLog("DEBUG3D: ❌ Invalid move data in notification")
+            return
+        }
+
+        if isPass {
+            NSLog("DEBUG3D: 🎯 Opponent passed - reloading game to get updated move list")
+        } else {
+            NSLog("DEBUG3D: 🎯 Opponent played at (\(x), \(y)) - reloading game to get updated move list")
+        }
+
+        // Re-fetch the game data to get all moves including the new one
+        // The OGSClient will post OGSGameDataReceived notification which will reload the game
+        if let gameID = ogsClient.currentGameID {
+            NSLog("DEBUG3D: 🎯 Re-fetching game \(gameID) to include new move")
+            ogsClient.joinGame(gameID: gameID)
+        } else {
+            NSLog("DEBUG3D: ❌ No current game ID to re-fetch")
+        }
+    }
+
+    private func handleOGSGameData(_ notification: Notification) {
+        NSLog("DEBUG3D: 🎮 Received OGSGameDataReceived notification")
+        guard let userInfo = notification.userInfo,
+              let moves = userInfo["moves"] as? [[Any]],
+              let gameID = userInfo["gameID"] as? Int else {
+            NSLog("DEBUG3D: ❌ Invalid game data in notification")
+            return
+        }
+
+        NSLog("DEBUG3D: 🎮 Loading OGS game \(gameID) with \(moves.count) moves")
+
+        // Check if this is a new move (move count increased)
+        if moves.count > lastMoveCount {
+            NSLog("DEBUG3D: 🎯 New moves detected! Previous: \(lastMoveCount), Current: \(moves.count)")
+            lastMoveCount = moves.count
+        } else if lastMoveCount == 0 {
+            // First load
+            lastMoveCount = moves.count
+        }
+
+        // Create a new SGF game from the OGS moves
+        var sgfContent = "(;GM[1]FF[4]SZ[19]"
+
+        // Add player names if available
+        if let blackName = userInfo["blackName"] as? String,
+           let whiteName = userInfo["whiteName"] as? String {
+            sgfContent += "PB[\(blackName)]PW[\(whiteName)]"
+        }
+
+        // Add moves
+        let handicap = userInfo["handicap"] as? Int ?? 0
+        var currentColor: Stone = handicap > 0 ? .white : .black
+
+        for move in moves {
+            guard move.count >= 2,
+                  let x = move[0] as? Int,
+                  let y = move[1] as? Int else { continue }
+
+            // Convert to SGF notation
+            let sgfMove = OGSClient.positionToSGF(x: x, y: y)
+            let moveTag = currentColor == .black ? "B" : "W"
+            sgfContent += ";\(moveTag)[\(sgfMove)]"
+
+            // Alternate colors
+            currentColor = currentColor == .black ? .white : .black
+        }
+
+        sgfContent += ")"
+
+        NSLog("DEBUG3D: 📝 Generated SGF: \(sgfContent.prefix(200))...")
+
+        // Parse and load the SGF
+        if let tree = try? SGFParser.parse(text: sgfContent) {
+            NSLog("DEBUG3D: ✅ Successfully parsed OGS game, loading...")
+            let game = SGFGame.from(tree: tree)
+            player.load(game: game)
+
+            // Seek to the last move to show current game position
+            let lastMoveIndex = moves.count
+            NSLog("DEBUG3D: 🎯 Seeking to move \(lastMoveIndex) (current position)")
+            player.seek(to: lastMoveIndex)
+            updateStonesWithJitter()
+
+            // Start polling for new moves if not already polling
+            startOGSPolling(gameID: gameID)
+        } else {
+            NSLog("DEBUG3D: ❌ Failed to parse SGF from OGS data")
+        }
+    }
+
+    private func startOGSPolling(gameID: Int) {
+        // Stop any existing timer
+        ogsPollingTimer?.invalidate()
+
+        NSLog("DEBUG3D: ⏰ Starting OGS polling for game \(gameID) - checking every 2 seconds")
+
+        // Poll every 2 seconds
+        ogsPollingTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [ogsClient] _ in
+            NSLog("DEBUG3D: 🔄 Polling OGS for updates to game \(gameID)...")
+            ogsClient.joinGame(gameID: gameID)
+        }
+    }
+
+    private func stopOGSPolling() {
+        ogsPollingTimer?.invalidate()
+        ogsPollingTimer = nil
+        NSLog("DEBUG3D: ⏰ Stopped OGS polling")
     }
 }
 
@@ -708,6 +870,12 @@ class SceneManager3D: ObservableObject {
                     finalPosition = resolveCollisions(proposedPosition: finalPosition, radius: stoneRadius, existingStones: stonePositions)
 
                     let stoneNode = createStone(color: stone, at: finalPosition)
+
+                    // Add halo to the last played stone
+                    if let lastMove = player.lastMove, lastMove.x == col && lastMove.y == row {
+                        addHaloToStone(stoneNode, color: stone, radius: stoneRadius)
+                    }
+
                     scene.rootNode.addChildNode(stoneNode)
                     stoneNodes.append(stoneNode)
                     stonePositions.append((finalPosition, stoneRadius))
@@ -806,6 +974,112 @@ class SceneManager3D: ObservableObject {
         return stoneNode
     }
 
+    private func addHaloToStone(_ stoneNode: SCNNode, color: Stone, radius: CGFloat) {
+        NSLog("DEBUG3D: ✨ Adding halo to \(color) stone with radius \(radius)")
+
+        let thicknessRatio: CGFloat = 0.486
+        let stoneHalfHeight = radius * thicknessRatio
+
+        // 1. Create permanent glow disc UNDER the stone
+        let underGlowRadius = radius * 1.4
+        let underGlowHeight: CGFloat = 0.03
+
+        let underDisc = SCNCylinder(radius: underGlowRadius, height: underGlowHeight)
+        let underNode = SCNNode(geometry: underDisc)
+
+        let underMaterial = SCNMaterial()
+        // Use complementary colors: amber for black stones, bright cyan/blue for white stones
+        if color == .white {
+            underMaterial.emission.contents = NSColor(red: 0.2, green: 0.7, blue: 1.0, alpha: 0.25)
+            underMaterial.diffuse.contents = NSColor(red: 0.1, green: 0.5, blue: 0.8, alpha: 0.12)
+        } else {
+            underMaterial.emission.contents = NSColor(red: 1.0, green: 0.85, blue: 0.3, alpha: 0.25)
+            underMaterial.diffuse.contents = NSColor(red: 1.0, green: 0.8, blue: 0.2, alpha: 0.12)
+        }
+        underMaterial.isDoubleSided = true
+        underMaterial.transparency = 0.88
+        underMaterial.lightingModel = .constant
+        underMaterial.blendMode = .add
+        underMaterial.writesToDepthBuffer = false
+        underMaterial.readsFromDepthBuffer = true
+        underDisc.materials = [underMaterial]
+
+        underNode.position = SCNVector3(0, -stoneHalfHeight - underGlowHeight/2 + 0.002, 0)
+        underNode.opacity = 0.25
+
+        // Add a subtle pulsing animation to the under-glow
+        let pulse = SCNAction.sequence([
+            SCNAction.fadeOpacity(to: 0.35, duration: 0.8),
+            SCNAction.fadeOpacity(to: 0.25, duration: 0.8)
+        ])
+        let repeatPulse = SCNAction.repeatForever(pulse)
+        underNode.runAction(repeatPulse)
+
+        stoneNode.addChildNode(underNode)
+
+        // 2. Create expanding circle rings that move upward (ripple effect)
+        let numRings = 3
+        for i in 0..<numRings {
+            let delay = Double(i) * 0.15
+
+            let ringRadius = radius * 0.8
+            let ringThickness: CGFloat = 0.08
+
+            let torus = SCNTorus(ringRadius: ringRadius, pipeRadius: ringThickness)
+            torus.ringSegmentCount = 48
+            torus.pipeSegmentCount = 12
+
+            let ringNode = SCNNode(geometry: torus)
+
+            let ringMaterial = SCNMaterial()
+            // Use darker blue for white stones, bright amber for black stones
+            if color == .white {
+                ringMaterial.emission.contents = NSColor(red: 0.1, green: 0.3, blue: 0.6, alpha: 0.5)
+                ringMaterial.diffuse.contents = NSColor(red: 0.05, green: 0.2, blue: 0.4, alpha: 0.3)
+            } else {
+                ringMaterial.emission.contents = NSColor(red: 1.0, green: 0.85, blue: 0.3, alpha: 0.5)
+                ringMaterial.diffuse.contents = NSColor(red: 1.0, green: 0.8, blue: 0.2, alpha: 0.3)
+            }
+            ringMaterial.isDoubleSided = true
+            ringMaterial.transparency = 0.7
+            ringMaterial.lightingModel = .constant
+            ringMaterial.blendMode = .add
+            ringMaterial.writesToDepthBuffer = false
+            ringMaterial.readsFromDepthBuffer = true
+            torus.materials = [ringMaterial]
+
+            ringNode.position = SCNVector3(0, stoneHalfHeight * 0.5, 0)
+            ringNode.opacity = 0
+            ringNode.eulerAngles.x = .pi / 2
+
+            // Animation: fade in, expand and rise, fade out
+            let fadeIn = SCNAction.fadeOpacity(to: 0.8, duration: 0.15)
+            let fadeOut = SCNAction.fadeOut(duration: 0.4)
+            let opacitySequence = SCNAction.sequence([
+                SCNAction.wait(duration: delay),
+                fadeIn,
+                SCNAction.wait(duration: 0.1),
+                fadeOut
+            ])
+
+            let scaleAction = SCNAction.sequence([
+                SCNAction.wait(duration: delay),
+                SCNAction.scale(to: 2.0, duration: 0.65)
+            ])
+
+            let moveUp = SCNAction.sequence([
+                SCNAction.wait(duration: delay),
+                SCNAction.moveBy(x: 0, y: radius * 1.5, z: 0, duration: 0.65)
+            ])
+
+            ringNode.runAction(opacitySequence)
+            ringNode.runAction(scaleAction)
+            ringNode.runAction(moveUp)
+
+            stoneNode.addChildNode(ringNode)
+        }
+    }
+
     private func createBoard() {
         // Create a 3D Go board with traditional Japanese proportions
         // Board has (boardSize - 1) cells, plus 1 cell width border on each side
@@ -818,7 +1092,7 @@ class SceneManager3D: ObservableObject {
             width: boardWidth,
             height: boardThickness,
             length: boardLength,
-            chamferRadius: 0.15
+            chamferRadius: 0.0  // Square corners
         )
 
         // Load kaya texture
