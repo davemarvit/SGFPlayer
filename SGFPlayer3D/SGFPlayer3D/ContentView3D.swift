@@ -181,6 +181,9 @@ struct ContentView3D: View {
     // OGS polling
     @State private var ogsPollingTimer: Timer? = nil
     @State private var lastMoveCount: Int = 0
+    @State private var ogsBackoffDelay: TimeInterval = 1.0  // Current backoff delay
+    @State private var ogsPollingInterval: TimeInterval = 1.0  // Current polling interval
+    @State private var ogsIsThrottled: Bool = false
 
     // UI State
     @State private var isFullscreen: Bool = false
@@ -272,6 +275,9 @@ struct ContentView3D: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSMoveReceived"))) { notification in
             handleOGSMove(notification)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSRateLimited"))) { _ in
+            handleThrottling()
         }
         .onAppear {
             // Restore camera position on appear
@@ -400,7 +406,7 @@ struct ContentView3D: View {
                 // Version number in lower right
                 HStack {
                     Spacer()
-                    Text("v3.13")
+                    Text("v3.17")
                         .foregroundColor(.gray)
                         .font(.caption)
                         .padding(.trailing, 20)
@@ -616,6 +622,11 @@ struct ContentView3D: View {
         // Check if this is a new move (move count increased)
         if moves.count > lastMoveCount {
             NSLog("DEBUG3D: 🎯 New moves detected! Previous: \(lastMoveCount), Current: \(moves.count)")
+            let newMoves = moves.count - lastMoveCount
+
+            // Play stone placement sound for new moves
+            soundManager.playStoneClick()
+
             lastMoveCount = moves.count
         } else if lastMoveCount == 0 {
             // First load
@@ -666,22 +677,60 @@ struct ContentView3D: View {
             updateStonesWithJitter()
 
             // Start polling for new moves if not already polling
-            startOGSPolling(gameID: gameID)
+            if ogsPollingTimer == nil {
+                startOGSPolling(gameID: gameID)
+            }
         } else {
             NSLog("DEBUG3D: ❌ Failed to parse SGF from OGS data")
         }
     }
 
-    private func startOGSPolling(gameID: Int) {
-        // Stop any existing timer
-        ogsPollingTimer?.invalidate()
+    private func startOGSPolling(gameID: Int, interval: TimeInterval? = nil) {
+        let pollingInterval = interval ?? ogsPollingInterval
+        NSLog("DEBUG3D: ⏰ Starting OGS polling for game \(gameID) - checking every \(pollingInterval) second(s)")
 
-        NSLog("DEBUG3D: ⏰ Starting OGS polling for game \(gameID) - checking every 2 seconds")
-
-        // Poll every 2 seconds
-        ogsPollingTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [ogsClient] _ in
+        // Use the specified interval or default
+        ogsPollingTimer = Timer.scheduledTimer(withTimeInterval: pollingInterval, repeats: true) { [ogsClient] _ in
             NSLog("DEBUG3D: 🔄 Polling OGS for updates to game \(gameID)...")
             ogsClient.joinGame(gameID: gameID)
+        }
+
+        // Update the current polling interval
+        ogsPollingInterval = pollingInterval
+    }
+
+    private func handleThrottling() {
+        guard let gameID = ogsClient.currentGameID else {
+            NSLog("DEBUG3D: ⚠️ Throttled but no current game ID")
+            return
+        }
+
+        NSLog("DEBUG3D: ⚠️ Throttled! Stopping polling and backing off for \(ogsBackoffDelay)s")
+        ogsIsThrottled = true
+        stopOGSPolling()
+
+        // Wait for backoff delay, then resume with longer interval
+        DispatchQueue.main.asyncAfter(deadline: .now() + ogsBackoffDelay) { [self] in
+            NSLog("DEBUG3D: 🔄 Backoff period over, resuming polling...")
+
+            // Double the backoff for next time (exponential backoff), cap at 60s
+            ogsBackoffDelay = min(ogsBackoffDelay * 2, 60.0)
+
+            // Resume polling with increased interval (at least 2.0s during backoff recovery)
+            let newInterval = max(2.0, ogsBackoffDelay / 2)
+            NSLog("DEBUG3D: 🔄 Resuming with interval \(newInterval)s, next backoff would be \(ogsBackoffDelay)s")
+
+            ogsIsThrottled = false
+            startOGSPolling(gameID: gameID, interval: newInterval)
+
+            // After successful polling for a while, reset backoff gradually
+            DispatchQueue.main.asyncAfter(deadline: .now() + 30.0) { [self] in
+                if !ogsIsThrottled && ogsBackoffDelay > 1.0 {
+                    // Gradually reduce backoff if we haven't been throttled
+                    ogsBackoffDelay = max(1.0, ogsBackoffDelay / 2)
+                    NSLog("DEBUG3D: 📉 Reducing backoff delay to \(ogsBackoffDelay)s after successful polling")
+                }
+            }
         }
     }
 

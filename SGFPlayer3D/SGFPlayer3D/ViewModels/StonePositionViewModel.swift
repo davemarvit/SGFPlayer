@@ -7,10 +7,11 @@ import SwiftUI
 
 /// View model that manages stone positioning with clean architecture
 class StonePositionViewModel: ObservableObject {
-    
+
     // Dependencies
     private let physicsEngine = PhysicsEngine()
     private let cacheManager = CacheManager()
+    weak var appModel: AppModel?
     
     // Published state for UI
     @Published var blackStonePositions: [StonePosition] = []
@@ -203,6 +204,11 @@ class StonePositionViewModel: ObservableObject {
                 // Adding stones: append the new ones
                 let newStones = Array(pending.suffix(pending.count - current.count))
                 current.append(contentsOf: newStones)
+
+                // Play stone click sound for each new stone added
+                for _ in newStones {
+                    appModel?.playStoneClickSound()
+                }
             } else {
                 // Removing stones: keep the ones that still exist
                 current = Array(current.prefix(pending.count))

@@ -16,6 +16,9 @@ final class SGFPlayer: ObservableObject {
     @Published private(set) var lastMove: MoveRef? = nil
     @Published private(set) var isPlaying: Bool = false
     @Published private(set) var currentIndex: Int = 0   // index into moves (0…maxIndex)
+    @Published private(set) var lastCaptureCount: Int = 0  // Number of stones captured in last move
+    @Published private(set) var blackCaptured: Int = 0     // Total stones captured by black
+    @Published private(set) var whiteCaptured: Int = 0     // Total stones captured by white
 
     @Published var playInterval: Double = 0.75          // seconds per move (configurable)
     var maxIndex: Int { max(0, moves.count) }
@@ -44,6 +47,9 @@ final class SGFPlayer: ObservableObject {
     func reset() {
         pause()
         currentIndex = 0
+        blackCaptured = 0
+        whiteCaptured = 0
+        lastCaptureCount = 0
         var grid = Array(repeating: Array(repeating: Stone?.none, count: baseSize), count: baseSize)
         for (stone, x, y) in _baseSetup where x < baseSize && y < baseSize {
             grid[y][x] = stone
@@ -152,15 +158,27 @@ final class SGFPlayer: ObservableObject {
         let opp: Stone = (color == .black ? .white : .black)
         let neighbors = neighborsOf(x, y, size: board.size)
         var capturedAny = false
+        var totalCaptured = 0
         for (nx, ny) in neighbors {
             if g[ny][nx] == opp {
                 var visited = Set<Point>()
                 let group = collectGroup(from: Point(x: nx, y: ny), color: opp, grid: g, visited: &visited)
                 if liberties(of: group, in: g).isEmpty {
                     // remove group
+                    totalCaptured += group.count
                     for p in group { g[p.y][p.x] = nil }
                     capturedAny = true
                 }
+            }
+        }
+        lastCaptureCount = totalCaptured
+
+        // Update total captures for the capturing player
+        if totalCaptured > 0 {
+            if color == .black {
+                blackCaptured += totalCaptured
+            } else {
+                whiteCaptured += totalCaptured
             }
         }
 

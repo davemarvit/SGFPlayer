@@ -6,30 +6,32 @@ import SwiftUI
 
 /// Bridge that connects the new modular architecture with existing ContentView
 class ContentViewBridge: ObservableObject {
-    
+
     // New architecture components
     @Published private var stoneViewModel = StonePositionViewModel()
-    
+
     // Bridge state for ContentView
     @Published var blackStoneUIPositions: [UIStone] = []
     @Published var whiteStoneUIPositions: [UIStone] = []
     @Published var physicsStatus: String = ""
     @Published var isPhysicsActive: Bool = true
-    
+
     // Physics model selection
     var availablePhysicsModels: [(index: Int, name: String, description: String)] {
         return stoneViewModel.availablePhysicsModels
     }
-    
+
     var activePhysicsModelIndex: Int {
         get { stoneViewModel.activePhysicsModelIndex }
-        set { 
+        set {
             stoneViewModel.activePhysicsModelIndex = newValue
             physicsStatus = "Switched to: \(stoneViewModel.activeModelName)"
         }
     }
-    
-    init() {
+
+    init(appModel: AppModel? = nil) {
+        // Wire up appModel for sound playback
+        stoneViewModel.appModel = appModel
         // Monitor stone position changes and convert to UI positions
         // CRITICAL FIX: Use debounce to prevent stale data from being processed
         stoneViewModel.$blackStonePositions

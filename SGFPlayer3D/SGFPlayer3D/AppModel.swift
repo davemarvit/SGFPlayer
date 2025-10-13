@@ -1,9 +1,12 @@
 // MARK: - File: AppModel.swift
 import AppKit
+import AVFoundation
 import Combine
 import Foundation
 
 final class AppModel: ObservableObject {
+    // Audio player for stone click sound
+    private var stoneClickPlayer: AVAudioPlayer?
     @Published var folderURL: URL? {
         didSet { persistFolderURL() }
     }
@@ -25,6 +28,25 @@ final class AppModel: ObservableObject {
     init() {
         restoreFolderURL()
         if let url = folderURL { loadFolder(url) }
+        setupAudio()
+    }
+
+    private func setupAudio() {
+        guard let soundURL = Bundle.main.url(forResource: "Stone_click_1", withExtension: "mp3") else {
+            print("❗️ Stone click sound file not found")
+            return
+        }
+
+        do {
+            stoneClickPlayer = try AVAudioPlayer(contentsOf: soundURL)
+            stoneClickPlayer?.prepareToPlay()
+        } catch {
+            print("❗️ Failed to load stone click sound: \(error)")
+        }
+    }
+
+    func playStoneClickSound() {
+        stoneClickPlayer?.play()
     }
 
     func promptForFolder() {

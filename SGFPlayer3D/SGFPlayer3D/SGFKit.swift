@@ -104,12 +104,16 @@ struct SGFGame {
         var event: String?
         var playerBlack: String?
         var playerWhite: String?
+        var blackRank: String?
+        var whiteRank: String?
         var result: String?
         var date: String?       // DT
+        var timeLimit: String?  // TM
+        var overtime: String?   // OT
     }
 
     var boardSize: Int = 19
-    var info: Info = .init(event: nil, playerBlack: nil, playerWhite: nil, result: nil, date: nil)
+    var info: Info = .init(event: nil, playerBlack: nil, playerWhite: nil, blackRank: nil, whiteRank: nil, result: nil, date: nil, timeLimit: nil, overtime: nil)
     var setup: [(Stone, Int, Int)] = []      // AB/AW
     var moves: [(Stone, (Int,Int)?)] = []    // B/W; pass = nil
 
@@ -132,8 +136,12 @@ struct SGFGame {
                 case "EV": g.info.event = vals.first
                 case "PB": g.info.playerBlack = vals.first
                 case "PW": g.info.playerWhite = vals.first
+                case "BR": g.info.blackRank = vals.first
+                case "WR": g.info.whiteRank = vals.first
                 case "RE": g.info.result = vals.first
                 case "DT": g.info.date = vals.first
+                case "TM": g.info.timeLimit = vals.first
+                case "OT": g.info.overtime = vals.first
 
                 case "AB":
                     for v in vals { if let (x,y) = parseCoord(v) { g.setup.append((.black, x, y)) } }

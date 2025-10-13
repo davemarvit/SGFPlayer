@@ -7,14 +7,14 @@ import Combine
 
 /// Strategic integration point that can gradually replace ContentView physics
 class PhysicsIntegration: ObservableObject {
-    
+
     // MARK: - New Architecture
-    private let physicsReplacement = CompatibilityLayer.createPhysicsReplacement()
-    
+    private let physicsReplacement: PhysicsReplacement
+
     // MARK: - Integration Control
     @Published var useNewPhysics: Bool = true
     @Published var debugMode: Bool = true
-    
+
     // MARK: - Published State (compatible with ContentView)
     @Published var blackStones: [LegacyCapturedStone] = [] {
         didSet {
@@ -34,13 +34,13 @@ class PhysicsIntegration: ObservableObject {
     }
     @Published var physicsStatus: String = ""
     @Published var isReady: Bool = false
-    
+
     // Batching mechanism to prevent multiple UI updates during physics calculations
     private var isPhysicsInProgress = false
     private var pendingBlackStones: [LegacyCapturedStone] = []
     private var pendingWhiteStones: [LegacyCapturedStone] = []
     private var physicsUpdateTimer: Timer?
-    
+
     // MARK: - Physics Model Selection (compatible with ContentView)
     @Published var activePhysicsModel: Int = 1 {
         didSet {
@@ -50,10 +50,11 @@ class PhysicsIntegration: ObservableObject {
             }
         }
     }
-    
+
     private var cancellables = Set<AnyCancellable>()
-    
-    init() {
+
+    init(appModel: AppModel? = nil) {
+        self.physicsReplacement = CompatibilityLayer.createPhysicsReplacement(appModel: appModel)
         setupNewPhysicsBindings()
         isReady = true
         Logger.info("PhysicsIntegration: Initialized with new architecture")

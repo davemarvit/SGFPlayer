@@ -44,28 +44,29 @@ struct CompatibilityLayer {
     }
     
     /// Create a clean physics replacement that integrates with ContentView
-    static func createPhysicsReplacement() -> PhysicsReplacement {
-        return PhysicsReplacement()
+    static func createPhysicsReplacement(appModel: AppModel? = nil) -> PhysicsReplacement {
+        return PhysicsReplacement(appModel: appModel)
     }
 }
 
 /// Clean replacement for the tangled physics code in ContentView
 class PhysicsReplacement: ObservableObject {
-    
-    private let bridge = ContentViewBridge()
-    
+
+    private let bridge: ContentViewBridge
+
     // Published properties that ContentView can observe
     @Published var capUL: [LegacyCapturedStone] = [] // Black stones captured by white (upper-left bowl)
     @Published var capLR: [LegacyCapturedStone] = [] // White stones captured by black (lower-right bowl)
     @Published var physicsInfo: String = ""
-    
+
     // Physics model selection compatible with ContentView
     var activePhysicsModelRaw: Int {
         get { bridge.activePhysicsModelIndex }
         set { bridge.activePhysicsModelIndex = newValue }
     }
-    
-    init() {
+
+    init(appModel: AppModel? = nil) {
+        self.bridge = ContentViewBridge(appModel: appModel)
         // Monitor bridge changes and update legacy format
         bridge.$blackStoneUIPositions
             .sink { [weak self] uiStones in

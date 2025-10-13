@@ -49,6 +49,12 @@ class SettingsViewModel: ObservableObject {
     @Published var debugLayout: Bool = false
     @Published var showPhysicsDemo: Bool = false
 
+    // MARK: - OGS Mode
+    @Published var ogsMode: Bool = UserDefaults.standard.bool(forKey: "ogsMode")
+
+    // MARK: - Background Settings
+    @Published var backgroundType: BackgroundType = .stars
+
     // MARK: - AppStorage Synchronization Callbacks
     // These allow ContentView to sync with AppStorage while maintaining separation
     var randomOnStartChanged: ((Bool) -> Void)?
@@ -76,6 +82,8 @@ class SettingsViewModel: ObservableObject {
     var m1_animChanged: ((Double) -> Void)?
     var m1_stoneStoneKChanged: ((Double) -> Void)?
     var m1_stoneLidKChanged: ((Double) -> Void)?
+    var ogsModeChanged: ((Bool) -> Void)?
+    var backgroundTypeChanged: ((BackgroundType) -> Void)?
 
     // MARK: - Initialization
     init() {
@@ -283,6 +291,16 @@ class SettingsViewModel: ObservableObject {
         $m1_anim.dropFirst().sink { [weak self] in self?.m1_animChanged?($0) }.store(in: &cancellables)
         $m1_stoneStoneK.dropFirst().sink { [weak self] in self?.m1_stoneStoneKChanged?($0) }.store(in: &cancellables)
         $m1_stoneLidK.dropFirst().sink { [weak self] in self?.m1_stoneLidKChanged?($0) }.store(in: &cancellables)
+
+        // OGS Mode
+        $ogsMode.dropFirst().sink { [weak self] value in
+            // Persist to UserDefaults
+            UserDefaults.standard.set(value, forKey: "ogsMode")
+            self?.ogsModeChanged?(value)
+        }.store(in: &cancellables)
+
+        // Background Type
+        $backgroundType.dropFirst().sink { [weak self] in self?.backgroundTypeChanged?($0) }.store(in: &cancellables)
     }
 
     private func setupShadowObservers() {
@@ -335,6 +353,14 @@ struct ShadowConfig {
     let stoneRadius: Double
     let stoneDX: Double
     let stoneDY: Double
+}
+
+// MARK: - Background Type
+
+enum BackgroundType: Int, CaseIterable {
+    case stars = 0
+    case hdri = 1
+    case solid = 2
 }
 
 // MARK: - Notifications
