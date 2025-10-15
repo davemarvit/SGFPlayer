@@ -107,49 +107,33 @@ struct SettingsPanelView3D: View {
                                             .foregroundColor(.white.opacity(0.8))
                                     }
 
-                                    // Connect/Disconnect button
-                                    Button(ogsClient.isConnected ? "Disconnect" : "Connect to OGS") {
-                                        if ogsClient.isConnected {
-                                            ogsClient.disconnect()
-                                        } else {
-                                            ogsClient.connect()
-                                        }
-                                    }
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(.blue.opacity(0.8))
-                                    .cornerRadius(6)
-                                    .buttonStyle(.plain)
-
-                                    // Authentication (shown when connected)
-                                    if ogsClient.isConnected {
-                                        if ogsClient.isAuthenticated {
-                                            // Show authenticated status
-                                            HStack {
-                                                Image(systemName: "checkmark.circle.fill")
-                                                    .foregroundColor(.green)
-                                                Text("Logged in as \(ogsClient.username ?? "unknown")")
-                                                    .font(.caption)
-                                                    .foregroundColor(.white.opacity(0.8))
-                                                Spacer()
-                                                Button("Logout") {
-                                                    ogsClient.deleteCredentials()
-                                                }
-                                                .foregroundColor(.white)
+                                    // Authentication - always show when in OGS mode
+                                    if ogsClient.isAuthenticated {
+                                        // Show authenticated status
+                                        HStack {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundColor(.green)
+                                            Text("Logged in as \(ogsClient.username ?? "unknown")")
                                                 .font(.caption)
-                                                .padding(.horizontal, 8)
-                                                .padding(.vertical, 4)
-                                                .background(.red.opacity(0.6))
-                                                .cornerRadius(4)
-                                                .buttonStyle(.plain)
+                                                .foregroundColor(.white.opacity(0.8))
+                                            Spacer()
+                                            Button("Logout") {
+                                                ogsClient.deleteCredentials()
                                             }
-                                        } else {
-                                            // Show login form
-                                            VStack(alignment: .leading, spacing: 8) {
-                                                Text("Login (optional for spectating)")
-                                                    .font(.caption)
-                                                    .foregroundColor(.white.opacity(0.6))
+                                            .foregroundColor(.white)
+                                            .font(.caption)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(.red.opacity(0.6))
+                                            .cornerRadius(4)
+                                            .buttonStyle(.plain)
+                                        }
+                                    } else {
+                                        // Show login form
+                                        VStack(alignment: .leading, spacing: 8) {
+                                            Text("Login (optional for spectating)")
+                                                .font(.caption)
+                                                .foregroundColor(.white.opacity(0.6))
 
                                                 TextField("Username", text: $ogsUsername)
                                                     .textFieldStyle(.roundedBorder)
@@ -222,9 +206,23 @@ struct SettingsPanelView3D: View {
                                                         .foregroundColor(.red.opacity(0.9))
                                                         .lineLimit(2)
                                                 }
-                                            }
                                         }
                                     }
+
+                                    // Connect/Disconnect button after authentication section
+                                    Button(ogsClient.isConnected ? "Disconnect" : "Connect to OGS") {
+                                        if ogsClient.isConnected {
+                                            ogsClient.disconnect()
+                                        } else {
+                                            ogsClient.connect()
+                                        }
+                                    }
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(.blue.opacity(0.8))
+                                    .cornerRadius(6)
+                                    .buttonStyle(.plain)
 
                                     // Game ID input (shown when connected)
                                     if ogsClient.isConnected {
@@ -298,22 +296,11 @@ struct SettingsPanelView3D: View {
                         Divider()
                             .padding(.horizontal, 16)
 
-                        // Game selection list with search
-                        GameSelectionSection(app: app, onSearchResultsChanged: { results in
-                            // When search results change, update the active playlist
-                            if !results.isEmpty {
-                                // User has searched - set active playlist to search results
-                                app.activePlaylist = results
-                                if let firstResult = results.first {
-                                    app.selection = firstResult
-                                    onGameSelected?(firstResult)
-                                }
-                            } else {
-                                // Empty search - reset to all games
-                                app.activePlaylist = Array(app.games)
-                            }
-                        })
-                        .padding(.horizontal, 16)
+                        // Game selection list (only shown when NOT in OGS mode)
+                        if !settingsVM.ogsMode {
+                            GameSelectionSection3D(app: app, onGameSelected: onGameSelected)
+                                .padding(.horizontal, 16)
+                        }
 
                         Divider()
                             .padding(.horizontal, 16)

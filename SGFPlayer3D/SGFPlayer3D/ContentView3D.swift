@@ -185,6 +185,22 @@ struct ContentView3D: View {
     @State private var ogsPollingInterval: TimeInterval = 1.0  // Current polling interval
     @State private var ogsIsThrottled: Bool = false
 
+    // OGS game metadata
+    @State private var ogsBlackName: String?
+    @State private var ogsWhiteName: String?
+    @State private var ogsBlackRank: String?
+    @State private var ogsWhiteRank: String?
+    @State private var ogsKomi: String?
+    @State private var ogsRuleset: String?
+    @State private var ogsBlackCaptured: Int = 0
+    @State private var ogsWhiteCaptured: Int = 0
+
+    // Live clock countdown
+    @State private var clockTimer: Timer? = nil
+    @State private var localBlackTime: TimeInterval?
+    @State private var localWhiteTime: TimeInterval?
+    @State private var lastClockUpdate: Date?
+
     // UI State
     @State private var isFullscreen: Bool = false
     @State private var showSettings: Bool = false
@@ -214,7 +230,12 @@ struct ContentView3D: View {
 
             overlayUI
         }
-        .onChange(of: player.currentIndex) { _, newIndex in
+        .onChange(of: player.currentIndex) { oldIndex, newIndex in
+            // Play stone click sound when moving forward (not backward or seeking)
+            if newIndex > oldIndex && newIndex > 0 {
+                soundManager.playStoneClick()
+            }
+
             updateStonesWithJitter()
 
             // Check if game has ended
@@ -227,7 +248,16 @@ struct ContentView3D: View {
         }
         .onChange(of: app.selection) { _, newSelection in
             if let gameWrapper = newSelection {
+                NSLog("DEBUG3D: 📂 Loading game from file: \(gameWrapper.url.lastPathComponent)")
+                NSLog("DEBUG3D: 📂 Game has \(gameWrapper.game.setup.count) setup stones: \(gameWrapper.game.setup)")
+                NSLog("DEBUG3D: 📂 Game has \(gameWrapper.game.moves.count) moves")
+
                 player.load(game: gameWrapper.game)
+
+                // Log board state after loading
+                let setupStoneCount = player.board.grid.flatMap { $0 }.compactMap { $0 }.count
+                NSLog("DEBUG3D: 📂 After load, board has \(setupStoneCount) stones at index \(player.currentIndex)")
+
                 app.selectGame(gameWrapper)  // Load into cache manager
                 updateStonesWithJitter()
             }
@@ -278,6 +308,9 @@ struct ContentView3D: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSRateLimited"))) { _ in
             handleThrottling()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSPlayerInfo"))) { notification in
+            handleOGSPlayerInfo(notification)
         }
         .onAppear {
             // Restore camera position on appear
@@ -376,18 +409,147 @@ struct ContentView3D: View {
 
                     Spacer()
 
-                    // Game info
-                    if let selection = app.selection {
-                        VStack(alignment: .trailing) {
-                            Text("\(selection.game.info.playerBlack ?? "?") vs \(selection.game.info.playerWhite ?? "?")")
-                                .foregroundColor(.white)
-                                .font(.headline)
-                            Text("Move \(player.currentIndex) / \(player.moves.count)")
-                                .foregroundColor(.white.opacity(0.8))
+                    // Game info - OGS mode or local game
+                    VStack(alignment: .trailing, spacing: 4) {
+                        // Player names with ranks
+                        HStack(spacing: 8) {
+                            if let blackName = ogsBlackName {
+                                // OGS mode
+                                Text("\(blackName)")
+                                    .foregroundColor(.white)
+                                    .font(.headline)
+                                if let blackRank = ogsBlackRank {
+                                    Text("[\(blackRank)]")
+                                        .foregroundColor(.white.opacity(0.7))
+                                        .font(.caption)
+                                }
+                            } else if let selection = app.selection {
+                                // Local game mode
+                                Text("\(selection.game.info.playerBlack ?? "?")")
+                                    .foregroundColor(.white)
+                                    .font(.headline)
+                                if let blackRank = selection.game.info.blackRank {
+                                    Text("[\(blackRank)]")
+                                        .foregroundColor(.white.opacity(0.7))
+                                        .font(.caption)
+                                }
+                            }
+
+                            Text("vs")
+                                .foregroundColor(.white.opacity(0.6))
                                 .font(.caption)
+
+                            if let whiteName = ogsWhiteName {
+                                // OGS mode
+                                Text("\(whiteName)")
+                                    .foregroundColor(.white)
+                                    .font(.headline)
+                                if let whiteRank = ogsWhiteRank {
+                                    Text("[\(whiteRank)]")
+                                        .foregroundColor(.white.opacity(0.7))
+                                        .font(.caption)
+                                }
+                            } else if let selection = app.selection {
+                                // Local game mode
+                                Text("\(selection.game.info.playerWhite ?? "?")")
+                                    .foregroundColor(.white)
+                                    .font(.headline)
+                                if let whiteRank = selection.game.info.whiteRank {
+                                    Text("[\(whiteRank)]")
+                                        .foregroundColor(.white.opacity(0.7))
+                                        .font(.caption)
+                                }
+                            }
                         }
-                        .padding()
+
+                        // Time remaining (OGS only)
+                        if ogsBlackName != nil {
+                            HStack(spacing: 12) {
+                                // Black time
+                                HStack(spacing: 4) {
+                                    Text("⚫")
+                                        .font(.caption)
+                                    if let timeRemaining = ogsClient.blackTimeRemaining {
+                                        Text(formatTime(timeRemaining))
+                                            .foregroundColor(.white.opacity(0.8))
+                                            .font(.caption)
+                                        if let periods = ogsClient.blackPeriodsRemaining, periods > 0 {
+                                            if periods == 1 {
+                                                Text("SD")
+                                                    .foregroundColor(.red)
+                                                    .font(.caption)
+                                                    .fontWeight(.bold)
+                                            } else {
+                                                Text("(\(periods)×\(formatTime(ogsClient.blackPeriodTime ?? 0)))")
+                                                    .foregroundColor(.white.opacity(0.6))
+                                                    .font(.caption2)
+                                            }
+                                        }
+                                    }
+                                }
+                                // White time
+                                HStack(spacing: 4) {
+                                    Text("⚪")
+                                        .font(.caption)
+                                    if let timeRemaining = ogsClient.whiteTimeRemaining {
+                                        Text(formatTime(timeRemaining))
+                                            .foregroundColor(.white.opacity(0.8))
+                                            .font(.caption)
+                                        if let periods = ogsClient.whitePeriodsRemaining, periods > 0 {
+                                            if periods == 1 {
+                                                Text("SD")
+                                                    .foregroundColor(.red)
+                                                    .font(.caption)
+                                                    .fontWeight(.bold)
+                                            } else {
+                                                Text("(\(periods)×\(formatTime(ogsClient.whitePeriodTime ?? 0)))")
+                                                    .foregroundColor(.white.opacity(0.6))
+                                                    .font(.caption2)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Captures
+                        HStack(spacing: 12) {
+                            HStack(spacing: 4) {
+                                Text("⚫")
+                                    .font(.caption)
+                                Text("\(player.blackCaptured) captured")
+                                    .foregroundColor(.white.opacity(0.8))
+                                    .font(.caption)
+                            }
+                            HStack(spacing: 4) {
+                                Text("⚪")
+                                    .font(.caption)
+                                Text("\(player.whiteCaptured) captured")
+                                    .foregroundColor(.white.opacity(0.8))
+                                    .font(.caption)
+                            }
+                        }
+
+                        // Komi and ruleset
+                        HStack(spacing: 12) {
+                            if let komi = ogsKomi ?? app.selection?.game.info.komi {
+                                Text("Komi: \(komi)")
+                                    .foregroundColor(.white.opacity(0.7))
+                                    .font(.caption)
+                            }
+                            if let ruleset = ogsRuleset ?? app.selection?.game.info.ruleset {
+                                Text("Rules: \(ruleset)")
+                                    .foregroundColor(.white.opacity(0.7))
+                                    .font(.caption)
+                            }
+                        }
+
+                        // Move counter
+                        Text("Move \(player.currentIndex) / \(player.moves.count)")
+                            .foregroundColor(.white.opacity(0.8))
+                            .font(.caption)
                     }
+                    .padding()
 
                     // Fullscreen button (right side)
                     Button(action: {
@@ -406,7 +568,7 @@ struct ContentView3D: View {
                 // Version number in lower right
                 HStack {
                     Spacer()
-                    Text("v3.17")
+                    Text("v3.23")
                         .foregroundColor(.gray)
                         .font(.caption)
                         .padding(.trailing, 20)
@@ -612,21 +774,31 @@ struct ContentView3D: View {
         NSLog("DEBUG3D: 🎮 Received OGSGameDataReceived notification")
         guard let userInfo = notification.userInfo,
               let moves = userInfo["moves"] as? [[Any]],
-              let gameID = userInfo["gameID"] as? Int else {
+              let gameID = userInfo["gameID"] as? Int,
+              let gameData = userInfo["gameData"] as? [String: Any] else {
             NSLog("DEBUG3D: ❌ Invalid game data in notification")
             return
         }
 
         NSLog("DEBUG3D: 🎮 Loading OGS game \(gameID) with \(moves.count) moves")
 
+        // Extract komi and ruleset from game data
+        if let komi = gameData["komi"] as? Double {
+            ogsKomi = String(format: "%.1f", komi)
+            NSLog("DEBUG3D: 🎮 Komi: \(ogsKomi ?? "nil")")
+        } else if let komiString = gameData["komi"] as? String {
+            ogsKomi = komiString
+            NSLog("DEBUG3D: 🎮 Komi (string): \(ogsKomi ?? "nil")")
+        }
+
+        if let rules = gameData["rules"] as? String {
+            ogsRuleset = rules
+            NSLog("DEBUG3D: 🎮 Rules: \(ogsRuleset ?? "nil")")
+        }
+
         // Check if this is a new move (move count increased)
         if moves.count > lastMoveCount {
             NSLog("DEBUG3D: 🎯 New moves detected! Previous: \(lastMoveCount), Current: \(moves.count)")
-            let newMoves = moves.count - lastMoveCount
-
-            // Play stone placement sound for new moves
-            soundManager.playStoneClick()
-
             lastMoveCount = moves.count
         } else if lastMoveCount == 0 {
             // First load
@@ -634,7 +806,9 @@ struct ContentView3D: View {
         }
 
         // Create a new SGF game from the OGS moves
-        var sgfContent = "(;GM[1]FF[4]SZ[19]"
+        let boardSize = userInfo["boardSize"] as? Int ?? 19
+        NSLog("DEBUG3D: 🎮 Board size: \(boardSize)")
+        var sgfContent = "(;GM[1]FF[4]SZ[\(boardSize)]"
 
         // Add player names if available
         if let blackName = userInfo["blackName"] as? String,
@@ -642,8 +816,50 @@ struct ContentView3D: View {
             sgfContent += "PB[\(blackName)]PW[\(whiteName)]"
         }
 
-        // Add moves
+        // Add handicap stones
         let handicap = userInfo["handicap"] as? Int ?? 0
+        NSLog("DEBUG3D: 🎮 Handicap value from OGS: \(handicap)")
+
+        if handicap > 0 {
+            sgfContent += "HA[\(handicap)]"
+
+            // Standard handicap positions for 19x19 board only
+            // TODO: Add support for 9x9 and 13x13 boards
+            if boardSize != 19 {
+                NSLog("DEBUG3D: ⚠️ Handicap on non-19x19 board (\(boardSize)x\(boardSize)) - positions may be incorrect")
+            }
+
+            let handicapPositions: [[String]] = [
+                [],  // 0 handicap
+                [],  // 1 handicap (not used)
+                ["pd", "dp"],  // 2 handicap
+                ["pd", "dp", "pp"],  // 3 handicap
+                ["pd", "dp", "pp", "dd"],  // 4 handicap
+                ["pd", "dp", "pp", "dd", "jj"],  // 5 handicap
+                ["pd", "dp", "pp", "dd", "pj", "dj"],  // 6 handicap
+                ["pd", "dp", "pp", "dd", "pj", "dj", "jj"],  // 7 handicap
+                ["pd", "dp", "pp", "dd", "pj", "dj", "jd", "jp"],  // 8 handicap
+                ["pd", "dp", "pp", "dd", "pj", "dj", "jd", "jp", "jj"]  // 9 handicap
+            ]
+
+            if handicap < handicapPositions.count {
+                let positions = handicapPositions[handicap]
+                NSLog("DEBUG3D: 🎮 Adding \(positions.count) handicap stones at positions: \(positions)")
+                if !positions.isEmpty {
+                    sgfContent += "AB"
+                    for pos in positions {
+                        sgfContent += "[\(pos)]"
+                    }
+                    NSLog("DEBUG3D: 🎮 Added AB property to SGF")
+                }
+            } else {
+                NSLog("DEBUG3D: ⚠️ Handicap \(handicap) is out of range")
+            }
+        } else {
+            NSLog("DEBUG3D: 🎮 No handicap stones (handicap = 0)")
+        }
+
+        // Add moves
         var currentColor: Stone = handicap > 0 ? .white : .black
 
         for move in moves {
@@ -662,12 +878,22 @@ struct ContentView3D: View {
 
         sgfContent += ")"
 
-        NSLog("DEBUG3D: 📝 Generated SGF: \(sgfContent.prefix(200))...")
+        NSLog("DEBUG3D: 📝 Generated SGF (first 400 chars): \(sgfContent.prefix(400))...")
+
+        // Log specifically the setup portion (before moves)
+        if let setupEnd = sgfContent.range(of: ";B[")?.lowerBound ?? sgfContent.range(of: ";W[")?.lowerBound {
+            let setupPortion = String(sgfContent[..<setupEnd])
+            NSLog("DEBUG3D: 📝 Setup portion of SGF: \(setupPortion)")
+        } else {
+            NSLog("DEBUG3D: 📝 Full SGF (no moves yet): \(sgfContent)")
+        }
 
         // Parse and load the SGF
         if let tree = try? SGFParser.parse(text: sgfContent) {
             NSLog("DEBUG3D: ✅ Successfully parsed OGS game, loading...")
             let game = SGFGame.from(tree: tree)
+            NSLog("DEBUG3D: 🎮 Game has \(game.setup.count) setup stones: \(game.setup)")
+            NSLog("DEBUG3D: 🎮 Game has \(game.moves.count) moves")
             player.load(game: game)
 
             // Seek to the last move to show current game position
@@ -738,6 +964,35 @@ struct ContentView3D: View {
         ogsPollingTimer?.invalidate()
         ogsPollingTimer = nil
         NSLog("DEBUG3D: ⏰ Stopped OGS polling")
+    }
+
+    private func handleOGSPlayerInfo(_ notification: Notification) {
+        guard let userInfo = notification.userInfo else {
+            NSLog("DEBUG3D: ❌ No userInfo in OGSPlayerInfo notification")
+            return
+        }
+
+        NSLog("DEBUG3D: 👥 Received OGSPlayerInfo notification")
+
+        ogsBlackName = userInfo["blackName"] as? String
+        ogsWhiteName = userInfo["whiteName"] as? String
+        ogsBlackRank = userInfo["blackRank"] as? String
+        ogsWhiteRank = userInfo["whiteRank"] as? String
+
+        NSLog("DEBUG3D: 👥 Updated player info: \(ogsBlackName ?? "?") [\(ogsBlackRank ?? "?")] vs \(ogsWhiteName ?? "?") [\(ogsWhiteRank ?? "?")]")
+    }
+
+    private func formatTime(_ seconds: TimeInterval) -> String {
+        let totalSeconds = Int(seconds)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let secs = totalSeconds % 60
+
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, secs)
+        } else {
+            return String(format: "%d:%02d", minutes, secs)
+        }
     }
 }
 
