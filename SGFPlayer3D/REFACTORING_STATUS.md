@@ -3,7 +3,7 @@
 **Date Started**: 2025-10-15
 **Goal**: Implement live clock countdown and refactor codebase for better maintainability
 
-## Current Status: ✅ PHASE 3 COMPLETE - UI Components Extracted
+## Current Status: ✅ PHASE 3 COMPLETE - All UI Components Extracted (Session 5)
 
 ## Background
 - ContentView3D.swift is 1,566 lines (too large)
@@ -79,13 +79,15 @@
 
 ---
 
-### Phase 3: Split ContentView3D (FUTURE)
+### Phase 3: Split ContentView3D ✅ COMPLETE
 **Goal**: Break large view into focused components
 
-**Components to Extract:**
-1. GameBoardView3D.swift - 3D board rendering
-2. GameControlsView.swift - Playback controls
-3. OGSStatusView.swift - Network/game status
+**Components Extracted:**
+1. ✅ GameInfoOverlay.swift - Player info, time controls, captures, komi/rules (174 lines)
+2. ✅ PlaybackControls.swift - Backward/forward/play/pause/seek controls (70 lines)
+3. ✅ SettingsPanelContainer.swift - Settings panel presentation (43 lines)
+
+**Result**: ContentView3D reduced from 1,617 → 1,167 lines (-450 lines, 28% reduction)
 
 ---
 
@@ -204,6 +206,38 @@
 
 - **Impact**: ContentView3D reduced by 14%, new reusable components created
 - **Next**: Phase 4 - Board Interaction Manager or continue extracting components
+
+### 2025-10-16 (Session 5 - Phase 3 Final)
+- ✅ **Phase 3: Extract SettingsPanelContainer** - COMPLETE (commit 942669f)
+
+- **Created SettingsPanelContainer.swift** (43 lines)
+  - Extracted from ContentView3D lines 393-418
+  - Manages settings panel presentation with slide-in transition
+  - Uses @Binding for showSettings, isPlaying, playbackSpeed
+  - Uses @EnvironmentObject for app (auto-injected)
+  - Callback-based architecture (onGameSelected, onJitterChanged)
+
+- **Updated ContentView3D** (reduced from 1,174 to 1,167 lines)
+  - Replaced 26-line settingsPanel var with 19-line component call
+  - Delegates HStack, transition, Spacer, zIndex to component
+  - Further cleanup and simplification
+
+- **Testing Results**
+  - Build: ✅ Success (no warnings)
+  - Unit Tests: ✅ All 22/22 passed (10 TimeControl + 11 OGSGameViewModel + 1 example)
+  - Functionality: ✅ No regressions detected
+
+- **Phase 3 Total Impact**:
+  - 3 new component files created:
+    - GameInfoOverlay.swift (174 lines)
+    - PlaybackControls.swift (70 lines)
+    - SettingsPanelContainer.swift (43 lines)
+  - ContentView3D reduced from 1,617 → 1,167 lines (-450 lines, 28% reduction)
+  - Improved maintainability with focused, reusable components
+  - Better separation of concerns (UI components vs logic)
+  - All functionality preserved, no regressions
+
+- **Next**: Phase 4 - Consider extracting SceneManager3D or BoardInteractionManager
 
 ---
 
