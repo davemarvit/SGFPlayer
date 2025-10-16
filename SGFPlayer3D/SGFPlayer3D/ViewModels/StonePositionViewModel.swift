@@ -134,17 +134,26 @@ class StonePositionViewModel: ObservableObject {
             
             // Update UI on main thread with incremental updates to prevent blinking
             DispatchQueue.main.async {
-                self.updateStonesIncremental(current: &self.blackStonePositions, pending: blackResult.stones)
-                self.updateStonesIncremental(current: &self.whiteStonePositions, pending: whiteResult.stones)
+                let blackAdded = self.updateStonesIncremental(current: &self.blackStonePositions, pending: blackResult.stones)
+                let whiteAdded = self.updateStonesIncremental(current: &self.whiteStonePositions, pending: whiteResult.stones)
                 self.currentBlackStoneCount = blackResult.stones.count
                 self.currentWhiteStoneCount = whiteResult.stones.count
                 self.isComputingPhysics = false
-                
+
+                // Play capture sounds if stones were captured
+                let totalCaptured = blackAdded + whiteAdded
+                if totalCaptured > 0 {
+                    // Play capture sound after a brief delay to let placement sound finish
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        SoundManager.shared.playCaptureSound(capturedCount: totalCaptured)
+                    }
+                }
+
                 let info = [blackResult.convergenceInfo, whiteResult.convergenceInfo]
                     .compactMap { $0 }
                     .joined(separator: "; ")
                 self.physicsInfo = info
-                
+
                 // Cache the results
                 let layout = CachedLayout(
                     blackStones: blackResult.stones,
@@ -152,8 +161,8 @@ class StonePositionViewModel: ObservableObject {
                     physicsModel: self.physicsEngine.activeModel.name
                 )
                 self.cacheManager.setCachedLayout(layout, forMove: currentMove)
-                
-                print("🔄 ViewModel: Updated positions for move \(currentMove)")
+
+                print("🔄 ViewModel: Updated positions for move \(currentMove) - captured: \(totalCaptured)")
             }
         }
     }
@@ -196,7 +205,9 @@ class StonePositionViewModel: ObservableObject {
     }
 
     /// Incremental update to prevent stone blinking in UI
-    private func updateStonesIncremental(current: inout [StonePosition], pending: [StonePosition]) {
+    /// Returns the number of stones added (for capture sound triggering)
+    private func updateStonesIncremental(current: inout [StonePosition], pending: [StonePosition]) -> Int {
+        var stonesAdded = 0
         // Only update if the count has changed or positions have changed significantly
         if current.count != pending.count {
             // Add new stones incrementally to prevent blinking
@@ -204,11 +215,7 @@ class StonePositionViewModel: ObservableObject {
                 // Adding stones: append the new ones
                 let newStones = Array(pending.suffix(pending.count - current.count))
                 current.append(contentsOf: newStones)
-
-                // Play stone click sound for each new stone added
-                for _ in newStones {
-                    appModel?.playStoneClickSound()
-                }
+                stonesAdded = newStones.count
             } else {
                 // Removing stones: keep the ones that still exist
                 current = Array(current.prefix(pending.count))
@@ -219,6 +226,8 @@ class StonePositionViewModel: ObservableObject {
         for i in 0..<min(current.count, pending.count) {
             current[i] = pending[i]
         }
+
+        return stonesAdded
     }
 
     /// Reset ViewModel state for new game

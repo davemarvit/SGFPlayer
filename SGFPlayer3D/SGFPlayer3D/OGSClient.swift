@@ -1,0 +1,1173 @@
+import Foundation
+import Security
+
+/// OGS (Online Go Server) WebSocket client for real-time game communication
+class OGSClient: NSObject, ObservableObject {
+    @Published var isConnected = false
+    @Published var currentGameID: Int?
+    @Published var lastError: String?
+    @Published var blackTimeRemaining: TimeInterval?
+    @Published var whiteTimeRemaining: TimeInterval?
+    @Published var blackPeriodsRemaining: Int?
+    @Published var whitePeriodsRemaining: Int?
+    @Published var blackPeriodTime: TimeInterval?  // Length of each byo-yomi period
+    @Published var whitePeriodTime: TimeInterval?  // Length of each byo-yomi period
+    @Published var currentPlayerColor: Stone = .black
+    @Published var playerColor: Stone?  // The color we are playing
+    @Published var isAuthenticated = false
+    @Published var username: String?
+
+    private var webSocketTask: URLSessionWebSocketTask?
+    private var urlSession: URLSession?
+    private var authToken: String?
+    private let keychainService = "com.davemarvit.SGFPlayer3D.OGS"
+    private var authCompletionHandler: ((Bool, String?) -> Void)?
+    private var authTimeoutTimer: Timer?
+
+    /// Returns true if it's our turn to play
+    var isMyTurn: Bool {
+        guard let myColor = playerColor else { return false }
+        return currentPlayerColor == myColor
+    }
+
+    private func log(_ message: String) {
+        NSLog(message)
+        let logPath = "/tmp/sgfplayer_ogs.log"
+        let timestamp = Date()
+        let logLine = "[\(timestamp)] \(message)\n"
+        if let data = logLine.data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: logPath) {
+                if let fileHandle = FileHandle(forWritingAtPath: logPath) {
+                    fileHandle.seekToEndOfFile()
+                    fileHandle.write(data)
+                    fileHandle.closeFile()
+                }
+            } else {
+                try? data.write(to: URL(fileURLWithPath: logPath), options: .atomic)
+            }
+        }
+    }
+
+    override init() {
+        super.init()
+        log("OGS: 🔧 Initializing OGSClient (self=\(Unmanaged.passUnretained(self).toOpaque()))...")
+        // IMPORTANT: Initialize URLSession in init, not lazily
+        // SwiftUI @StateObject requires proper initialization here
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 300
+
+        let queue = OperationQueue()
+        queue.name = "OGSClient.WebSocket"
+
+        urlSession = URLSession(configuration: config, delegate: self, delegateQueue: queue)
+        log("OGS: 🔧 URLSession created: \(String(describing: urlSession))")
+        log("OGS: 🔧 URLSession delegate: \(String(describing: urlSession?.delegate))")
+        loadCredentials()
+    }
+
+    // MARK: - Keychain Methods
+
+    private func loadCredentials() {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecReturnAttributes as String: true,
+            kSecReturnData as String: true
+        ]
+
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+
+        if status == errSecSuccess,
+           let existingItem = item as? [String: Any],
+           let usernameData = existingItem[kSecAttrAccount as String] as? String,
+           let passwordData = existingItem[kSecValueData as String] as? Data,
+           let password = String(data: passwordData, encoding: .utf8) {
+            self.username = usernameData
+            NSLog("OGS: 🔑 Loaded credentials for user: \(usernameData)")
+        }
+    }
+
+    func saveCredentials(username: String, password: String) {
+        // Delete any existing credential first
+        deleteCredentials()
+
+        let passwordData = password.data(using: .utf8)!
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: username,
+            kSecValueData as String: passwordData
+        ]
+
+        let status = SecItemAdd(query as CFDictionary, nil)
+        if status == errSecSuccess {
+            self.username = username
+            NSLog("OGS: 🔑 Saved credentials for user: \(username)")
+        } else {
+            NSLog("OGS: ❌ Failed to save credentials: \(status)")
+        }
+    }
+
+    func deleteCredentials() {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService
+        ]
+        SecItemDelete(query as CFDictionary)
+        self.username = nil
+        self.isAuthenticated = false
+        NSLog("OGS: 🔑 Deleted stored credentials")
+    }
+
+    private func getStoredPassword() -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecReturnData as String: true
+        ]
+
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+
+        if status == errSecSuccess,
+           let passwordData = item as? Data,
+           let password = String(data: passwordData, encoding: .utf8) {
+            return password
+        }
+        return nil
+    }
+
+    /// Connect to OGS WebSocket server
+    func connect() {
+        // OGS uses socket.io on the main domain - the path includes /socket.io/
+        // Using EIO=3 (Engine.IO version 3) which is the working version per OGS_INTEGRATION.md line 23
+        guard let url = URL(string: "wss://online-go.com/socket.io/?EIO=3&transport=websocket") else {
+            lastError = "Invalid WebSocket URL"
+            return
+        }
+
+        // Ensure URLSession exists - recreate if needed
+        if urlSession == nil {
+            NSLog("OGS: ⚠️ URLSession was nil, recreating...")
+            urlSession = URLSession(configuration: .default, delegate: self, delegateQueue: OperationQueue())
+        }
+
+        log("OGS: 🔌 Connecting to OGS WebSocket at \(url.absoluteString)")
+
+        // Don't use custom headers - let URLSession handle the WebSocket upgrade
+        guard let session = urlSession else {
+            log("OGS: ❌ URLSession is nil!")
+            lastError = "URLSession not initialized"
+            return
+        }
+
+        webSocketTask = session.webSocketTask(with: url)
+        log("OGS: 🔧 WebSocket task created: \(String(describing: webSocketTask))")
+        log("OGS: 🔧 Task state before resume: \(webSocketTask?.state.rawValue ?? -1)")
+        webSocketTask?.resume()
+        log("OGS: 🔧 Task state after resume: \(webSocketTask?.state.rawValue ?? -1)")
+
+        // Start receiving immediately (like the working standalone test)
+        log("OGS: 🔧 Starting to receive messages...")
+        receiveMessage()
+    }
+
+    /// Authenticate with OGS using REST API (not WebSocket)
+    /// OGS uses cookie-based authentication: login via /api/v0/login, then WebSocket inherits the session
+    func authenticate(username: String? = nil, password: String? = nil, completion: @escaping (Bool, String?) -> Void) {
+        NSLog("OGS: 🔑 ========== AUTHENTICATE CALLED (REST API) ==========")
+
+        let user = username ?? self.username
+        let pass = password ?? getStoredPassword()
+
+        NSLog("OGS: 🔑 Username: \(user ?? "nil")")
+        NSLog("OGS: 🔑 Password length: \(pass?.count ?? 0)")
+
+        guard let user = user, let pass = pass else {
+            NSLog("OGS: ❌ No credentials available")
+            completion(false, "No credentials available")
+            return
+        }
+
+        // Step 1: Get CSRF token by making a dummy POST to login endpoint
+        // OGS sets the csrftoken cookie in the response when we attempt to POST to /api/v0/login
+        NSLog("OGS: 🔑 Step 1: Getting CSRF token from login endpoint")
+        guard let loginURL = URL(string: "https://online-go.com/api/v0/login") else {
+            completion(false, "Invalid login URL")
+            return
+        }
+
+        let session = URLSession.shared
+        var dummyRequest = URLRequest(url: loginURL)
+        dummyRequest.httpMethod = "POST"
+        dummyRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Send empty body to trigger CSRF cookie
+        let emptyData = try! JSONSerialization.data(withJSONObject: [:])
+        dummyRequest.httpBody = emptyData
+
+        let dummyTask = session.dataTask(with: dummyRequest) { data, response, error in
+            // We expect this to fail (403), but it should set the csrftoken cookie
+            guard let httpResponse = response as? HTTPURLResponse else {
+                NSLog("OGS: ❌ Invalid response from dummy request")
+                DispatchQueue.main.async {
+                    completion(false, "Invalid response from login endpoint")
+                }
+                return
+            }
+
+            NSLog("OGS: 📄 Dummy request response status: \(httpResponse.statusCode) (expected 403)")
+
+            // Extract CSRF token from Set-Cookie header
+            var csrfToken: String? = nil
+            if let headerFields = httpResponse.allHeaderFields as? [String: String],
+               let url = response?.url {
+                let cookies = HTTPCookie.cookies(withResponseHeaderFields: headerFields, for: url)
+                for cookie in cookies {
+                    NSLog("OGS: 🍪 Cookie: \(cookie.name) = \(cookie.value)")
+                    if cookie.name == "csrftoken" {
+                        csrfToken = cookie.value
+                        NSLog("OGS: 🔑 Found CSRF token: \(cookie.value)")
+                    }
+                }
+            }
+
+            guard let token = csrfToken else {
+                NSLog("OGS: ❌ No CSRF token found in response cookies")
+                DispatchQueue.main.async {
+                    completion(false, "No CSRF token found")
+                }
+                return
+            }
+
+            // Step 2: Login with CSRF token (cookie is already set, just need to send token in header)
+            NSLog("OGS: 🔑 Step 2: Logging in with CSRF token")
+
+            var loginRequest = URLRequest(url: loginURL)
+            loginRequest.httpMethod = "POST"
+            loginRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            loginRequest.setValue("https://online-go.com", forHTTPHeaderField: "Referer")
+            loginRequest.setValue("https://online-go.com", forHTTPHeaderField: "Origin")
+            loginRequest.setValue(token, forHTTPHeaderField: "X-CSRFToken")
+
+            let loginData: [String: String] = [
+                "username": user.trimmingCharacters(in: .whitespaces),
+                "password": pass
+            ]
+
+            do {
+                loginRequest.httpBody = try JSONSerialization.data(withJSONObject: loginData)
+            } catch {
+                NSLog("OGS: ❌ Failed to encode login data: \(error)")
+                DispatchQueue.main.async {
+                    completion(false, "Failed to encode login data")
+                }
+                return
+            }
+
+            NSLog("OGS: 📤 Sending login request with CSRF token")
+
+            let loginTask = session.dataTask(with: loginRequest) { data, response, error in
+                if let error = error {
+                    NSLog("OGS: ❌ Login request failed: \(error.localizedDescription)")
+                    DispatchQueue.main.async {
+                        completion(false, "Login request failed: \(error.localizedDescription)")
+                    }
+                    return
+                }
+
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    NSLog("OGS: ❌ Invalid response type")
+                    DispatchQueue.main.async {
+                        completion(false, "Invalid response type")
+                    }
+                    return
+                }
+
+                NSLog("OGS: 🔍 Login response status: \(httpResponse.statusCode)")
+
+                if httpResponse.statusCode == 200 {
+                    NSLog("OGS: ✅ Login successful! Session cookies established.")
+
+                    // Save credentials for future use
+                    if username != nil && password != nil {
+                        self.saveCredentials(username: user, password: pass)
+                    }
+
+                    DispatchQueue.main.async {
+                        self.isAuthenticated = true
+                        self.username = user
+                        completion(true, nil)
+                    }
+                } else {
+                    var errorMessage = "Login failed with status \(httpResponse.statusCode)"
+                    if let data = data, let responseText = String(data: data, encoding: .utf8) {
+                        NSLog("OGS: ❌ Login error response: \(responseText)")
+                        errorMessage = responseText
+                    }
+                    DispatchQueue.main.async {
+                        completion(false, errorMessage)
+                    }
+                }
+            }
+
+            loginTask.resume()
+        }
+
+        dummyTask.resume()
+        NSLog("OGS: 🔑 ========== AUTHENTICATE END ==========")
+    }
+
+    /// Disconnect from OGS
+    func disconnect() {
+        webSocketTask?.cancel(with: .goingAway, reason: nil)
+        webSocketTask = nil
+        isConnected = false
+        NSLog("OGS: 🔌 Disconnected from OGS")
+    }
+
+    /// Send a move to OGS
+    /// - Parameters:
+    ///   - gameID: The game ID
+    ///   - move: The move in SGF coordinates (e.g., "pd" for Q16)
+    func sendMove(gameID: Int, move: String) {
+        guard isConnected else {
+            NSLog("OGS: ❌ Cannot send move - not connected")
+            return
+        }
+
+        let moveMessage = """
+        42["game/move",{"game_id":\(gameID),"move":"\(move)"}]
+        """
+
+        let message = URLSessionWebSocketTask.Message.string(moveMessage)
+        webSocketTask?.send(message) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error sending move: \(error.localizedDescription)")
+                self.lastError = error.localizedDescription
+            } else {
+                NSLog("OGS: ✅ Move sent: \(move)")
+            }
+        }
+    }
+
+    /// Join a game to start receiving updates
+    /// - Parameter gameID: The game ID to join
+    func joinGame(gameID: Int) {
+        NSLog("OGS: 🎮 joinGame() called with gameID: \(gameID)")
+        NSLog("OGS: 🎮 isConnected: \(isConnected), isAuthenticated: \(isAuthenticated)")
+
+        currentGameID = gameID
+
+        // Fetch game data via REST API instead of WebSocket
+        // This is more reliable and doesn't require special WebSocket subscriptions
+        fetchGameData(gameID: gameID)
+    }
+
+    /// Fetch game data from OGS REST API
+    private func fetchGameData(gameID: Int) {
+        NSLog("OGS: 📡 Fetching game data via REST API for game \(gameID)")
+
+        guard let url = URL(string: "https://online-go.com/api/v1/games/\(gameID)") else {
+            NSLog("OGS: ❌ Invalid game URL")
+            return
+        }
+
+        let session = URLSession.shared
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let task = session.dataTask(with: request) { data, response, error in
+            if let error = error {
+                NSLog("OGS: ❌ Game data fetch failed: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    self.lastError = "Failed to load game: \(error.localizedDescription)"
+                }
+                return
+            }
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                NSLog("OGS: ❌ Invalid response type")
+                return
+            }
+
+            NSLog("OGS: 📡 Game data response status: \(httpResponse.statusCode)")
+
+            if httpResponse.statusCode == 200, let data = data {
+                do {
+                    if let restResponse = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        NSLog("OGS: ✅ Game data fetched successfully from REST API")
+
+                        // REST API returns gamedata in a nested structure
+                        // Extract the gamedata object which contains moves, game_id, etc.
+                        if let gamedata = restResponse["gamedata"] as? [String: Any] {
+                            NSLog("OGS: 📦 Extracted gamedata subdictionary")
+
+                            // Process the gamedata (which has the same structure as WebSocket game data)
+                            DispatchQueue.main.async {
+                                self.handleGameData(gamedata)
+
+                                // Subscribe to WebSocket updates for this game
+                                if self.isConnected {
+                                    self.subscribeToGame(gameID: gameID)
+                                }
+                            }
+                        } else {
+                            NSLog("OGS: ❌ No gamedata field in REST response")
+                            DispatchQueue.main.async {
+                                self.lastError = "Invalid game data structure"
+                            }
+                        }
+                    }
+                } catch {
+                    NSLog("OGS: ❌ Failed to parse game data: \(error)")
+                    DispatchQueue.main.async {
+                        self.lastError = "Failed to parse game data"
+                    }
+                }
+            } else if httpResponse.statusCode == 429 {
+                // Rate limited / throttled
+                NSLog("OGS: ⚠️ API rate limit hit (429) - need to slow down polling")
+                DispatchQueue.main.async {
+                    self.lastError = "Rate limited - slowing down polling"
+                    // Post notification to tell ContentView3D to back off
+                    NotificationCenter.default.post(name: NSNotification.Name("OGSRateLimited"), object: nil)
+                }
+            } else {
+                var errorMessage = "Game not found (status \(httpResponse.statusCode))"
+                if let data = data, let responseText = String(data: data, encoding: .utf8) {
+                    NSLog("OGS: ❌ Error response: \(responseText)")
+                    // Check if error message contains "throttled"
+                    if responseText.lowercased().contains("throttled") {
+                        NSLog("OGS: ⚠️ Throttled error detected in response")
+                        DispatchQueue.main.async {
+                            NotificationCenter.default.post(name: NSNotification.Name("OGSRateLimited"), object: nil)
+                        }
+                    }
+                    errorMessage = responseText
+                }
+                DispatchQueue.main.async {
+                    self.lastError = errorMessage
+                }
+            }
+        }
+
+        task.resume()
+    }
+
+    /// Subscribe to WebSocket updates for a game
+    private func subscribeToGame(gameID: Int) {
+        NSLog("OGS: 📡 Subscribing to WebSocket updates for game \(gameID)")
+
+        // Try different subscription formats
+        // Format 1: game/connect
+        let connectMessage = """
+        42["game/connect",{"game_id":\(gameID)}]
+        """
+
+        let message1 = URLSessionWebSocketTask.Message.string(connectMessage)
+        webSocketTask?.send(message1) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error subscribing to game: \(error.localizedDescription)")
+            } else {
+                NSLog("OGS: ✅ Sent game/connect subscription for game \(gameID)")
+            }
+        }
+
+        // Format 2: Spectate the game (for watching games in progress)
+        let spectateMessage = """
+        42["spectate",{"game_id":\(gameID)}]
+        """
+
+        let message2 = URLSessionWebSocketTask.Message.string(spectateMessage)
+        webSocketTask?.send(message2) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error sending spectate: \(error.localizedDescription)")
+            } else {
+                NSLog("OGS: ✅ Sent spectate request for game \(gameID)")
+            }
+        }
+    }
+
+    /// Convert board position to SGF move notation
+    /// - Parameters:
+    ///   - x: Column (0-18 for 19x19 board)
+    ///   - y: Row (0-18 for 19x19 board)
+    /// - Returns: SGF move string (e.g., "pd" for Q16)
+    static func positionToSGF(x: Int, y: Int) -> String {
+        let letters = "abcdefghijklmnopqrs"
+        guard x >= 0 && x < letters.count && y >= 0 && y < letters.count else {
+            return ""
+        }
+        let xChar = letters[letters.index(letters.startIndex, offsetBy: x)]
+        let yChar = letters[letters.index(letters.startIndex, offsetBy: y)]
+        return "\(xChar)\(yChar)"
+    }
+
+    /// Convert SGF move notation to board position
+    /// - Parameter move: SGF move string (e.g., "pd")
+    /// - Returns: Tuple of (x, y) coordinates or nil if invalid
+    static func sgfToPosition(move: String) -> (x: Int, y: Int)? {
+        let letters = "abcdefghijklmnopqrs"
+        guard move.count == 2 else { return nil }
+
+        let chars = Array(move)
+        guard let xIndex = letters.firstIndex(of: chars[0]),
+              let yIndex = letters.firstIndex(of: chars[1]) else {
+            return nil
+        }
+
+        return (x: letters.distance(from: letters.startIndex, to: xIndex),
+                y: letters.distance(from: letters.startIndex, to: yIndex))
+    }
+
+    private func receiveMessage() {
+        webSocketTask?.receive { [weak self] result in
+            guard let self = self else { return }
+
+            switch result {
+            case .success(let message):
+                switch message {
+                case .string(let text):
+                    self.handleMessage(text)
+                case .data(let data):
+                    if let text = String(data: data, encoding: .utf8) {
+                        self.handleMessage(text)
+                    }
+                @unknown default:
+                    break
+                }
+
+                // Continue receiving messages
+                self.receiveMessage()
+
+            case .failure(let error):
+                NSLog("OGS: ❌ WebSocket receive error: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    self.lastError = error.localizedDescription
+                    self.isConnected = false
+                }
+            }
+        }
+    }
+
+    private func handleMessage(_ message: String) {
+        NSLog("OGS: 📨 Received: \(message)")
+        print("OGS: 📨 Received: \(message)")
+
+        // Write to debug log file
+        let logMessage = "[\(Date())] OGS: Received: \(message)\n"
+        if let data = logMessage.data(using: .utf8) {
+            let logPath = NSHomeDirectory() + "/Desktop/sgfplayer_ogs_debug.log"
+            if FileManager.default.fileExists(atPath: logPath) {
+                if let fileHandle = FileHandle(forWritingAtPath: logPath) {
+                    fileHandle.seekToEndOfFile()
+                    fileHandle.write(data)
+                    fileHandle.closeFile()
+                }
+            } else {
+                try? data.write(to: URL(fileURLWithPath: logPath))
+            }
+        }
+
+        // Socket.io protocol handling
+        log("OGS: 🔍 Message starts with: \(message.prefix(3))")
+        if message.hasPrefix("0") {
+            // Server connection established (message starts with "0" and contains connection details)
+            log("OGS: ✅ Handshake received - waiting for namespace connection from server")
+            // DON'T send "40" - the server sends it automatically
+        } else if message.hasPrefix("40") {
+            // Connected to namespace
+            log("OGS: ✅ Namespace connected - ready for authentication")
+            NSLog("OGS: ✅ Namespace connected - ready for authentication")
+
+            // Set connected flag on main queue
+            DispatchQueue.main.async { [weak self] in
+                self?.isConnected = true
+            }
+
+            // Credentials should already be loaded from init()
+            NSLog("OGS: 🔧 Username from init: \(String(describing: self.username))")
+            log("OGS: 🔧 Username from init: \(String(describing: self.username))")
+
+            // Try to auto-authenticate if we have stored credentials
+            // Note: username was loaded in init(), so we can check it here
+            if let username = self.username {
+                NSLog("OGS: 🔑 Auto-authenticating with stored credentials for user: \(username)")
+                log("OGS: 🔑 Auto-authenticating with stored credentials for user: \(username)")
+
+                // Need to wait a moment for isConnected to be set
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                    self?.authenticate { success, error in
+                        if !success {
+                            NSLog("OGS: ⚠️ Auto-authentication failed: \(error ?? "unknown") - staying connected anyway")
+                            // Don't post OGSAuthFailed - just log it
+                            // User can manually login if needed
+                        } else {
+                            NSLog("OGS: ✅ Auto-authentication successful")
+                        }
+                    }
+                }
+            } else {
+                NSLog("OGS: ℹ️ No stored credentials - connected as guest. Can spectate games.")
+                log("OGS: ℹ️ No stored credentials - connected as guest. Can spectate games.")
+            }
+        } else if message.hasPrefix("41") {
+            // Disconnect from namespace
+            NSLog("OGS: ⚠️ Namespace disconnected: \(message)")
+            DispatchQueue.main.async {
+                self.isConnected = false
+                self.lastError = "Namespace disconnected by server"
+            }
+        } else if message.hasPrefix("44") {
+            // Error message
+            NSLog("OGS: ❌ Error from server: \(message)")
+            DispatchQueue.main.async {
+                self.lastError = "Server error: \(message)"
+            }
+        } else if message.hasPrefix("42") {
+            // Event message - parse JSON
+            parseEventMessage(message)
+        } else if message.hasPrefix("3") {
+            // Pong
+            NSLog("OGS: 🏓 Pong received")
+        } else {
+            NSLog("OGS: ❓ Unknown message type: \(message)")
+        }
+
+        // Send periodic ping to keep connection alive
+        if message.hasPrefix("0") {
+            schedulePing()
+        }
+    }
+
+    private func parseEventMessage(_ message: String) {
+        // Remove the "42" prefix
+        let jsonString = String(message.dropFirst(2))
+
+        guard let data = jsonString.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [Any],
+              json.count >= 2,
+              let eventName = json[0] as? String else {
+            NSLog("OGS: ⚠️ Could not parse event message: \(message)")
+            return
+        }
+
+        // DEBUGGING: Log ALL events to catch authentication response
+        NSLog("OGS: 📨 EVENT RECEIVED: \(eventName)")
+
+        // Suppress logging for noisy broadcast messages
+        let suppressedEvents = ["active-bots", "active-players", "incident-report"]
+        if !suppressedEvents.contains(eventName) {
+            NSLog("OGS: 📨 Event data: \(json[1])")
+        }
+
+        // Handle events - OGS uses game-specific event names like "game/12345/move"
+        switch eventName {
+        case "authenticate":
+            NSLog("OGS: 🔑 ========== AUTHENTICATE EVENT MATCHED! ==========")
+            if let authData = json[1] as? [String: Any] {
+                NSLog("OGS: 🔑 Calling handleAuthentication with data: \(authData)")
+                handleAuthentication(authData)
+            } else {
+                NSLog("OGS: ❌ Could not cast json[1] to [String: Any] for authenticate event")
+            }
+        case "auth", "authentication", "login":
+            NSLog("OGS: 🔑 ========== ALT AUTH EVENT: \(eventName) ==========")
+            if let authData = json[1] as? [String: Any] {
+                handleAuthentication(authData)
+            }
+        case _ where eventName.contains("/move"):
+            if let moveData = json[1] as? [String: Any] {
+                handleMove(moveData)
+            }
+        case _ where eventName.contains("/gamedata"):
+            if let gameData = json[1] as? [String: Any] {
+                handleGameData(gameData)
+            }
+        case _ where eventName.contains("/clock"):
+            NSLog("OGS: ⏰ Clock event matched! Attempting to extract clock data...")
+            if let clockData = json[1] as? [String: Any] {
+                NSLog("OGS: ⏰ Successfully cast clockData dictionary, calling handleClock()")
+                handleClock(clockData)
+            } else {
+                NSLog("OGS: ❌ Failed to cast json[1] to [String: Any]. json[1] type: \(type(of: json[1]))")
+            }
+        case "active-bots", "active-players", "incident-report":
+            // Suppress these broadcast messages - they're noisy
+            break
+        case _ where eventName.contains("/latency"):
+            // Suppress latency pings
+            break
+        default:
+            NSLog("OGS: 📨 Unhandled event: \(eventName) - Full message: \(message.prefix(200))")
+        }
+    }
+
+    private func handleAuthentication(_ authData: [String: Any]) {
+        NSLog("OGS: 🔑 Authentication response: \(authData)")
+
+        // Cancel the timeout timer
+        authTimeoutTimer?.invalidate()
+        authTimeoutTimer = nil
+
+        if let success = authData["success"] as? Bool, success {
+            NSLog("OGS: ✅ Authentication successful")
+            DispatchQueue.main.async {
+                self.isAuthenticated = true
+                self.authCompletionHandler?(true, nil)
+                self.authCompletionHandler = nil
+            }
+        } else if let error = authData["error"] as? String {
+            NSLog("OGS: ❌ Authentication failed: \(error)")
+            DispatchQueue.main.async {
+                self.isAuthenticated = false
+                self.lastError = error
+                self.authCompletionHandler?(false, error)
+                self.authCompletionHandler = nil
+            }
+        } else {
+            // Unknown response format
+            NSLog("OGS: ⚠️ Unknown authentication response format: \(authData)")
+            DispatchQueue.main.async {
+                self.authCompletionHandler?(false, "Unknown response format")
+                self.authCompletionHandler = nil
+            }
+        }
+    }
+
+    private func handleMove(_ moveData: [String: Any]) {
+        // OGS move format: {"game_id": 123, "move_number": 45, "move": [x, y, time]}
+        guard let moveArray = moveData["move"] as? [Any],
+              moveArray.count >= 2 else {
+            NSLog("OGS: ⚠️ Move data has invalid format: \(moveData)")
+            return
+        }
+
+        // Extract x, y coordinates (OGS uses 0-indexed coordinates)
+        // Passes are represented as (-1, -1) or coordinates outside the board
+        guard let x = moveArray[0] as? Int,
+              let y = moveArray[1] as? Int else {
+            NSLog("OGS: ⚠️ Could not parse move coordinates from: \(moveArray)")
+            return
+        }
+
+        let moveNumber = moveData["move_number"] as? Int ?? -1
+        let isPass = (x < 0 || y < 0)  // Pass is represented by negative coordinates
+
+        if isPass {
+            NSLog("OGS: 🎯 Move #\(moveNumber) - PASS")
+        } else {
+            NSLog("OGS: 🎯 Move #\(moveNumber) received: (\(x), \(y))")
+        }
+
+        // IMPORTANT: currentPlayerColor represents whose turn it is to play NEXT
+        // So the move that was just played is by the OPPOSITE color
+        // If currentPlayerColor is Black, that means White just played
+        let moveColor: Stone = (self.currentPlayerColor == .black) ? .white : .black
+        NSLog("OGS: 🎨 Move was played by: \(moveColor == .black ? "Black" : "White") (next player: \(self.currentPlayerColor == .black ? "Black" : "White"))")
+
+        // Toggle current player AFTER the move (for next turn)
+        // This applies to both regular moves AND passes
+        DispatchQueue.main.async {
+            self.currentPlayerColor = (self.currentPlayerColor == .black) ? .white : .black
+            NSLog("OGS: 🎨 After toggle, next player to move: \(self.currentPlayerColor == .black ? "Black" : "White")")
+        }
+
+        // Post notification for ContentView3D to handle
+        // Include the color of the stone that was just played
+        // For passes, x and y will be negative, which ContentView3D should handle
+        NotificationCenter.default.post(
+            name: NSNotification.Name("OGSMoveReceived"),
+            object: nil,
+            userInfo: [
+                "x": x,
+                "y": y,
+                "moveNumber": moveNumber,
+                "color": moveColor == .black ? "black" : "white",
+                "isPass": isPass
+            ]
+        )
+    }
+
+    private func handleGameData(_ gameData: [String: Any]) {
+        NSLog("OGS: 🎮 Game data received")
+        NSLog("OGS: 🎮 handleGameData() - Thread: \(Thread.isMainThread ? "MAIN" : "BACKGROUND")")
+
+        // Log the entire game data for debugging
+        if let jsonData = try? JSONSerialization.data(withJSONObject: gameData, options: .prettyPrinted),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            NSLog("OGS: 🎮 Full game data:\n\(jsonString)")
+        }
+
+        // Parse initial game state
+        if let gameID = gameData["game_id"] as? Int {
+            DispatchQueue.main.async {
+                self.currentGameID = gameID
+            }
+            NSLog("OGS: 🎮 Game ID: \(gameID)")
+        }
+
+        // Extract clock information if available
+        if let clock = gameData["clock"] as? [String: Any] {
+            extractClockData(clock)
+        }
+
+        // Determine whose turn it is
+        if let phase = gameData["phase"] as? String {
+            NSLog("OGS: 🎮 Game phase: \(phase)")
+        }
+
+        // Get the current player (whose turn it is)
+        if let playerToMove = gameData["player_to_move"] as? Int {
+            NSLog("OGS: 🎮 Player to move: \(playerToMove)")
+        }
+
+        // Check which color we are playing
+        // OGS typically includes player info in the game data
+        if let players = gameData["players"] as? [String: Any] {
+            NSLog("OGS: 🎮 Players info: \(players)")
+
+            // Try to determine our color
+            // OGS may send black/white player objects with player IDs
+            if let black = players["black"] as? [String: Any],
+               let white = players["white"] as? [String: Any] {
+                NSLog("OGS: 🎮 Black player: \(black)")
+                NSLog("OGS: 🎮 White player: \(white)")
+            }
+        }
+
+        // Check if there's a "you" field or similar to identify our color
+        if let myColor = gameData["player_color"] as? String {
+            NSLog("OGS: 🎮 My color: \(myColor)")
+            DispatchQueue.main.async {
+                self.playerColor = myColor == "black" ? .black : .white
+            }
+        }
+
+        // Determine whose turn it is from player_to_move
+        if let playerToMove = gameData["player_to_move"] as? Int {
+            // OGS uses player IDs, we need to map this to color
+            // This will be set once we know which player we are
+            NSLog("OGS: 🎮 Player to move ID: \(playerToMove)")
+        }
+
+        // Parse the moves array to load the complete game state
+        NSLog("OGS: 🎮 Checking for moves array in gameData...")
+        NSLog("OGS: 🎮 gameData keys: \(gameData.keys.sorted())")
+
+        if let movesArray = gameData["moves"] as? [[Any]] {
+            NSLog("OGS: 🎮 Found \(movesArray.count) moves in game data")
+
+            // Extract player IDs for turn calculation
+            var blackPlayerID: Int?
+            var whitePlayerID: Int?
+            if let players = gameData["players"] as? [String: Any] {
+                if let black = players["black"] as? [String: Any],
+                   let blackID = black["id"] as? Int {
+                    blackPlayerID = blackID
+                }
+                if let white = players["white"] as? [String: Any],
+                   let whiteID = white["id"] as? Int {
+                    whitePlayerID = whiteID
+                }
+            }
+
+            // Get whose turn it is
+            let playerToMoveID = gameData["player_to_move"] as? Int
+
+            // Set currentPlayerColor based on whose turn it is
+            // This is CRITICAL for correct color mapping
+            if let playerToMoveID = playerToMoveID {
+                if playerToMoveID == blackPlayerID {
+                    NSLog("OGS: 🎨 Setting currentPlayerColor to Black (player \(playerToMoveID) to move)")
+                    DispatchQueue.main.async {
+                        self.currentPlayerColor = .black
+                    }
+                } else if playerToMoveID == whitePlayerID {
+                    NSLog("OGS: 🎨 Setting currentPlayerColor to White (player \(playerToMoveID) to move)")
+                    DispatchQueue.main.async {
+                        self.currentPlayerColor = .white
+                    }
+                } else {
+                    NSLog("OGS: ⚠️ playerToMoveID \(playerToMoveID) doesn't match black (\(blackPlayerID ?? -1)) or white (\(whitePlayerID ?? -1))")
+                }
+            }
+
+            // Get handicap for proper turn calculation
+            let handicap = gameData["handicap"] as? Int ?? 0
+
+            // Send notification with all moves for ContentView3D to load
+            let boardSize = gameData["width"] as? Int ?? 19
+            NSLog("OGS: 🎮 About to post OGSGameDataReceived notification with \(movesArray.count) moves")
+            NotificationCenter.default.post(
+                name: NSNotification.Name("OGSGameDataReceived"),
+                object: nil,
+                userInfo: [
+                    "gameData": gameData,
+                    "moves": movesArray,
+                    "gameID": gameData["game_id"] as? Int ?? 0,
+                    "handicap": handicap,
+                    "boardSize": boardSize,
+                    "blackPlayerID": blackPlayerID as Any,
+                    "whitePlayerID": whitePlayerID as Any,
+                    "playerToMoveID": playerToMoveID as Any
+                ]
+            )
+            NSLog("OGS: 🎮 Notification posted successfully")
+        } else {
+            NSLog("OGS: ❌ NO MOVES ARRAY FOUND in gameData!")
+            NSLog("OGS: ❌ moves field type: \(type(of: gameData["moves"]))")
+            if let movesField = gameData["moves"] {
+                NSLog("OGS: ❌ moves field value: \(movesField)")
+            }
+        }
+
+        // Extract player names and ranks for UI display
+        if let players = gameData["players"] as? [String: Any] {
+            if let blackPlayer = players["black"] as? [String: Any],
+               let whitePlayer = players["white"] as? [String: Any],
+               let blackName = blackPlayer["username"] as? String,
+               let whiteName = whitePlayer["username"] as? String {
+
+                // DEBUG: Log all keys in player objects to find rank field
+                NSLog("OGS: 🔍 Black player keys: \(blackPlayer.keys.sorted())")
+                NSLog("OGS: 🔍 White player keys: \(whitePlayer.keys.sorted())")
+                NSLog("OGS: 🔍 Black player dict: \(blackPlayer)")
+
+                // Extract ranks (OGS uses "rank" field as a Double)
+                let blackRankDouble = blackPlayer["rank"] as? Double
+                let whiteRankDouble = whitePlayer["rank"] as? Double
+                let blackRank = formatOGSRank(blackRankDouble.map { Int($0) })
+                let whiteRank = formatOGSRank(whiteRankDouble.map { Int($0) })
+
+                NSLog("OGS: 👥 Black: \(blackName) [\(blackRank)], White: \(whiteName) [\(whiteRank)]")
+
+                // Send notification for player names and ranks
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("OGSPlayerInfo"),
+                    object: nil,
+                    userInfo: [
+                        "blackName": blackName,
+                        "whiteName": whiteName,
+                        "blackRank": blackRank,
+                        "whiteRank": whiteRank,
+                        "blackID": blackPlayer["id"] as? Int ?? 0,
+                        "whiteID": whitePlayer["id"] as? Int ?? 0
+                    ]
+                )
+            }
+        }
+    }
+
+    private func handleClock(_ clockData: [String: Any]) {
+        NSLog("OGS: ⏰ handleClock() called with data: \(clockData)")
+        extractClockData(clockData)
+        NSLog("OGS: ⏰ handleClock() finished, extractClockData completed")
+    }
+
+    private func extractClockData(_ clockData: [String: Any]) {
+        // DEBUG: Log all clock data keys
+        NSLog("OGS: 🔍 Clock data keys: \(clockData.keys.sorted())")
+        NSLog("OGS: 🔍 Clock data: \(clockData)")
+
+        // OGS sends time as nested dictionaries with "thinking_time" and "periods"
+        if let blackTimeDict = clockData["black_time"] as? [String: Any] {
+            NSLog("OGS: 🔍 Black time dict: \(blackTimeDict)")
+
+            // Try Double first (most common), then String as fallback
+            var timeValue: Double? = nil
+            if let thinkingTimeDouble = blackTimeDict["thinking_time"] as? Double {
+                timeValue = thinkingTimeDouble
+                NSLog("OGS: ⏱️ Black time extracted as Double: \(thinkingTimeDouble)s")
+            } else if let thinkingTimeString = blackTimeDict["thinking_time"] as? String,
+                      let parsedTime = Double(thinkingTimeString) {
+                timeValue = parsedTime
+                NSLog("OGS: ⏱️ Black time extracted as String: \(parsedTime)s")
+            } else {
+                NSLog("OGS: ❌ Could not extract black thinking_time. Value: \(blackTimeDict["thinking_time"] ?? "nil"), Type: \(type(of: blackTimeDict["thinking_time"]))")
+            }
+
+            if let timeValue = timeValue {
+                DispatchQueue.main.async {
+                    self.blackTimeRemaining = timeValue
+                }
+                NSLog("OGS: ⏱️ Black time set to: \(timeValue)s")
+            }
+
+            if let periods = blackTimeDict["periods"] as? Int {
+                DispatchQueue.main.async {
+                    self.blackPeriodsRemaining = periods
+                }
+                NSLog("OGS: ⏱️ Black periods: \(periods)")
+            }
+
+            if let periodTime = blackTimeDict["period_time"] as? Double {
+                DispatchQueue.main.async {
+                    self.blackPeriodTime = periodTime
+                }
+                NSLog("OGS: ⏱️ Black period time: \(periodTime)s")
+            }
+        } else {
+            NSLog("OGS: ❌ Could not extract black_time dictionary from clockData")
+        }
+
+        if let whiteTimeDict = clockData["white_time"] as? [String: Any] {
+            NSLog("OGS: 🔍 White time dict: \(whiteTimeDict)")
+
+            // Try Double first (most common), then String as fallback
+            var timeValue: Double? = nil
+            if let thinkingTimeDouble = whiteTimeDict["thinking_time"] as? Double {
+                timeValue = thinkingTimeDouble
+                NSLog("OGS: ⏱️ White time extracted as Double: \(thinkingTimeDouble)s")
+            } else if let thinkingTimeString = whiteTimeDict["thinking_time"] as? String,
+                      let parsedTime = Double(thinkingTimeString) {
+                timeValue = parsedTime
+                NSLog("OGS: ⏱️ White time extracted as String: \(parsedTime)s")
+            } else {
+                NSLog("OGS: ❌ Could not extract white thinking_time. Value: \(whiteTimeDict["thinking_time"] ?? "nil"), Type: \(type(of: whiteTimeDict["thinking_time"]))")
+            }
+
+            if let timeValue = timeValue {
+                DispatchQueue.main.async {
+                    self.whiteTimeRemaining = timeValue
+                }
+                NSLog("OGS: ⏱️ White time set to: \(timeValue)s")
+            }
+
+            if let periods = whiteTimeDict["periods"] as? Int {
+                DispatchQueue.main.async {
+                    self.whitePeriodsRemaining = periods
+                }
+                NSLog("OGS: ⏱️ White periods: \(periods)")
+            }
+
+            if let periodTime = whiteTimeDict["period_time"] as? Double {
+                DispatchQueue.main.async {
+                    self.whitePeriodTime = periodTime
+                }
+                NSLog("OGS: ⏱️ White period time: \(periodTime)s")
+            }
+        } else {
+            NSLog("OGS: ❌ Could not extract white_time dictionary from clockData")
+        }
+    }
+
+    private func schedulePing() {
+        // Send ping every 25 seconds to keep connection alive
+        DispatchQueue.main.asyncAfter(deadline: .now() + 25) { [weak self] in
+            guard let self = self, self.isConnected else { return }
+
+            let ping = URLSessionWebSocketTask.Message.string("2")
+            self.webSocketTask?.send(ping) { error in
+                if let error = error {
+                    NSLog("OGS: ❌ Ping error: \(error.localizedDescription)")
+                } else {
+                    NSLog("OGS: 🏓 Ping sent")
+                    // Schedule next ping
+                    self.schedulePing()
+                }
+            }
+        }
+    }
+}
+
+// MARK: - URLSessionWebSocketDelegate
+extension OGSClient: URLSessionWebSocketDelegate {
+    func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if let error = error {
+            let errMsg = "OGS: ❌ Task completed with error: \(error.localizedDescription)"
+            NSLog(errMsg)
+            print(errMsg)
+            DispatchQueue.main.async {
+                self.lastError = error.localizedDescription
+                self.isConnected = false
+            }
+        }
+    }
+
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
+        let openMsg = "OGS: ✅ WebSocket opened with protocol: \(`protocol` ?? "none")"
+        NSLog(openMsg)
+        print(openMsg)
+
+        // Update error display to show we're connected
+        DispatchQueue.main.async {
+            self.lastError = nil
+        }
+
+        // Note: isConnected will be set to true after namespace connection (message "40")
+        // receiveMessage() is already called in connect()
+        // Authentication happens after namespace connection, not here
+        // receiveMessage() is already called in connect(), no need to call again
+    }
+
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+        var reasonString = "none"
+        if let reason = reason, let str = String(data: reason, encoding: .utf8) {
+            reasonString = str
+        }
+        let closeMessage = "OGS: 🔌 WebSocket closed with code: \(closeCode.rawValue), reason: \(reasonString)"
+        NSLog(closeMessage)
+        print(closeMessage)
+
+        // Detailed close code description
+        var codeDescription = ""
+        switch closeCode {
+        case .invalid: codeDescription = "Invalid"
+        case .normalClosure: codeDescription = "Normal Closure"
+        case .goingAway: codeDescription = "Going Away"
+        case .protocolError: codeDescription = "Protocol Error"
+        case .unsupportedData: codeDescription = "Unsupported Data"
+        case .noStatusReceived: codeDescription = "No Status Received"
+        case .abnormalClosure: codeDescription = "Abnormal Closure"
+        case .invalidFramePayloadData: codeDescription = "Invalid Frame Payload"
+        case .policyViolation: codeDescription = "Policy Violation"
+        case .messageTooBig: codeDescription = "Message Too Big"
+        case .mandatoryExtensionMissing: codeDescription = "Mandatory Extension Missing"
+        case .internalServerError: codeDescription = "Internal Server Error"
+        case .tlsHandshakeFailure: codeDescription = "TLS Handshake Failure"
+        @unknown default: codeDescription = "Unknown"
+        }
+        NSLog("OGS: 🔌 Close code description: \(codeDescription)")
+
+        // Write to debug log
+        let logMessage = "[\(Date())] \(closeMessage)\n"
+        if let data = logMessage.data(using: .utf8) {
+            let logPath = NSHomeDirectory() + "/Desktop/sgfplayer_ogs_debug.log"
+            if let fileHandle = FileHandle(forWritingAtPath: logPath) {
+                fileHandle.seekToEndOfFile()
+                fileHandle.write(data)
+                fileHandle.closeFile()
+            } else {
+                try? data.write(to: URL(fileURLWithPath: logPath), options: .atomic)
+            }
+        }
+
+        DispatchQueue.main.async {
+            self.isConnected = false
+            self.lastError = "Connection closed [\(codeDescription)]: \(reasonString)"
+        }
+
+        // Post notification about disconnection
+        NotificationCenter.default.post(name: NSNotification.Name("OGSDisconnected"), object: nil)
+    }
+
+    // Format OGS rank number to string (e.g., -5 = 5k, 5 = 5d)
+    private func formatOGSRank(_ rankValue: Int?) -> String {
+        guard let rank = rankValue else { return "" }
+
+        // OGS ranking system: 0-29 = 30k-1k, 30+ = 1d+
+        if rank < 30 {
+            // Kyu ranks: 0 = 30k, 28 = 2k, 29 = 1k
+            let kyuRank = 30 - rank
+            return "\(kyuRank)k"
+        } else {
+            // Dan ranks: 30 = 1d, 31 = 2d, 38 = 9d
+            let danRank = rank - 29
+            return "\(danRank)d"
+        }
+    }
+}

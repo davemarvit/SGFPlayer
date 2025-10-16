@@ -40,6 +40,8 @@ class BoardRenderer {
         this.stoneLayout = { black: new Map(), white: new Map() };
         // Track next stone ID for each color
         this.nextStoneId = { black: 0, white: 0 };
+        // Game-specific random seed so each game has different stone patterns
+        this.gameSeed = Math.floor(Math.random() * 1000000);
         this.hoverPreview = null;
         this.currentPlayer = Stone.BLACK;
 
@@ -965,9 +967,13 @@ class BoardRenderer {
         // Only calculate positions for NEW stones while preserving existing positions
         if (newWhiteStones.length > 0) {
             this.addStonesToBowl('white', newWhiteStones);
+            // Allow existing stones to settle into better positions (SGFPlayer-like relaxation)
+            this.relaxExistingStones('white');
         }
         if (newBlackStones.length > 0) {
             this.addStonesToBowl('black', newBlackStones);
+            // Allow existing stones to settle into better positions (SGFPlayer-like relaxation)
+            this.relaxExistingStones('black');
         }
 
         // Re-render affected bowls
@@ -987,7 +993,9 @@ class BoardRenderer {
 
         // SGFPlayer approach: only calculate positions for NEW stones
         // Use deterministic physics but place them to avoid existing stones
-        const seed = color === 'white' ? 12345 : 54321;
+        // Each game gets different patterns with game-specific seed
+        const baseSeed = color === 'white' ? 12345 : 54321;
+        const seed = baseSeed + this.gameSeed;
 
         for (let i = 0; i < newStones.length; i++) {
             const stoneData = newStones[i];
@@ -1123,6 +1131,118 @@ class BoardRenderer {
         return Math.max(-2.0, score); // Cap minimum penalty
     }
 
+    // Allow existing stones to settle into lower energy states (SGFPlayer-like relaxation)
+    relaxExistingStones(color) {
+        const layout = this.stoneLayout[color];
+        if (layout.size < 2) return; // Need at least 2 stones for relaxation
+
+        const bowlSize = Math.max(Math.max(this.canvas.width, this.canvas.height) / 3, 80);
+        const bowlRadius = bowlSize * 0.46;
+        const boardStoneRadius = this.gridInfo.cellWidth * 0.48;
+
+        // SGFPlayer approach: gentle iterative relaxation with damping
+        const iterations = 3; // Light relaxation to avoid breaking stability
+        const maxMovement = boardStoneRadius * 0.15; // Limit how far stones can move per iteration
+        const damping = 0.7; // Heavy damping for stability
+
+        for (let iter = 0; iter < iterations; iter++) {
+            const forces = new Map();
+
+            // Calculate forces for each stone
+            for (const [stoneId, pos] of layout.entries()) {
+                forces.set(stoneId, { x: 0, y: 0 });
+            }
+
+            // Pairwise stone interactions (repulsion and pressure)
+            const stones = Array.from(layout.entries());
+            for (let i = 0; i < stones.length - 1; i++) {
+                for (let j = i + 1; j < stones.length; j++) {
+                    const [idA, posA] = stones[i];
+                    const [idB, posB] = stones[j];
+
+                    const dx = posB.x - posA.x;
+                    const dy = posB.y - posA.y;
+                    let distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 0.001) {
+                        distance = 0.001; // Avoid division by zero
+                    }
+
+                    const idealDistance = boardStoneRadius * 2.2;
+                    const minDistance = boardStoneRadius * 1.4;
+
+                    let forceStrength = 0;
+
+                    if (distance < minDistance) {
+                        // Strong repulsion for overlapping stones
+                        forceStrength = 0.3 * (minDistance - distance) / minDistance;
+                    } else if (distance < idealDistance) {
+                        // Light repulsion for too-close stones
+                        forceStrength = 0.1 * (idealDistance - distance) / (idealDistance - minDistance);
+                    }
+
+                    if (forceStrength > 0) {
+                        const fx = (dx / distance) * forceStrength;
+                        const fy = (dy / distance) * forceStrength;
+
+                        // Apply forces (Newton's 3rd law)
+                        const forceA = forces.get(idA);
+                        const forceB = forces.get(idB);
+                        forceA.x -= fx; forceA.y -= fy;
+                        forceB.x += fx; forceB.y += fy;
+                    }
+                }
+            }
+
+            // Light center pull and boundary enforcement
+            for (const [stoneId, pos] of layout.entries()) {
+                const force = forces.get(stoneId);
+
+                // Very light center pull (like gravity settling)
+                const distanceFromCenter = Math.sqrt(pos.x * pos.x + pos.y * pos.y);
+                if (distanceFromCenter > 0.001) {
+                    const centerPull = 0.02; // Very gentle
+                    force.x -= (pos.x / distanceFromCenter) * centerPull;
+                    force.y -= (pos.y / distanceFromCenter) * centerPull;
+                }
+
+                // Boundary enforcement
+                const safeRadius = bowlRadius * 0.6;
+                if (distanceFromCenter > safeRadius) {
+                    const pushIn = 0.3 * (distanceFromCenter - safeRadius) / safeRadius;
+                    force.x -= (pos.x / distanceFromCenter) * pushIn;
+                    force.y -= (pos.y / distanceFromCenter) * pushIn;
+                }
+            }
+
+            // Apply forces with damping and movement limits
+            for (const [stoneId, pos] of layout.entries()) {
+                const force = forces.get(stoneId);
+
+                // Apply damping
+                force.x *= damping;
+                force.y *= damping;
+
+                // Limit movement per iteration
+                const moveDistance = Math.sqrt(force.x * force.x + force.y * force.y);
+                if (moveDistance > maxMovement) {
+                    const scale = maxMovement / moveDistance;
+                    force.x *= scale;
+                    force.y *= scale;
+                }
+
+                // Update position
+                const newPos = {
+                    x: pos.x + force.x,
+                    y: pos.y + force.y,
+                    rotation: pos.rotation // Preserve rotation
+                };
+
+                layout.set(stoneId, newPos);
+            }
+        }
+    }
+
 
     renderBowlStones() {
         if (!this.gridInfo) return;
@@ -1163,9 +1283,10 @@ class BoardRenderer {
                 stone.style.width = `${stoneSize}px`;
                 stone.style.height = `${stoneSize}px`;
 
-                // Randomly select white stone variation (clam_01 through clam_05)
-                // Use deterministic seed based on stone ID for consistency
-                const stoneVariation = ((index * 7) % 5) + 1;
+                // Select white stone variation based on persistent stone ID (not array index)
+                // This ensures each stone keeps the same clamshell image throughout the game
+                const stoneIdNumber = parseInt(stoneData.id.split('_')[1]); // Extract number from "white_0", "white_1", etc.
+                const stoneVariation = ((stoneIdNumber * 7 + this.gameSeed) % 5) + 1; // Use stone ID + game seed
                 stone.style.backgroundImage = `url('../assets/clam_${stoneVariation.toString().padStart(2, '0')}.png')`;
 
                 // Get persistent position for this stone ID
