@@ -165,6 +165,9 @@ struct ContentView3D: View {
     @StateObject private var ogsClient = OGSClient()
     @StateObject private var timeControl = TimeControlManager()
 
+    // OGS game view model - will be initialized in onAppear
+    @State private var ogsGame: OGSGameViewModel?
+
     // Camera control tracking - load from UserDefaults
     @State private var lastDragPosition: CGPoint = .zero
     @State private var currentRotationX: Float = UserDefaults.standard.float(forKey: "cameraRotationX")
@@ -178,23 +181,6 @@ struct ContentView3D: View {
     @State private var playbackSpeed: Double = UserDefaults.standard.object(forKey: "playbackSpeed") as? Double ?? 1.0
     @State private var playbackTimer: Timer? = nil
     @State private var gameEndTimer: Timer? = nil
-
-    // OGS polling
-    @State private var ogsPollingTimer: Timer? = nil
-    @State private var lastMoveCount: Int = 0
-    @State private var ogsBackoffDelay: TimeInterval = 1.0  // Current backoff delay
-    @State private var ogsPollingInterval: TimeInterval = 1.0  // Current polling interval
-    @State private var ogsIsThrottled: Bool = false
-
-    // OGS game metadata
-    @State private var ogsBlackName: String?
-    @State private var ogsWhiteName: String?
-    @State private var ogsBlackRank: String?
-    @State private var ogsWhiteRank: String?
-    @State private var ogsKomi: String?
-    @State private var ogsRuleset: String?
-    @State private var ogsBlackCaptured: Int = 0
-    @State private var ogsWhiteCaptured: Int = 0
 
     // UI State
     @State private var isFullscreen: Bool = false
@@ -302,7 +288,7 @@ struct ContentView3D: View {
             )
 
             // Start clock if we're in an OGS game
-            if ogsBlackName != nil && !timeControl.isClockRunning {
+            if ogsGame?.blackName != nil && !timeControl.isClockRunning {
                 timeControl.startClock()
             }
         }
@@ -319,7 +305,7 @@ struct ContentView3D: View {
             )
 
             // Start clock if we're in an OGS game
-            if ogsBlackName != nil && !timeControl.isClockRunning {
+            if ogsGame?.blackName != nil && !timeControl.isClockRunning {
                 timeControl.startClock()
             }
         }
@@ -330,18 +316,36 @@ struct ContentView3D: View {
             isFullscreen = false
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameDataReceived"))) { notification in
-            handleOGSGameData(notification)
+            ogsGame?.handleGameData(notification)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSMoveReceived"))) { notification in
-            handleOGSMove(notification)
+            ogsGame?.handleMove(notification)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSRateLimited"))) { _ in
-            handleThrottling()
+            ogsGame?.handleThrottling()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSPlayerInfo"))) { notification in
-            handleOGSPlayerInfo(notification)
+            ogsGame?.handlePlayerInfo(notification)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameLoaded"))) { notification in
+            // Handle game loading from OGSGameViewModel
+            guard let userInfo = notification.userInfo,
+                  let game = userInfo["game"] as? SGFGame,
+                  let moveCount = userInfo["moveCount"] as? Int else {
+                NSLog("DEBUG3D: ❌ Invalid OGSGameLoaded notification")
+                return
+            }
+
+            NSLog("DEBUG3D: 🎮 Received OGSGameLoaded notification with \(game.moves.count) moves")
+            player.load(game: game)
+            player.seek(to: moveCount)
+            updateStonesWithJitter()
         }
         .onAppear {
+            // Initialize OGSGameViewModel with shared dependencies
+            ogsGame = OGSGameViewModel(ogsClient: ogsClient, player: player, timeControl: timeControl)
+            NSLog("DEBUG3D: 🎮 Initialized OGSGameViewModel")
+
             // Restore camera position on appear
             sceneManager.updateCameraPosition(
                 distance: cameraDistance,
@@ -442,12 +446,12 @@ struct ContentView3D: View {
                     VStack(alignment: .trailing, spacing: 4) {
                         // Player names with ranks
                         HStack(spacing: 8) {
-                            if let blackName = ogsBlackName {
+                            if let blackName = ogsGame?.blackName {
                                 // OGS mode
                                 Text("\(blackName)")
                                     .foregroundColor(.white)
                                     .font(.headline)
-                                if let blackRank = ogsBlackRank {
+                                if let blackRank = ogsGame?.blackRank {
                                     Text("[\(blackRank)]")
                                         .foregroundColor(.white.opacity(0.7))
                                         .font(.caption)
@@ -468,12 +472,12 @@ struct ContentView3D: View {
                                 .foregroundColor(.white.opacity(0.6))
                                 .font(.caption)
 
-                            if let whiteName = ogsWhiteName {
+                            if let whiteName = ogsGame?.whiteName {
                                 // OGS mode
                                 Text("\(whiteName)")
                                     .foregroundColor(.white)
                                     .font(.headline)
-                                if let whiteRank = ogsWhiteRank {
+                                if let whiteRank = ogsGame?.whiteRank {
                                     Text("[\(whiteRank)]")
                                         .foregroundColor(.white.opacity(0.7))
                                         .font(.caption)
@@ -492,7 +496,7 @@ struct ContentView3D: View {
                         }
 
                         // Time remaining (OGS only)
-                        if ogsBlackName != nil {
+                        if ogsGame?.blackName != nil {
                             HStack(spacing: 12) {
                                 // Black time
                                 HStack(spacing: 4) {
@@ -561,12 +565,12 @@ struct ContentView3D: View {
 
                         // Komi and ruleset
                         HStack(spacing: 12) {
-                            if let komi = ogsKomi ?? app.selection?.game.info.komi {
+                            if let komi = ogsGame?.komi ?? app.selection?.game.info.komi {
                                 Text("Komi: \(komi)")
                                     .foregroundColor(.white.opacity(0.7))
                                     .font(.caption)
                             }
-                            if let ruleset = ogsRuleset ?? app.selection?.game.info.ruleset {
+                            if let ruleset = ogsGame?.ruleset ?? app.selection?.game.info.ruleset {
                                 Text("Rules: \(ruleset)")
                                     .foregroundColor(.white.opacity(0.7))
                                     .font(.caption)
@@ -773,267 +777,7 @@ struct ContentView3D: View {
         sceneManager.updateStones(from: player, jitterMultiplier: jitterMultiplier, jitterOffsets: jitterOffsets)
     }
 
-    private func handleOGSMove(_ notification: Notification) {
-        NSLog("DEBUG3D: 🎯 Received OGSMoveReceived notification")
-        guard let userInfo = notification.userInfo,
-              let x = userInfo["x"] as? Int,
-              let y = userInfo["y"] as? Int,
-              let isPass = userInfo["isPass"] as? Bool else {
-            NSLog("DEBUG3D: ❌ Invalid move data in notification")
-            return
-        }
-
-        if isPass {
-            NSLog("DEBUG3D: 🎯 Opponent passed - reloading game to get updated move list")
-        } else {
-            NSLog("DEBUG3D: 🎯 Opponent played at (\(x), \(y)) - reloading game to get updated move list")
-        }
-
-        // Re-fetch the game data to get all moves including the new one
-        // The OGSClient will post OGSGameDataReceived notification which will reload the game
-        if let gameID = ogsClient.currentGameID {
-            NSLog("DEBUG3D: 🎯 Re-fetching game \(gameID) to include new move")
-            ogsClient.joinGame(gameID: gameID)
-        } else {
-            NSLog("DEBUG3D: ❌ No current game ID to re-fetch")
-        }
-    }
-
-    private func handleOGSGameData(_ notification: Notification) {
-        NSLog("DEBUG3D: 🎮 Received OGSGameDataReceived notification")
-        guard let userInfo = notification.userInfo,
-              let moves = userInfo["moves"] as? [[Any]],
-              let gameID = userInfo["gameID"] as? Int,
-              let gameData = userInfo["gameData"] as? [String: Any] else {
-            NSLog("DEBUG3D: ❌ Invalid game data in notification")
-            return
-        }
-
-        NSLog("DEBUG3D: 🎮 Loading OGS game \(gameID) with \(moves.count) moves")
-
-        // IMPORTANT: Stop any existing polling timer from a previous game
-        // Otherwise the old timer will keep fetching the old game's data
-        if let currentGameID = ogsClient.currentGameID, currentGameID != gameID {
-            NSLog("DEBUG3D: 🔄 Switching from game \(currentGameID) to game \(gameID) - stopping old polling")
-            stopOGSPolling()
-            // Reset state from previous game
-            lastMoveCount = 0
-            timeControl.reset()
-            NSLog("DEBUG3D: 🔄 Reset time control for new game")
-        }
-
-        // Extract komi and ruleset from game data
-        if let komi = gameData["komi"] as? Double {
-            ogsKomi = String(format: "%.1f", komi)
-            NSLog("DEBUG3D: 🎮 Komi: \(ogsKomi ?? "nil")")
-        } else if let komiString = gameData["komi"] as? String {
-            ogsKomi = komiString
-            NSLog("DEBUG3D: 🎮 Komi (string): \(ogsKomi ?? "nil")")
-        }
-
-        if let rules = gameData["rules"] as? String {
-            ogsRuleset = rules
-            NSLog("DEBUG3D: 🎮 Rules: \(ogsRuleset ?? "nil")")
-        }
-
-        // Check if this is a new move (move count increased)
-        if moves.count > lastMoveCount {
-            NSLog("DEBUG3D: 🎯 New moves detected! Previous: \(lastMoveCount), Current: \(moves.count)")
-            lastMoveCount = moves.count
-        } else if lastMoveCount == 0 {
-            // First load
-            lastMoveCount = moves.count
-        }
-
-        // Create a new SGF game from the OGS moves
-        let boardSize = userInfo["boardSize"] as? Int ?? 19
-        NSLog("DEBUG3D: 🎮 Board size: \(boardSize)")
-        var sgfContent = "(;GM[1]FF[4]SZ[\(boardSize)]"
-
-        // Add player names if available
-        if let blackName = userInfo["blackName"] as? String,
-           let whiteName = userInfo["whiteName"] as? String {
-            sgfContent += "PB[\(blackName)]PW[\(whiteName)]"
-        }
-
-        // Add handicap stones
-        let handicap = userInfo["handicap"] as? Int ?? 0
-        NSLog("DEBUG3D: 🎮 Handicap value from OGS: \(handicap)")
-
-        if handicap > 0 {
-            sgfContent += "HA[\(handicap)]"
-
-            // Standard handicap positions for 19x19 board only
-            // TODO: Add support for 9x9 and 13x13 boards
-            if boardSize != 19 {
-                NSLog("DEBUG3D: ⚠️ Handicap on non-19x19 board (\(boardSize)x\(boardSize)) - positions may be incorrect")
-            }
-
-            let handicapPositions: [[String]] = [
-                [],  // 0 handicap
-                [],  // 1 handicap (not used)
-                ["pd", "dp"],  // 2 handicap
-                ["pd", "dp", "pp"],  // 3 handicap
-                ["pd", "dp", "pp", "dd"],  // 4 handicap
-                ["pd", "dp", "pp", "dd", "jj"],  // 5 handicap
-                ["pd", "dp", "pp", "dd", "pj", "dj"],  // 6 handicap
-                ["pd", "dp", "pp", "dd", "pj", "dj", "jj"],  // 7 handicap
-                ["pd", "dp", "pp", "dd", "pj", "dj", "jd", "jp"],  // 8 handicap
-                ["pd", "dp", "pp", "dd", "pj", "dj", "jd", "jp", "jj"]  // 9 handicap
-            ]
-
-            if handicap < handicapPositions.count {
-                let positions = handicapPositions[handicap]
-                NSLog("DEBUG3D: 🎮 Adding \(positions.count) handicap stones at positions: \(positions)")
-                if !positions.isEmpty {
-                    sgfContent += "AB"
-                    for pos in positions {
-                        sgfContent += "[\(pos)]"
-                    }
-                    NSLog("DEBUG3D: 🎮 Added AB property to SGF")
-                }
-            } else {
-                NSLog("DEBUG3D: ⚠️ Handicap \(handicap) is out of range")
-            }
-        } else {
-            NSLog("DEBUG3D: 🎮 No handicap stones (handicap = 0)")
-        }
-
-        // Add moves
-        var currentColor: Stone = handicap > 0 ? .white : .black
-
-        for move in moves {
-            guard move.count >= 2,
-                  let x = move[0] as? Int,
-                  let y = move[1] as? Int else { continue }
-
-            // Convert to SGF notation
-            let sgfMove = OGSClient.positionToSGF(x: x, y: y)
-            let moveTag = currentColor == .black ? "B" : "W"
-            sgfContent += ";\(moveTag)[\(sgfMove)]"
-
-            // Alternate colors
-            currentColor = currentColor == .black ? .white : .black
-        }
-
-        sgfContent += ")"
-
-        NSLog("DEBUG3D: 📝 Generated SGF (first 400 chars): \(sgfContent.prefix(400))...")
-
-        // Log specifically the setup portion (before moves)
-        if let setupEnd = sgfContent.range(of: ";B[")?.lowerBound ?? sgfContent.range(of: ";W[")?.lowerBound {
-            let setupPortion = String(sgfContent[..<setupEnd])
-            NSLog("DEBUG3D: 📝 Setup portion of SGF: \(setupPortion)")
-        } else {
-            NSLog("DEBUG3D: 📝 Full SGF (no moves yet): \(sgfContent)")
-        }
-
-        // Parse and load the SGF
-        if let tree = try? SGFParser.parse(text: sgfContent) {
-            NSLog("DEBUG3D: ✅ Successfully parsed OGS game, loading...")
-            let game = SGFGame.from(tree: tree)
-            NSLog("DEBUG3D: 🎮 Game has \(game.setup.count) setup stones: \(game.setup)")
-            NSLog("DEBUG3D: 🎮 Game has \(game.moves.count) moves")
-            player.load(game: game)
-
-            // Seek to the last move to show current game position
-            let lastMoveIndex = moves.count
-            NSLog("DEBUG3D: 🎯 Seeking to move \(lastMoveIndex) (current position)")
-            player.seek(to: lastMoveIndex)
-            updateStonesWithJitter()
-
-            // Determine whose turn it is now
-            // Black plays first unless there's a handicap, then white plays first
-            // After that, colors alternate
-            var currentTurn: Stone = handicap > 0 ? .white : .black
-            for _ in 0..<moves.count {
-                currentTurn = currentTurn == .black ? .white : .black
-            }
-
-            NSLog("DEBUG3D: 🕐 After \(moves.count) moves (handicap: \(handicap)), it's \(currentTurn == .black ? "Black" : "White")'s turn")
-            timeControl.switchToPlayer(currentTurn)
-
-            // Always restart polling with the new game ID
-            // This ensures we're polling the correct game even if a timer was already running
-            stopOGSPolling()
-            startOGSPolling(gameID: gameID)
-        } else {
-            NSLog("DEBUG3D: ❌ Failed to parse SGF from OGS data")
-        }
-    }
-
-    private func startOGSPolling(gameID: Int, interval: TimeInterval? = nil) {
-        let pollingInterval = interval ?? ogsPollingInterval
-        NSLog("DEBUG3D: ⏰ Starting OGS polling for game \(gameID) - checking every \(pollingInterval) second(s)")
-
-        // Use the specified interval or default
-        ogsPollingTimer = Timer.scheduledTimer(withTimeInterval: pollingInterval, repeats: true) { [ogsClient] _ in
-            NSLog("DEBUG3D: 🔄 Polling OGS for updates to game \(gameID)...")
-            ogsClient.joinGame(gameID: gameID)
-        }
-
-        // Update the current polling interval
-        ogsPollingInterval = pollingInterval
-    }
-
-    private func handleThrottling() {
-        guard let gameID = ogsClient.currentGameID else {
-            NSLog("DEBUG3D: ⚠️ Throttled but no current game ID")
-            return
-        }
-
-        NSLog("DEBUG3D: ⚠️ Throttled! Stopping polling and backing off for \(ogsBackoffDelay)s")
-        ogsIsThrottled = true
-        stopOGSPolling()
-
-        // Wait for backoff delay, then resume with longer interval
-        DispatchQueue.main.asyncAfter(deadline: .now() + ogsBackoffDelay) { [self] in
-            NSLog("DEBUG3D: 🔄 Backoff period over, resuming polling...")
-
-            // Double the backoff for next time (exponential backoff), cap at 60s
-            ogsBackoffDelay = min(ogsBackoffDelay * 2, 60.0)
-
-            // Resume polling with increased interval (at least 2.0s during backoff recovery)
-            let newInterval = max(2.0, ogsBackoffDelay / 2)
-            NSLog("DEBUG3D: 🔄 Resuming with interval \(newInterval)s, next backoff would be \(ogsBackoffDelay)s")
-
-            ogsIsThrottled = false
-            startOGSPolling(gameID: gameID, interval: newInterval)
-
-            // After successful polling for a while, reset backoff gradually
-            DispatchQueue.main.asyncAfter(deadline: .now() + 30.0) { [self] in
-                if !ogsIsThrottled && ogsBackoffDelay > 1.0 {
-                    // Gradually reduce backoff if we haven't been throttled
-                    ogsBackoffDelay = max(1.0, ogsBackoffDelay / 2)
-                    NSLog("DEBUG3D: 📉 Reducing backoff delay to \(ogsBackoffDelay)s after successful polling")
-                }
-            }
-        }
-    }
-
-    private func stopOGSPolling() {
-        ogsPollingTimer?.invalidate()
-        ogsPollingTimer = nil
-        NSLog("DEBUG3D: ⏰ Stopped OGS polling")
-    }
-
-    private func handleOGSPlayerInfo(_ notification: Notification) {
-        guard let userInfo = notification.userInfo else {
-            NSLog("DEBUG3D: ❌ No userInfo in OGSPlayerInfo notification")
-            return
-        }
-
-        NSLog("DEBUG3D: 👥 Received OGSPlayerInfo notification")
-
-        ogsBlackName = userInfo["blackName"] as? String
-        ogsWhiteName = userInfo["whiteName"] as? String
-        ogsBlackRank = userInfo["blackRank"] as? String
-        ogsWhiteRank = userInfo["whiteRank"] as? String
-
-        NSLog("DEBUG3D: 👥 Updated player info: \(ogsBlackName ?? "?") [\(ogsBlackRank ?? "?")] vs \(ogsWhiteName ?? "?") [\(ogsWhiteRank ?? "?")]")
-    }
-
-    private func formatTime(_ seconds: TimeInterval) -> String {
+    private func formatTime(_ seconds: TimeInterval) -> String{
         let totalSeconds = Int(seconds)
         let hours = totalSeconds / 3600
         let minutes = (totalSeconds % 3600) / 60
