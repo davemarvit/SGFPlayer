@@ -391,31 +391,24 @@ struct ContentView3D: View {
     }
 
     var settingsPanel: some View {
-        HStack {
-            SettingsPanelView3D(
-                isPanelOpen: $showSettings,
-                app: app,
-                player: player,
-                settingsVM: settingsVM,
-                soundManager: soundManager,
-                ogsClient: ogsClient,
-                autoPlay: $isPlaying,
-                playbackSpeed: $playbackSpeed,
-                onGameSelected: { game in
-                    player.load(game: game.game)
-                    player.seek(to: 0)
-                    updateStonesWithJitter()
-                },
-                onJitterChanged: {
-                    NSLog("DEBUG3D: 🎲 onJitterChanged callback triggered")
-                    updateStonesWithJitter()
-                }
-            )
-            .transition(.move(edge: .leading))
-
-            Spacer()
-        }
-        .zIndex(100)
+        SettingsPanelContainer(
+            showSettings: $showSettings,
+            player: player,
+            settingsVM: settingsVM,
+            soundManager: soundManager,
+            ogsClient: ogsClient,
+            isPlaying: $isPlaying,
+            playbackSpeed: $playbackSpeed,
+            onGameSelected: { game in
+                player.load(game: game.game)
+                player.seek(to: 0)
+                updateStonesWithJitter()
+            },
+            onJitterChanged: {
+                NSLog("DEBUG3D: 🎲 onJitterChanged callback triggered")
+                updateStonesWithJitter()
+            }
+        )
     }
 
     var overlayUI: some View {
