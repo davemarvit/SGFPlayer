@@ -163,6 +163,7 @@ struct ContentView3D: View {
     @StateObject private var settingsVM = SettingsViewModel()
     @StateObject private var soundManager = SoundManager.shared
     @StateObject private var ogsClient = OGSClient()
+    @StateObject private var timeControl = TimeControlManager()
 
     // Camera control tracking - load from UserDefaults
     @State private var lastDragPosition: CGPoint = .zero
@@ -194,12 +195,6 @@ struct ContentView3D: View {
     @State private var ogsRuleset: String?
     @State private var ogsBlackCaptured: Int = 0
     @State private var ogsWhiteCaptured: Int = 0
-
-    // Live clock countdown
-    @State private var clockTimer: Timer? = nil
-    @State private var localBlackTime: TimeInterval?
-    @State private var localWhiteTime: TimeInterval?
-    @State private var lastClockUpdate: Date?
 
     // UI State
     @State private var isFullscreen: Bool = false
@@ -293,6 +288,40 @@ struct ContentView3D: View {
         }
         .onChange(of: cameraPanY) { _, newValue in
             saveCameraState()
+        }
+        .onChange(of: ogsClient.blackTimeRemaining) { oldTime, newTime in
+            NSLog("DEBUG3D: ⏱️ Black time changed: \(oldTime ?? -1) -> \(newTime ?? -1)")
+            // Sync OGS clock updates to TimeControlManager
+            timeControl.updateFromOGS(
+                blackTime: ogsClient.blackTimeRemaining,
+                whiteTime: ogsClient.whiteTimeRemaining,
+                blackPeriods: ogsClient.blackPeriodsRemaining,
+                whitePeriods: ogsClient.whitePeriodsRemaining,
+                blackPeriod: ogsClient.blackPeriodTime,
+                whitePeriod: ogsClient.whitePeriodTime
+            )
+
+            // Start clock if we're in an OGS game
+            if ogsBlackName != nil && !timeControl.isClockRunning {
+                timeControl.startClock()
+            }
+        }
+        .onChange(of: ogsClient.whiteTimeRemaining) { oldTime, newTime in
+            NSLog("DEBUG3D: ⏱️ White time changed: \(oldTime ?? -1) -> \(newTime ?? -1)")
+            // Sync OGS clock updates to TimeControlManager
+            timeControl.updateFromOGS(
+                blackTime: ogsClient.blackTimeRemaining,
+                whiteTime: ogsClient.whiteTimeRemaining,
+                blackPeriods: ogsClient.blackPeriodsRemaining,
+                whitePeriods: ogsClient.whitePeriodsRemaining,
+                blackPeriod: ogsClient.blackPeriodTime,
+                whitePeriod: ogsClient.whitePeriodTime
+            )
+
+            // Start clock if we're in an OGS game
+            if ogsBlackName != nil && !timeControl.isClockRunning {
+                timeControl.startClock()
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { _ in
             isFullscreen = true
@@ -469,18 +498,18 @@ struct ContentView3D: View {
                                 HStack(spacing: 4) {
                                     Text("⚫")
                                         .font(.caption)
-                                    if let timeRemaining = ogsClient.blackTimeRemaining {
+                                    if let timeRemaining = timeControl.blackTimeRemaining {
                                         Text(formatTime(timeRemaining))
                                             .foregroundColor(.white.opacity(0.8))
                                             .font(.caption)
-                                        if let periods = ogsClient.blackPeriodsRemaining, periods > 0 {
+                                        if let periods = timeControl.blackPeriodsRemaining, periods > 0 {
                                             if periods == 1 {
                                                 Text("SD")
                                                     .foregroundColor(.red)
                                                     .font(.caption)
                                                     .fontWeight(.bold)
                                             } else {
-                                                Text("(\(periods)×\(formatTime(ogsClient.blackPeriodTime ?? 0)))")
+                                                Text("(\(periods)×---)")
                                                     .foregroundColor(.white.opacity(0.6))
                                                     .font(.caption2)
                                             }
@@ -491,18 +520,18 @@ struct ContentView3D: View {
                                 HStack(spacing: 4) {
                                     Text("⚪")
                                         .font(.caption)
-                                    if let timeRemaining = ogsClient.whiteTimeRemaining {
+                                    if let timeRemaining = timeControl.whiteTimeRemaining {
                                         Text(formatTime(timeRemaining))
                                             .foregroundColor(.white.opacity(0.8))
                                             .font(.caption)
-                                        if let periods = ogsClient.whitePeriodsRemaining, periods > 0 {
+                                        if let periods = timeControl.whitePeriodsRemaining, periods > 0 {
                                             if periods == 1 {
                                                 Text("SD")
                                                     .foregroundColor(.red)
                                                     .font(.caption)
                                                     .fontWeight(.bold)
                                             } else {
-                                                Text("(\(periods)×\(formatTime(ogsClient.whitePeriodTime ?? 0)))")
+                                                Text("(\(periods)×---)")
                                                     .foregroundColor(.white.opacity(0.6))
                                                     .font(.caption2)
                                             }
@@ -568,7 +597,7 @@ struct ContentView3D: View {
                 // Version number in lower right
                 HStack {
                     Spacer()
-                    Text("v3.23")
+                    Text("v3.25")
                         .foregroundColor(.gray)
                         .font(.caption)
                         .padding(.trailing, 20)
@@ -782,6 +811,17 @@ struct ContentView3D: View {
 
         NSLog("DEBUG3D: 🎮 Loading OGS game \(gameID) with \(moves.count) moves")
 
+        // IMPORTANT: Stop any existing polling timer from a previous game
+        // Otherwise the old timer will keep fetching the old game's data
+        if let currentGameID = ogsClient.currentGameID, currentGameID != gameID {
+            NSLog("DEBUG3D: 🔄 Switching from game \(currentGameID) to game \(gameID) - stopping old polling")
+            stopOGSPolling()
+            // Reset state from previous game
+            lastMoveCount = 0
+            timeControl.reset()
+            NSLog("DEBUG3D: 🔄 Reset time control for new game")
+        }
+
         // Extract komi and ruleset from game data
         if let komi = gameData["komi"] as? Double {
             ogsKomi = String(format: "%.1f", komi)
@@ -902,10 +942,21 @@ struct ContentView3D: View {
             player.seek(to: lastMoveIndex)
             updateStonesWithJitter()
 
-            // Start polling for new moves if not already polling
-            if ogsPollingTimer == nil {
-                startOGSPolling(gameID: gameID)
+            // Determine whose turn it is now
+            // Black plays first unless there's a handicap, then white plays first
+            // After that, colors alternate
+            var currentTurn: Stone = handicap > 0 ? .white : .black
+            for _ in 0..<moves.count {
+                currentTurn = currentTurn == .black ? .white : .black
             }
+
+            NSLog("DEBUG3D: 🕐 After \(moves.count) moves (handicap: \(handicap)), it's \(currentTurn == .black ? "Black" : "White")'s turn")
+            timeControl.switchToPlayer(currentTurn)
+
+            // Always restart polling with the new game ID
+            // This ensures we're polling the correct game even if a timer was already running
+            stopOGSPolling()
+            startOGSPolling(gameID: gameID)
         } else {
             NSLog("DEBUG3D: ❌ Failed to parse SGF from OGS data")
         }

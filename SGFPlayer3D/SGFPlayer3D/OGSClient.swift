@@ -410,8 +410,13 @@ class OGSClient: NSObject, ObservableObject {
                                 self.handleGameData(gamedata)
 
                                 // Subscribe to WebSocket updates for this game
+                                NSLog("OGS: 🔍 Checking if we should subscribe: isConnected=\(self.isConnected)")
                                 if self.isConnected {
+                                    NSLog("OGS: ✅ isConnected=true, calling subscribeToGame()")
                                     self.subscribeToGame(gameID: gameID)
+                                } else {
+                                    NSLog("OGS: ⚠️ isConnected=false, NOT subscribing to game yet")
+                                    NSLog("OGS: ⚠️ You need to connect to OGS WebSocket first via settings")
                                 }
                             }
                         } else {
@@ -688,9 +693,12 @@ class OGSClient: NSObject, ObservableObject {
                 handleGameData(gameData)
             }
         case _ where eventName.contains("/clock"):
-            NSLog("OGS: ⏰ Clock event matched! Attempting to extract clock data...")
+            NSLog("OGS: ⏰ ========== CLOCK EVENT MATCHED! ==========")
+            NSLog("OGS: ⏰ Event name: \(eventName)")
+            NSLog("OGS: ⏰ Full message: \(message)")
             if let clockData = json[1] as? [String: Any] {
                 NSLog("OGS: ⏰ Successfully cast clockData dictionary, calling handleClock()")
+                NSLog("OGS: ⏰ Clock data keys: \(clockData.keys.sorted())")
                 handleClock(clockData)
             } else {
                 NSLog("OGS: ❌ Failed to cast json[1] to [String: Any]. json[1] type: \(type(of: json[1]))")
@@ -973,6 +981,22 @@ class OGSClient: NSObject, ObservableObject {
         NSLog("OGS: 🔍 Clock data keys: \(clockData.keys.sorted())")
         NSLog("OGS: 🔍 Clock data: \(clockData)")
 
+        // Check if OGS sent a server timestamp ("now" field) for latency compensation
+        var latencyOffset: TimeInterval = 0
+        if let nowMs = clockData["now"] as? Double {
+            let serverTime = nowMs / 1000.0  // Convert ms to seconds
+            let localTime = Date().timeIntervalSince1970
+            latencyOffset = localTime - serverTime
+            NSLog("OGS: ⏱️ Latency compensation: \(String(format: "%.3f", latencyOffset))s (server: \(String(format: "%.3f", serverTime)), local: \(String(format: "%.3f", localTime)))")
+        } else if let nowInt = clockData["now"] as? Int {
+            let serverTime = Double(nowInt) / 1000.0
+            let localTime = Date().timeIntervalSince1970
+            latencyOffset = localTime - serverTime
+            NSLog("OGS: ⏱️ Latency compensation: \(String(format: "%.3f", latencyOffset))s")
+        } else {
+            NSLog("OGS: ⚠️ No 'now' timestamp in clock data - cannot compensate for latency")
+        }
+
         // OGS sends time as nested dictionaries with "thinking_time" and "periods"
         if let blackTimeDict = clockData["black_time"] as? [String: Any] {
             NSLog("OGS: 🔍 Black time dict: \(blackTimeDict)")
@@ -991,10 +1015,12 @@ class OGSClient: NSObject, ObservableObject {
             }
 
             if let timeValue = timeValue {
+                // Apply latency compensation - subtract the time that elapsed during network transfer
+                let compensatedTime = max(0, timeValue - latencyOffset)
                 DispatchQueue.main.async {
-                    self.blackTimeRemaining = timeValue
+                    self.blackTimeRemaining = compensatedTime
                 }
-                NSLog("OGS: ⏱️ Black time set to: \(timeValue)s")
+                NSLog("OGS: ⏱️ Black time: \(timeValue)s -> \(String(format: "%.2f", compensatedTime))s (offset: \(String(format: "%.3f", latencyOffset))s)")
             }
 
             if let periods = blackTimeDict["periods"] as? Int {
@@ -1031,10 +1057,12 @@ class OGSClient: NSObject, ObservableObject {
             }
 
             if let timeValue = timeValue {
+                // Apply latency compensation - subtract the time that elapsed during network transfer
+                let compensatedTime = max(0, timeValue - latencyOffset)
                 DispatchQueue.main.async {
-                    self.whiteTimeRemaining = timeValue
+                    self.whiteTimeRemaining = compensatedTime
                 }
-                NSLog("OGS: ⏱️ White time set to: \(timeValue)s")
+                NSLog("OGS: ⏱️ White time: \(timeValue)s -> \(String(format: "%.2f", compensatedTime))s (offset: \(String(format: "%.3f", latencyOffset))s)")
             }
 
             if let periods = whiteTimeDict["periods"] as? Int {
