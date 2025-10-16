@@ -442,146 +442,13 @@ struct ContentView3D: View {
 
                     Spacer()
 
-                    // Game info - OGS mode or local game
-                    VStack(alignment: .trailing, spacing: 4) {
-                        // Player names with ranks
-                        HStack(spacing: 8) {
-                            if let blackName = ogsGame?.blackName {
-                                // OGS mode
-                                Text("\(blackName)")
-                                    .foregroundColor(.white)
-                                    .font(.headline)
-                                if let blackRank = ogsGame?.blackRank {
-                                    Text("[\(blackRank)]")
-                                        .foregroundColor(.white.opacity(0.7))
-                                        .font(.caption)
-                                }
-                            } else if let selection = app.selection {
-                                // Local game mode
-                                Text("\(selection.game.info.playerBlack ?? "?")")
-                                    .foregroundColor(.white)
-                                    .font(.headline)
-                                if let blackRank = selection.game.info.blackRank {
-                                    Text("[\(blackRank)]")
-                                        .foregroundColor(.white.opacity(0.7))
-                                        .font(.caption)
-                                }
-                            }
-
-                            Text("vs")
-                                .foregroundColor(.white.opacity(0.6))
-                                .font(.caption)
-
-                            if let whiteName = ogsGame?.whiteName {
-                                // OGS mode
-                                Text("\(whiteName)")
-                                    .foregroundColor(.white)
-                                    .font(.headline)
-                                if let whiteRank = ogsGame?.whiteRank {
-                                    Text("[\(whiteRank)]")
-                                        .foregroundColor(.white.opacity(0.7))
-                                        .font(.caption)
-                                }
-                            } else if let selection = app.selection {
-                                // Local game mode
-                                Text("\(selection.game.info.playerWhite ?? "?")")
-                                    .foregroundColor(.white)
-                                    .font(.headline)
-                                if let whiteRank = selection.game.info.whiteRank {
-                                    Text("[\(whiteRank)]")
-                                        .foregroundColor(.white.opacity(0.7))
-                                        .font(.caption)
-                                }
-                            }
-                        }
-
-                        // Time remaining (OGS only)
-                        if ogsGame?.blackName != nil {
-                            HStack(spacing: 12) {
-                                // Black time
-                                HStack(spacing: 4) {
-                                    Text("⚫")
-                                        .font(.caption)
-                                    if let timeRemaining = timeControl.blackTimeRemaining {
-                                        Text(formatTime(timeRemaining))
-                                            .foregroundColor(.white.opacity(0.8))
-                                            .font(.caption)
-                                        if let periods = timeControl.blackPeriodsRemaining, periods > 0 {
-                                            if periods == 1 {
-                                                Text("SD")
-                                                    .foregroundColor(.red)
-                                                    .font(.caption)
-                                                    .fontWeight(.bold)
-                                            } else {
-                                                Text("(\(periods)×---)")
-                                                    .foregroundColor(.white.opacity(0.6))
-                                                    .font(.caption2)
-                                            }
-                                        }
-                                    }
-                                }
-                                // White time
-                                HStack(spacing: 4) {
-                                    Text("⚪")
-                                        .font(.caption)
-                                    if let timeRemaining = timeControl.whiteTimeRemaining {
-                                        Text(formatTime(timeRemaining))
-                                            .foregroundColor(.white.opacity(0.8))
-                                            .font(.caption)
-                                        if let periods = timeControl.whitePeriodsRemaining, periods > 0 {
-                                            if periods == 1 {
-                                                Text("SD")
-                                                    .foregroundColor(.red)
-                                                    .font(.caption)
-                                                    .fontWeight(.bold)
-                                            } else {
-                                                Text("(\(periods)×---)")
-                                                    .foregroundColor(.white.opacity(0.6))
-                                                    .font(.caption2)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Captures
-                        HStack(spacing: 12) {
-                            HStack(spacing: 4) {
-                                Text("⚫")
-                                    .font(.caption)
-                                Text("\(player.blackCaptured) captured")
-                                    .foregroundColor(.white.opacity(0.8))
-                                    .font(.caption)
-                            }
-                            HStack(spacing: 4) {
-                                Text("⚪")
-                                    .font(.caption)
-                                Text("\(player.whiteCaptured) captured")
-                                    .foregroundColor(.white.opacity(0.8))
-                                    .font(.caption)
-                            }
-                        }
-
-                        // Komi and ruleset
-                        HStack(spacing: 12) {
-                            if let komi = ogsGame?.komi ?? app.selection?.game.info.komi {
-                                Text("Komi: \(komi)")
-                                    .foregroundColor(.white.opacity(0.7))
-                                    .font(.caption)
-                            }
-                            if let ruleset = ogsGame?.ruleset ?? app.selection?.game.info.ruleset {
-                                Text("Rules: \(ruleset)")
-                                    .foregroundColor(.white.opacity(0.7))
-                                    .font(.caption)
-                            }
-                        }
-
-                        // Move counter
-                        Text("Move \(player.currentIndex) / \(player.moves.count)")
-                            .foregroundColor(.white.opacity(0.8))
-                            .font(.caption)
-                    }
+                    // Game info - extracted to GameInfoOverlay
+                    GameInfoOverlay(
+                        ogsGame: ogsGame,
+                        timeControl: timeControl,
+                        player: player,
+                        gameSelection: app.selection
+                    )
                     .padding()
 
                     // Fullscreen button (right side)
@@ -608,54 +475,13 @@ struct ContentView3D: View {
                         .padding(.bottom, 8)
                 }
 
-                // Bottom controls - single line playback
-                HStack(spacing: 12) {
-                    Button(action: {
-                        player.seek(to: max(0, player.currentIndex - 1))
-                        updateStonesWithJitter()
-                    }) {
-                        Image(systemName: "backward.fill")
-                            .foregroundColor(.white)
-                            .font(.system(size: 16))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(player.currentIndex <= 0)
-
-                    Button(action: {
-                        togglePlayPause()
-                    }) {
-                        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                            .foregroundColor(.white)
-                            .font(.system(size: 16))
-                    }
-                    .buttonStyle(.plain)
-                    .keyboardShortcut(.space, modifiers: [])
-
-                    Button(action: {
-                        player.seek(to: min(player.moves.count, player.currentIndex + 1))
-                        updateStonesWithJitter()
-                    }) {
-                        Image(systemName: "forward.fill")
-                            .foregroundColor(.white)
-                            .font(.system(size: 16))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(player.currentIndex >= player.moves.count)
-
-                    Slider(value: Binding(
-                        get: { Double(player.currentIndex) },
-                        set: { newValue in
-                            player.seek(to: Int(newValue))
-                            updateStonesWithJitter()
-                        }
-                    ), in: 0...Double(max(1, player.moves.count)), step: 1)
-                    .frame(width: 300)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .background(.ultraThinMaterial)
-                .cornerRadius(8)
-                .padding(.bottom, 20)
+                // Bottom controls - extracted to PlaybackControls
+                PlaybackControls(
+                    player: player,
+                    isPlaying: $isPlaying,
+                    onSeek: updateStonesWithJitter,
+                    onTogglePlayPause: togglePlayPause
+                )
         }
     }
 
@@ -775,19 +601,6 @@ struct ContentView3D: View {
         }
 
         sceneManager.updateStones(from: player, jitterMultiplier: jitterMultiplier, jitterOffsets: jitterOffsets)
-    }
-
-    private func formatTime(_ seconds: TimeInterval) -> String{
-        let totalSeconds = Int(seconds)
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let secs = totalSeconds % 60
-
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, secs)
-        } else {
-            return String(format: "%d:%02d", minutes, secs)
-        }
     }
 }
 
