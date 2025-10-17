@@ -219,8 +219,8 @@ struct ContentView3D: View {
 
             updateStonesWithJitter()
 
-            // Check if game has ended
-            if newIndex >= player.moves.count - 1 {
+            // Check if game has ended (but not for OGS games - they receive moves continuously)
+            if newIndex >= player.moves.count - 1 && ogsGame?.blackName == nil {
                 gameEndTimer?.invalidate()
                 gameEndTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { _ in
                     advanceToNextGame()
@@ -232,6 +232,21 @@ struct ContentView3D: View {
                 NSLog("DEBUG3D: 📂 Loading game from file: \(gameWrapper.url.lastPathComponent)")
                 NSLog("DEBUG3D: 📂 Game has \(gameWrapper.game.setup.count) setup stones: \(gameWrapper.game.setup)")
                 NSLog("DEBUG3D: 📂 Game has \(gameWrapper.game.moves.count) moves")
+
+                // IMPORTANT: Stop OGS polling and clear OGS state when switching to a local game
+                // Otherwise OGS polling will continue updating the board with OGS game moves
+                if ogsGame?.blackName != nil {
+                    NSLog("DEBUG3D: 🛑 Switching from OGS game to local game - stopping OGS polling")
+                    ogsGame?.stopPolling()
+                    ogsGame?.blackName = nil
+                    ogsGame?.whiteName = nil
+                    ogsGame?.blackRank = nil
+                    ogsGame?.whiteRank = nil
+                    ogsGame?.komi = nil
+                    ogsGame?.ruleset = nil
+                    ogsClient.currentGameID = nil
+                    timeControl.reset()
+                }
 
                 player.load(game: gameWrapper.game)
 
@@ -316,18 +331,44 @@ struct ContentView3D: View {
             isFullscreen = false
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameDataReceived"))) { notification in
+            // Only process if we have an active OGS game ID (allows initial game load)
+            guard ogsClient.currentGameID != nil else {
+                NSLog("DEBUG3D: 🛑 Ignoring OGSGameDataReceived - no active game ID")
+                return
+            }
             ogsGame?.handleGameData(notification)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSMoveReceived"))) { notification in
+            // Only process if we have an active OGS game ID
+            guard ogsClient.currentGameID != nil else {
+                NSLog("DEBUG3D: 🛑 Ignoring OGSMoveReceived - no active game ID")
+                return
+            }
             ogsGame?.handleMove(notification)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSRateLimited"))) { _ in
+            // Only process if we have an active OGS game ID
+            guard ogsClient.currentGameID != nil else {
+                NSLog("DEBUG3D: 🛑 Ignoring OGSRateLimited - no active game ID")
+                return
+            }
             ogsGame?.handleThrottling()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSPlayerInfo"))) { notification in
+            // Only process if we have an active OGS game ID (allows initial player info load)
+            guard ogsClient.currentGameID != nil else {
+                NSLog("DEBUG3D: 🛑 Ignoring OGSPlayerInfo - no active game ID")
+                return
+            }
             ogsGame?.handlePlayerInfo(notification)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameLoaded"))) { notification in
+            // Only process if we have an active OGS game ID
+            guard ogsClient.currentGameID != nil else {
+                NSLog("DEBUG3D: 🛑 Ignoring OGSGameLoaded - no active game ID")
+                return
+            }
+
             // Handle game loading from OGSGameViewModel
             guard let userInfo = notification.userInfo,
                   let game = userInfo["game"] as? SGFGame,
@@ -358,10 +399,10 @@ struct ContentView3D: View {
             sceneManager.setupInitialScene(player: player)
 
             // Load the initial game if one is selected
+            // Note: We don't call app.selectGame() here because it's called in .onChange(of: app.selection)
             if let gameWrapper = app.selection {
                 NSLog("DEBUG3D: 🎮 Loading initial game on appear: \(gameWrapper.url.lastPathComponent)")
                 player.load(game: gameWrapper.game)
-                app.selectGame(gameWrapper)  // Load into cache manager with jitter calculation
                 updateStonesWithJitter()
             } else {
                 NSLog("DEBUG3D: ⚠️ No game selected on appear")
@@ -461,7 +502,7 @@ struct ContentView3D: View {
                 // Version number in lower right
                 HStack {
                     Spacer()
-                    Text("v3.25")
+                    Text("v3.29")
                         .foregroundColor(.gray)
                         .font(.caption)
                         .padding(.trailing, 20)

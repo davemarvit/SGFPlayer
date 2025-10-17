@@ -3,7 +3,7 @@
 **Date Started**: 2025-10-15
 **Goal**: Implement live clock countdown and refactor codebase for better maintainability
 
-## Current Status: ✅ PHASE 3 COMPLETE - All UI Components Extracted (Session 5)
+## Current Status: ✅ PHASE 3 COMPLETE + Bug Fixes (Session 6) - Ready for Phase 4
 
 ## Background
 - ContentView3D.swift is 1,566 lines (too large)
@@ -238,6 +238,49 @@
   - All functionality preserved, no regressions
 
 - **Next**: Phase 4 - Consider extracting SceneManager3D or BoardInteractionManager
+
+### 2025-10-16 (Session 6 - Bug Fixes After Phase 3)
+- ✅ **Bug Fix Session** - Fixed critical stability and state management issues
+
+- **Fixed startup crash** (v3.27) - ContentView3D.swift:360-368
+  - Problem: App crashed on launch during window restoration
+  - Root cause: Redundant `app.selectGame()` call in .onAppear handler
+  - The call was also in .onChange(of: app.selection), causing double-call during restoration
+  - Solution: Removed redundant call from .onAppear, added explanatory comment
+  - User confirmed: No crash on launch
+
+- **Fixed OGS auto-advance crash** (v3.27) - ContentView3D.swift:223
+  - Problem: Auto-advance timer fired during OGS games, crashing with assertion failure
+  - Root cause: Timer tried to advance to next local playlist item while watching OGS game
+  - Solution: Added condition `if newIndex >= player.moves.count - 1 && ogsGame?.blackName == nil`
+  - Only fire auto-advance timer for local games, not OGS games
+
+- **Fixed OGS/local game state interference** (v3.28-v3.29) - ContentView3D.swift:230-260, 333-384
+  - Problem: Switching from OGS game to local file would show OGS game position
+  - Root cause: OGS polling timer kept running and updating board with OGS moves
+  - Solution (2-part fix):
+    1. **Stop OGS polling on game switch** (lines 236-249):
+       - Detect when switching from OGS to local game in .onChange(of: app.selection)
+       - Call `ogsGame?.stopPolling()` to stop background timer
+       - Clear all OGS state (blackName, whiteName, ranks, komi, ruleset)
+       - Reset currentGameID and timeControl
+    2. **Guard OGS notifications** (lines 333-384):
+       - v3.28: Added guards checking `ogsGame?.blackName != nil` (TOO RESTRICTIVE)
+       - v3.29: Changed to check `ogsClient.currentGameID != nil` (CORRECT)
+       - Prevents chicken-and-egg problem: blackName is SET BY the notification
+       - currentGameID is set BEFORE notification, allowing initial game load
+  - User confirmed: "looking good!"
+
+- **Testing Results**
+  - Build: ✅ Success (no warnings)
+  - Startup: ✅ No crashes
+  - OGS game join: ✅ Works correctly
+  - OGS → Local switch: ✅ Clean state separation
+  - Local → OGS switch: ✅ Can rejoin OGS games
+
+- **Current version**: v3.29
+- **Status**: All critical bugs fixed, ready to commit
+- **Next**: Consider committing bug fixes, then proceed to Phase 4
 
 ---
 
