@@ -3,7 +3,7 @@
 **Date Started**: 2025-10-15
 **Goal**: Implement live clock countdown and refactor codebase for better maintainability
 
-## Current Status: ✅ PHASE 3 COMPLETE + Bug Fixes (Session 6) - Ready for Phase 4
+## Current Status: 🚀 PHASE 4 IN PROGRESS (Session 6) - SceneManager3D Extracted!
 
 ## Background
 - ContentView3D.swift is 1,566 lines (too large)
@@ -279,8 +279,52 @@
   - Local → OGS switch: ✅ Can rejoin OGS games
 
 - **Current version**: v3.29
-- **Status**: All critical bugs fixed, ready to commit
-- **Next**: Consider committing bug fixes, then proceed to Phase 4
+- **Status**: All critical bugs fixed, committed (e9a45db)
+- **Next**: Proceed to Phase 4
+
+### 2025-10-16 (Session 6 - Phase 4 Step 1: Extract SceneManager3D)
+- ✅ **Phase 4 Step 1: Extract SceneManager3D** - COMPLETE
+
+- **Created SceneManager3D.swift** (566 lines)
+  - Extracted entire SceneManager3D class from ContentView3D.swift
+  - Manages all 3D scene rendering logic
+  - Board creation with traditional Japanese proportions
+  - Stone rendering with bi-convex lens shape
+  - Halo effects for last played stone
+  - Camera setup and positioning logic
+  - Star field background generation
+  - Grid lines and star points
+  - Collision detection for jittered stones
+  - Full ObservableObject with same public interface
+
+- **Refactored ContentView3D** (reduced from 1,208 to 647 lines)
+  - Removed 561 lines of 3D rendering code (46% reduction!)
+  - SceneManager3D remains as @StateObject
+  - All usage patterns unchanged - clean extraction
+  - Better separation: UI logic vs 3D rendering logic
+
+- **Testing Results**
+  - Build: ✅ Success (no warnings)
+  - App launch: ✅ Successful
+  - Next: Test functionality to ensure 3D rendering works
+
+- **Impact**:
+  - ContentView3D.swift: 1,208 → 647 lines (-561 lines, 46% reduction)
+  - New file: SceneManager3D.swift (566 lines)
+  - Total: Clean separation of concerns
+
+- **Overall Progress (Original → Current)**:
+  - ContentView3D.swift: 1,617 → 647 lines (-970 lines, **60% reduction!**)
+  - Files extracted: 7 new files created
+    1. TimeControlManager.swift (186 lines)
+    2. OGSGameViewModel.swift (308 lines)
+    3. GameInfoOverlay.swift (174 lines)
+    4. PlaybackControls.swift (70 lines)
+    5. SettingsPanelContainer.swift (43 lines)
+    6. SceneManager3D.swift (566 lines)
+    7. Test files (538 lines)
+
+- **Next**: Test app functionality, then extract CameraControlHandler (Step 2)
 
 ---
 
