@@ -33,14 +33,14 @@ struct GameInfoBar: View {
                 Button(action: {
                     autoNext.toggle()
                 }) {
-                    Image(systemName: autoNext ? "pause.fill" : "play.fill")
+                    Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.white)
                         .frame(width: 32, height: 24)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(autoNext ? "Pause autoplay" : "Start autoplay")
+                .help(player.isPlaying ? "Pause autoplay" : "Start autoplay")
 
                 Text("Captures")
                     .font(.system(size: 13))
@@ -89,14 +89,14 @@ struct GameInfoBar: View {
                 Button(action: {
                     autoNext.toggle()
                 }) {
-                    Image(systemName: autoNext ? "pause.fill" : "play.fill")
+                    Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.white)
                         .frame(width: 32, height: 24)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(autoNext ? "Pause autoplay" : "Start autoplay")
+                .help(player.isPlaying ? "Pause autoplay" : "Start autoplay")
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)

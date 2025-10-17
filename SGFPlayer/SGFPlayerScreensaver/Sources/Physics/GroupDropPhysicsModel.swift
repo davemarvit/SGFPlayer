@@ -105,7 +105,7 @@ struct GroupDropPhysicsModel: PhysicsModel {
                     break // Valid position found, or exhausted attempts
                 }
                 
-            } while true
+            } while attempts < maxAttempts
             
             stones.append(StonePosition(
                 position: position,

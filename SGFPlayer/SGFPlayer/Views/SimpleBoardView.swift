@@ -391,8 +391,11 @@ struct BowlContent: View {
         // Calculate stone size based on board cell size for consistency
         let gridSize = 19
         let cellWidth = boardFrame.width * 0.9 / CGFloat(gridSize - 1)
-        let boardStoneSize = cellWidth * 0.95
-        let bowlStoneSize = boardStoneSize  // Bowl stones same size as board stones
+        let realBlackStoneDiameter = 22.2 // mm
+        let realWhiteStoneDiameter = 21.9 // mm
+        let realCellWidth = 22.0 // mm
+        let blackBowlStoneSize = (realBlackStoneDiameter / realCellWidth) * cellWidth
+        let whiteBowlStoneSize = (realWhiteStoneDiameter / realCellWidth) * cellWidth
 
         let _ = {
             Logger.warning("🎨 BowlContent: BODY COMPUTED - blackStones: \(physicsIntegration.blackStones.count), whiteStones: \(physicsIntegration.whiteStones.count), bowlRadius: \(bowlRadius)")
@@ -407,7 +410,7 @@ struct BowlContent: View {
             Image("go_lid_1")
                 .resizable()
                 .frame(width: bowlRadius * 2, height: bowlRadius * 2)
-                .shadow(color: .black.opacity(0.3), radius: 10, x: 5, y: 8)
+                .shadow(color: .black.opacity(0.5), radius: 15, x: 8, y: 12)
                 .position(ulCenter)
 
             // Captured black stones
@@ -423,7 +426,7 @@ struct BowlContent: View {
 
                 Image("stone_black")
                     .resizable()
-                    .frame(width: bowlStoneSize, height: bowlStoneSize)
+                    .frame(width: blackBowlStoneSize, height: blackBowlStoneSize)
                     .shadow(color: .black.opacity(0.6), radius: 4, x: 2, y: 2)
                     .position(x: finalX, y: finalY)
                     .onAppear {
@@ -435,7 +438,7 @@ struct BowlContent: View {
             Image("go_lid_2")
                 .resizable()
                 .frame(width: bowlRadius * 2, height: bowlRadius * 2)
-                .shadow(color: .black.opacity(0.3), radius: 10, x: 5, y: 8)
+                .shadow(color: .black.opacity(0.5), radius: 15, x: 8, y: 12)
                 .position(lrCenter)
 
             // Captured white stones
@@ -452,7 +455,7 @@ struct BowlContent: View {
                 // Use stable index-based clam selection instead of volatile hashValue
                 Image("clam_0\((index % 5) + 1)")
                     .resizable()
-                    .frame(width: bowlStoneSize, height: bowlStoneSize)
+                    .frame(width: whiteBowlStoneSize, height: whiteBowlStoneSize)
                     .shadow(color: .black.opacity(0.4), radius: 3, x: 1, y: 1)
                     .position(x: finalX, y: finalY)
                     .onAppear {

@@ -1,0 +1,389 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project SGFPlayer.xcodeproj -scheme SGFPlayer -configuration Debug build
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, id:00006001-001271800A02801E, name:My Mac }
+{ platform:macOS, arch:x86_64, id:00006001-001271800A02801E, name:My Mac }
+{ platform:macOS, name:Any Mac }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (1 target)
+    Target 'SGFPlayer' in project 'SGFPlayer' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: df419b466fed97b0ef323b1504e92891
+Build description path: /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/XCBuildData/df419b466fed97b0ef323b1504e92891.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk /Users/dave/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx15.5-24F74-8254517eb8b97d462ccbc072ba9094c9.sdkstatcache
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk -o /Users/dave/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx15.5-24F74-8254517eb8b97d462ccbc072ba9094c9.sdkstatcache
+
+WriteAuxiliaryFile /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.SwiftConstValuesFileList (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    write-file /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.SwiftFileList (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    write-file /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.SwiftFileList
+
+ProcessProductPackaging /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/SGFPlayer.entitlements /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer.app.xcent (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+    Entitlements:
+    
+    {
+    "com.apple.security.app-sandbox" = 1;
+    "com.apple.security.files.user-selected.read-only" = 1;
+    "com.apple.security.get-task-allow" = 1;
+}
+    
+    builtin-productPackagingUtility /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/SGFPlayer.entitlements -entitlements -format xml -o /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer.app.xcent
+
+WriteAuxiliaryFile /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.LinkFileList (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    write-file /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.LinkFileList
+
+ProcessProductPackagingDER /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer.app.xcent /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer.app.xcent.der (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    /usr/bin/derq query -f xml -i /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer.app.xcent -o /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer.app.xcent.der --raw
+
+ProcessInfoPlistFile /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug/SGFPlayer.app/Contents/Info.plist /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/empty-SGFPlayer.plist (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    builtin-infoPlistUtility /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/empty-SGFPlayer.plist -producttype com.apple.product-type.application -genpkginfo /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug/SGFPlayer.app/Contents/PkgInfo -expandbuildsettings -platform macosx -additionalcontentfile /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/assetcatalog_generated_info.plist -o /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug/SGFPlayer.app/Contents/Info.plist
+
+SwiftDriver SGFPlayer normal arm64 com.apple.xcode.tools.swift.compiler (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SGFPlayer -Onone -enforce-exclusivity\=checked @/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.SwiftFileList -DDEBUG -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk -target arm64-apple-macos15.5 -g -module-cache-path /Users/dave/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Index.noindex/DataStore -swift-version 5 -I /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug -F /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug -emit-localized-strings -emit-localized-strings-path /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/dave/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx15.5-24F74-8254517eb8b97d462ccbc072ba9094c9.sdkstatcache -output-file-map /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/dave/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer_const_extract_protocols.json -Xcc -iquote -Xcc /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer-generated-files.hmap -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer-own-target-headers.hmap -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer-all-target-headers.hmap -Xcc -iquote -Xcc /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer-project-headers.hmap -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug/include -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/DerivedSources-normal/arm64 -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/DerivedSources/arm64 -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer-Swift.h -working-directory /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer -experimental-emit-module-separately -disable-cmo
+
+SwiftCompile normal arm64 Compiling\ CompatibilityLayer.swift,\ BowlPhysics.swift,\ SGFPlayerEngine.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/CompatibilityLayer.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/BowlPhysics.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/SGFPlayerEngine.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/CompatibilityLayer.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/BowlPhysics.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/SGFPlayerEngine.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 Compiling\ PhysicsIntegration.swift,\ SGFKit.swift,\ GameBoardView.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/PhysicsIntegration.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/SGFKit.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Views/GameBoardView.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/PhysicsIntegration.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/SGFKit.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Views/GameBoardView.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Views/GameBoardView.swift:49:17: warning: initialization of immutable value 'shadowScale' was never used; consider replacing with assignment to '_' or removing it
+            let shadowScale = L.width / 800.0
+            ~~~~^~~~~~~~~~~
+            _
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Views/GameBoardView.swift:448:13: warning: variable 'finalX' was never mutated; consider changing to 'let' constant
+        var finalX = baseX
+        ~~~ ^
+        let
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Views/GameBoardView.swift:449:13: warning: variable 'finalY' was never mutated; consider changing to 'let' constant
+        var finalY = baseY
+        ~~~ ^
+        let
+
+SwiftCompile normal arm64 Compiling\ PhysicsIntegrationDemo.swift,\ ContentViewBridge.swift,\ SettingsViewModel.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/PhysicsIntegrationDemo.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/ContentViewBridge.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/ViewModels/SettingsViewModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/PhysicsIntegrationDemo.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/ContentViewBridge.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/ViewModels/SettingsViewModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 Compiling\ BowlView.swift,\ FileSystemService.swift,\ ContentViewModification.swift,\ ContentView.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/BowlView.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/FileSystemService.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/ContentViewModification.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/ContentView.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/BowlView.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/FileSystemService.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/ContentViewModification.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/ContentView.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 Compiling\ GameAnalysisService.swift,\ CacheManager.swift,\ StoneJitter.swift,\ UIStateViewModel.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Services/GameAnalysisService.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Cache/CacheManager.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/StoneJitter.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/ViewModels/UIStateViewModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Services/GameAnalysisService.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Cache/CacheManager.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/StoneJitter.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/ViewModels/UIStateViewModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ViewModels/UIStateViewModel.swift:119:23: warning: main actor-isolated property 'buttonsVisible' can not be mutated from a nonisolated context; this is an error in the Swift 6 language mode
+                self?.buttonsVisible = false
+                      ^
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ViewModels/UIStateViewModel.swift:14:20: note: mutation of this property is only permitted within the actor
+    @Published var buttonsVisible: Bool = true
+                   ^
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ViewModels/UIStateViewModel.swift:187:19: warning: call to main actor-isolated instance method 'checkMouseInactivity()' in a synchronous nonisolated context; this is an error in the Swift 6 language mode
+            self?.checkMouseInactivity()
+                  ^
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ViewModels/UIStateViewModel.swift:196:18: note: calls to instance method 'checkMouseInactivity()' from outside of its actor context are implicitly asynchronous
+    private func checkMouseInactivity() {
+                 ^
+
+SwiftCompile normal arm64 Compiling\ Logger.swift,\ StonePositionViewModel.swift,\ SimpleBoardView.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Utils/Logger.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/ViewModels/StonePositionViewModel.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Views/SimpleBoardView.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Utils/Logger.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/ViewModels/StonePositionViewModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Views/SimpleBoardView.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Views/SimpleBoardView.swift:229:17: warning: initialization of immutable value 'realCellHeight' was never used; consider replacing with assignment to '_' or removing it
+            let realCellHeight = 23.7 // mm
+            ~~~~^~~~~~~~~~~~~~
+            _
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Views/SimpleBoardView.swift:236:17: warning: initialization of immutable value 'stoneRadius' was never used; consider replacing with assignment to '_' or removing it
+            let stoneRadius = blackStoneSize / 2 // Use black stone size for jitter calculations
+            ~~~~^~~~~~~~~~~
+            _
+
+SwiftCompile normal arm64 Compiling\ DebugConfig.swift,\ SettingsPanelView.swift,\ ContentViewMigrationGuide.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Utils/DebugConfig.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Views/SettingsPanelView.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/ContentViewMigrationGuide.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+Failed frontend command:
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift-frontend -frontend -c /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Services/GameAnalysisService.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Cache/CacheManager.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/AppModel.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/StoneJitter.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/ViewModels/UIStateViewModel.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/BowlView.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/FileSystemService.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Services/LayoutService.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/ContentViewModification.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/ContentView.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/ViewModels/SGFPlayerViewModel.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/CompatibilityLayer.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/BowlPhysics.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/SGFPlayerEngine.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Physics/GroupDropPhysicsModel.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Utils/Logger.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/ViewModels/StonePositionViewModel.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Views/SimpleBoardView.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/PhysicsIntegration.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/SGFKit.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Views/GameBoardView.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/PhysicsIntegrationDemo.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/ContentViewBridge.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Models/GameStateCache.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/ViewModels/SettingsViewModel.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Views/GameInfoBar.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/PlayerCapturesAdapter.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/SGFPlayerApp.swift -primary-file /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Utils/DebugConfig.swift -primary-file /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Views/SettingsPanelView.swift -primary-file /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/ContentViewMigrationGuide.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Physics/PhysicsEngine.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Services/SettingsPanelService.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/BoardViewport.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Views/ControlsView.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Physics/EnergyMinimizationModel.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Physics/SpiralPhysicsModel.swift /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/DerivedSources/GeneratedAssetSymbols.swift -supplementary-output-file-map /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/supplementaryOutputs-8 -emit-localized-strings -emit-localized-strings-path /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64 -target arm64-apple-macos15.5 -Xllvm -aarch64-use-tbi -enable-objc-interop -stack-check -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk -I /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug -F /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug -no-color-diagnostics -enable-testing -g -debug-info-format\=dwarf -dwarf-version\=5 -module-cache-path /Users/dave/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -swift-version 5 -enforce-exclusivity\=checked -Onone -D DEBUG -serialize-debugging-options -const-gather-protocols-file /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer_const_extract_protocols.json -enable-experimental-feature DebugDescriptionMacro -enable-bare-slash-regex -empty-abi-descriptor -validate-clang-modules-once -clang-build-session-file /Users/dave/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -working-directory -Xcc /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer -resource-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift -enable-anonymous-context-mangled-names -file-compilation-dir /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer -Xcc -ivfsstatcache -Xcc /Users/dave/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx15.5-24F74-8254517eb8b97d462ccbc072ba9094c9.sdkstatcache -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/swift-overrides.hmap -Xcc -iquote -Xcc /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer-generated-files.hmap -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer-own-target-headers.hmap -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer-all-target-headers.hmap -Xcc -iquote -Xcc /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer-project-headers.hmap -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug/include -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/DerivedSources-normal/arm64 -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/DerivedSources/arm64 -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/DerivedSources -Xcc -DDEBUG\=1 -module-name SGFPlayer -frontend-parseable-output -disable-clang-spi -target-sdk-version 15.5 -target-sdk-name macosx15.5 -external-plugin-path /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/swift/host/plugins\#/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/bin/swift-plugin-server -external-plugin-path /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/local/lib/swift/host/plugins\#/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/bin/swift-plugin-server -in-process-plugin-server-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/libSwiftInProcPluginServer.dylib -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/local/lib/swift/host/plugins -o /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/DebugConfig.o -o /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SettingsPanelView.o -o /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentViewMigrationGuide.o -index-unit-output-path /SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/DebugConfig.o -index-unit-output-path /SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SettingsPanelView.o -index-unit-output-path /SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/ContentViewMigrationGuide.o -index-store-path /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Index.noindex/DataStore -index-system-modules
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Utils/DebugConfig.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Views/SettingsPanelView.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Views/SettingsPanelView.swift:261:82: error: cannot assign value of type 'Int' to type 'String'
+                                            settingsService.activePhysicsModel = nextModel
+                                                                                 ^~~~~~~~~
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/ContentViewMigrationGuide.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 Compiling\ PhysicsEngine.swift,\ SettingsPanelService.swift,\ BoardViewport.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Physics/PhysicsEngine.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Services/SettingsPanelService.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/BoardViewport.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Physics/PhysicsEngine.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Services/SettingsPanelService.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/BoardViewport.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ SGFPlayer (in target 'SGFPlayer' from project 'SGFPlayer')
+
+EmitSwiftModule normal arm64 (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 Compiling\ ControlsView.swift,\ SpiralPhysicsModel.swift,\ GeneratedAssetSymbols.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Views/ControlsView.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Physics/SpiralPhysicsModel.swift /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Views/ControlsView.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Physics/SpiralPhysicsModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/DerivedSources/GeneratedAssetSymbols.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 Compiling\ GameInfoBar.swift,\ PlayerCapturesAdapter.swift,\ SGFPlayerApp.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Views/GameInfoBar.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/PlayerCapturesAdapter.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/SGFPlayerApp.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Views/GameInfoBar.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/PlayerCapturesAdapter.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/SGFPlayerApp.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling PhysicsEngine.swift, SettingsPanelService.swift, BoardViewport.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for SGFPlayer (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftDriver\ Compilation\ Requirements SGFPlayer normal arm64 com.apple.xcode.tools.swift.compiler (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SGFPlayer -Onone -enforce-exclusivity\=checked @/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.SwiftFileList -DDEBUG -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk -target arm64-apple-macos15.5 -g -module-cache-path /Users/dave/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Index.noindex/DataStore -swift-version 5 -I /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug -F /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug -emit-localized-strings -emit-localized-strings-path /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/dave/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/macosx15.5-24F74-8254517eb8b97d462ccbc072ba9094c9.sdkstatcache -output-file-map /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/dave/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer_const_extract_protocols.json -Xcc -iquote -Xcc /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer-generated-files.hmap -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer-own-target-headers.hmap -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer-all-target-headers.hmap -Xcc -iquote -Xcc /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/SGFPlayer-project-headers.hmap -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug/include -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/DerivedSources-normal/arm64 -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/DerivedSources/arm64 -Xcc -I/Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer-Swift.h -working-directory /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer -experimental-emit-module-separately -disable-cmo
+
+SwiftCompile normal arm64 Compiling\ AppModel.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/AppModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/AppModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/AppModel.swift:121:38: warning: 'init(contentsOf:)' was deprecated in macOS 15: Use `init(contentsOf:encoding:)` instead
+                let sgfContent = try String(contentsOf: url)
+                                     ^
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/AppModel.swift:119:16: warning: no calls to throwing functions occur within 'try' expression
+        return try sgfFiles.compactMap { url in
+               ^
+
+Copy /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug/SGFPlayer.swiftmodule/arm64-apple-macos.swiftmodule /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.swiftmodule (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.swiftmodule /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug/SGFPlayer.swiftmodule/arm64-apple-macos.swiftmodule
+
+SwiftDriverJobDiscovery normal arm64 Compiling ControlsView.swift, SpiralPhysicsModel.swift, GeneratedAssetSymbols.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+Copy /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug/SGFPlayer.swiftmodule/arm64-apple-macos.swiftdoc /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.swiftdoc (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.swiftdoc /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug/SGFPlayer.swiftmodule/arm64-apple-macos.swiftdoc
+
+Copy /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug/SGFPlayer.swiftmodule/arm64-apple-macos.abi.json /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.abi.json (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.abi.json /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug/SGFPlayer.swiftmodule/arm64-apple-macos.abi.json
+
+Copy /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug/SGFPlayer.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.swiftsourceinfo (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Intermediates.noindex/SGFPlayer.build/Debug/SGFPlayer.build/Objects-normal/arm64/SGFPlayer.swiftsourceinfo /Users/dave/Library/Developer/Xcode/DerivedData/SGFPlayer-agkspnhzabwncggsmnrxdnwgvnvt/Build/Products/Debug/SGFPlayer.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo
+
+SwiftCompile normal arm64 Compiling\ SGFPlayerViewModel.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/ViewModels/SGFPlayerViewModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/ViewModels/SGFPlayerViewModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ViewModels/SGFPlayerViewModel.swift:233:19: warning: call to main actor-isolated instance method 'executePhysicsUpdate()' in a synchronous nonisolated context; this is an error in the Swift 6 language mode
+            self?.executePhysicsUpdate()
+                  ^
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/ViewModels/SGFPlayerViewModel.swift:237:18: note: calls to instance method 'executePhysicsUpdate()' from outside of its actor context are implicitly asynchronous
+    private func executePhysicsUpdate() {
+                 ^
+
+SwiftCompile normal arm64 Compiling\ EnergyMinimizationModel.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Physics/EnergyMinimizationModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Physics/EnergyMinimizationModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Physics/EnergyMinimizationModel.swift:44:13: warning: immutable value 'i' was never used; consider replacing with '_' or removing it
+        for i in 0..<targetStoneCount {
+            ^
+            _
+
+SwiftDriverJobDiscovery normal arm64 Compiling GameAnalysisService.swift, CacheManager.swift, StoneJitter.swift, UIStateViewModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftCompile normal arm64 Compiling\ GroupDropPhysicsModel.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Physics/GroupDropPhysicsModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Physics/GroupDropPhysicsModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling CompatibilityLayer.swift, BowlPhysics.swift, SGFPlayerEngine.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftCompile normal arm64 Compiling\ GameStateCache.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Models/GameStateCache.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Models/GameStateCache.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+    cd /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer
+    
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Models/GameStateCache.swift:214:41: warning: string interpolation produces a debug description for an optional value; did you mean to make this explicit?
+            convergenceInfo: "Cached: \(whiteCapturedResult.convergenceInfo) + \(blackCapturedResult.convergenceInfo)"
+                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Models/GameStateCache.swift:214:61: note: use 'String(describing:)' to silence this warning
+            convergenceInfo: "Cached: \(whiteCapturedResult.convergenceInfo) + \(blackCapturedResult.convergenceInfo)"
+                                        ~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+                                        String(describing:                 )
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Models/GameStateCache.swift:214:61: note: provide a default value to avoid this warning
+            convergenceInfo: "Cached: \(whiteCapturedResult.convergenceInfo) + \(blackCapturedResult.convergenceInfo)"
+                                        ~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+                                                                            ?? <#default value#>
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Models/GameStateCache.swift:214:82: warning: string interpolation produces a debug description for an optional value; did you mean to make this explicit?
+            convergenceInfo: "Cached: \(whiteCapturedResult.convergenceInfo) + \(blackCapturedResult.convergenceInfo)"
+                                                                                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Models/GameStateCache.swift:214:102: note: use 'String(describing:)' to silence this warning
+            convergenceInfo: "Cached: \(whiteCapturedResult.convergenceInfo) + \(blackCapturedResult.convergenceInfo)"
+                                                                                 ~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+                                                                                 String(describing:                 )
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Models/GameStateCache.swift:214:102: note: provide a default value to avoid this warning
+            convergenceInfo: "Cached: \(whiteCapturedResult.convergenceInfo) + \(blackCapturedResult.convergenceInfo)"
+                                                                                 ~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~
+                                                                                                                     ?? <#default value#>
+
+SwiftDriverJobDiscovery normal arm64 Compiling PhysicsIntegration.swift, SGFKit.swift, GameBoardView.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftDriverJobDiscovery normal arm64 Compiling SGFPlayerViewModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftDriverJobDiscovery normal arm64 Compiling AppModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftDriverJobDiscovery normal arm64 Compiling GroupDropPhysicsModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftDriverJobDiscovery normal arm64 Compiling EnergyMinimizationModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftDriverJobDiscovery normal arm64 Compiling GameStateCache.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftDriverJobDiscovery normal arm64 Compiling GameInfoBar.swift, PlayerCapturesAdapter.swift, SGFPlayerApp.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftDriverJobDiscovery normal arm64 Compiling Logger.swift, StonePositionViewModel.swift, SimpleBoardView.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+SwiftDriverJobDiscovery normal arm64 Compiling PhysicsIntegrationDemo.swift, ContentViewBridge.swift, SettingsViewModel.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+
+** BUILD FAILED **
+
+
+The following build commands failed:
+	SwiftCompile normal arm64 Compiling\ DebugConfig.swift,\ SettingsPanelView.swift,\ ContentViewMigrationGuide.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Utils/DebugConfig.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Views/SettingsPanelView.swift /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Integration/ContentViewMigrationGuide.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+	SwiftCompile normal arm64 /Users/Dave/Go/SGFPlayer\ Code/SGFPlayer/SGFPlayer/Views/SettingsPanelView.swift (in target 'SGFPlayer' from project 'SGFPlayer')
+	Building project SGFPlayer with scheme SGFPlayer and configuration Debug
+(3 failures)

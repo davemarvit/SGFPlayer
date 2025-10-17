@@ -306,7 +306,7 @@
 - **Testing Results**
   - Build: ✅ Success (no warnings)
   - App launch: ✅ Successful
-  - Next: Test functionality to ensure 3D rendering works
+  - User confirmed: "yup. all seems to work"
 
 - **Impact**:
   - ContentView3D.swift: 1,208 → 647 lines (-561 lines, 46% reduction)
@@ -324,7 +324,53 @@
     6. SceneManager3D.swift (566 lines)
     7. Test files (538 lines)
 
-- **Next**: Test app functionality, then extract CameraControlHandler (Step 2)
+- **Committed**: db129c7
+
+### 2025-10-16 (Session 6 - Phase 4 Step 2: Extract CameraControlHandler)
+- ✅ **Phase 4 Step 2: Extract CameraControlHandler** - COMPLETE (v3.30)
+
+- **Created Views/CameraControlHandler.swift** (138 lines)
+  - Extracted from ContentView3D.swift lines 7-142
+  - NSViewRepresentable for camera input handling
+  - Mouse drag: Rotate (default) or Pan (Shift key)
+  - Scroll wheel: Zoom in/out
+  - Pinch gesture: Zoom in/out
+  - Callback pattern with onUpdate closure
+  - @Binding properties for camera state (rotationX, rotationY, distance, panX, panY)
+
+- **Refactored ContentView3D** (reduced from 647 to 509 lines)
+  - Removed 138 lines of camera control code
+  - CameraControlHandler usage at line 285-292 unchanged
+  - Better separation: UI vs input handling
+
+- **Testing Results**
+  - Build: ✅ Success (no errors, same warnings as before)
+  - Next: User testing of camera controls
+
+- **Impact**:
+  - ContentView3D.swift: 647 → 509 lines (-138 lines, 21% reduction from Step 1)
+  - New file: Views/CameraControlHandler.swift (138 lines)
+  - Clean extraction with callback-based architecture
+
+- **Phase 4 Total Impact**:
+  - ContentView3D.swift: 1,208 → 509 lines (-699 lines, **58% reduction in Phase 4!**)
+  - Files created:
+    1. SceneManager3D.swift (566 lines)
+    2. Views/CameraControlHandler.swift (138 lines)
+
+- **Overall Progress (Original → Current)**:
+  - ContentView3D.swift: 1,617 → 509 lines (-1,108 lines, **68% reduction!**)
+  - Files extracted: 8 new files created
+    1. TimeControlManager.swift (186 lines)
+    2. OGSGameViewModel.swift (308 lines)
+    3. GameInfoOverlay.swift (174 lines)
+    4. PlaybackControls.swift (70 lines)
+    5. SettingsPanelContainer.swift (43 lines)
+    6. SceneManager3D.swift (566 lines)
+    7. Views/CameraControlHandler.swift (138 lines)
+    8. Test files (538 lines)
+
+- **Next**: Test camera controls, then commit Phase 4 Step 2
 
 ---
 

@@ -96,6 +96,16 @@ final class SGFPlayer: ObservableObject {
     func seek(to idx: Int) {
         let clamped = max(0, min(idx, _moves.count))
         print("🔍 SEEK: Seeking to move \(idx), clamped to \(clamped), total moves: \(_moves.count)")
+
+        // Stop playback when seeking manually
+        if isPlaying {
+            print("🔍 SEEK: WAS PLAYING - calling pause()")
+            pause()
+            print("🔍 SEEK: pause() complete - isPlaying now: \(isPlaying)")
+        } else {
+            print("🔍 SEEK: Was NOT playing - isPlaying: \(isPlaying)")
+        }
+
         reset()
         if clamped > 0 {
             for i in 0..<clamped {
@@ -105,6 +115,10 @@ final class SGFPlayer: ObservableObject {
         }
         currentIndex = clamped
         print("🔍 SEEK: Final currentIndex: \(currentIndex), board stones: \(board.grid.flatMap { $0 }.compactMap { $0 }.count)")
+
+        // Notify SwiftUI observers that state has changed
+        objectWillChange.send()
+        print("🔍 SEEK: Notified SwiftUI observers")
     }
 
     // Update interval on the fly; restarts timer if currently playing

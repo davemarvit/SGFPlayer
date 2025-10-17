@@ -115,6 +115,7 @@ class SGFPlayerViewModel: ObservableObject {
         updateGameState()
 
         // Stop autoplay when seeking manually
+        // This automatically updates the icon state through player.isPlaying
         if autoNext {
             autoNext = false
         }

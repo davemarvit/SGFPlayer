@@ -42,7 +42,11 @@ class UIStateViewModel: ObservableObject {
 
     /// Toggle fullscreen mode
     func toggleFullscreen() {
-        guard let window = NSApplication.shared.windows.first else { return }
+        guard let window = NSApplication.shared.windows.first else {
+            print("⚠️ Fullscreen: No window found")
+            return
+        }
+        print("🖥️ Fullscreen: Toggling fullscreen mode")
         window.toggleFullScreen(nil)
     }
 

@@ -1,0 +1,12 @@
+fileFormatVersion: 2
+guid: 91796e0714c98421d9426c3d886d6d34
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - stoneTexture: {fileID: 2800000, guid: b116002047b534de6912a10d1953206c, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
