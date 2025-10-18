@@ -145,6 +145,12 @@ struct ContentView: View {
             topButtonsOverlay
             settingsPanelOverlay
             physicsOverlay
+
+            // Pre-game overlay for finding/creating games
+            if app.ogsClient.gamePhase == .preGame {
+                PreGameOverlay(ogsClient: app.ogsClient)
+            }
+
             gameInfoOverlay
         }
         .contentShape(Rectangle())

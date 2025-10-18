@@ -83,6 +83,11 @@ struct ContentView3D: View {
                 settingsPanel
             }
 
+            // Pre-game overlay for finding/creating games
+            if ogsClient.gamePhase == .preGame {
+                PreGameOverlay(ogsClient: ogsClient)
+            }
+
             overlayUI
         }
         .onChange(of: player.currentIndex) { oldIndex, newIndex in

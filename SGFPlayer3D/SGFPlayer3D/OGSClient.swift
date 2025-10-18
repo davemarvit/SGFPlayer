@@ -1,6 +1,14 @@
 import Foundation
 import Security
 
+/// Represents the current phase of an OGS game
+enum GamePhase: String {
+    case preGame    // No active game, showing game setup UI
+    case playing    // Game in progress, accepting moves
+    case scoring    // Game finished, in scoring phase
+    case finished   // Game complete, showing results
+}
+
 /// OGS (Online Go Server) WebSocket client for real-time game communication
 class OGSClient: NSObject, ObservableObject {
     @Published var isConnected = false
@@ -13,9 +21,13 @@ class OGSClient: NSObject, ObservableObject {
     @Published var blackPeriodTime: TimeInterval?  // Length of each byo-yomi period
     @Published var whitePeriodTime: TimeInterval?  // Length of each byo-yomi period
     @Published var currentPlayerColor: Stone = .black
-    @Published var playerColor: Stone?  // The color we are playing
+    @Published var playerColor: Stone?  // The color we are playing (also known as myColor)
     @Published var isAuthenticated = false
     @Published var username: String?
+
+    // MARK: - Live Play State
+    /// Current game phase - drives UI visibility and interaction
+    @Published var gamePhase: GamePhase = .preGame
 
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
