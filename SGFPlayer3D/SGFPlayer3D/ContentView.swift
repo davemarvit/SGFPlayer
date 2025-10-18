@@ -147,8 +147,8 @@ struct ContentView: View {
             physicsOverlay
 
             // Pre-game overlay for finding/creating games
-            if app.ogsClient.gamePhase == .preGame {
-                PreGameOverlay(ogsClient: app.ogsClient)
+            if app.showPreGameOverlay {
+                PreGameOverlay(ogsClient: app.ogsClient, isVisible: $app.showPreGameOverlay)
             }
 
             gameInfoOverlay
@@ -352,9 +352,17 @@ struct ContentView: View {
             updatePhysicsForMove(moveCount)
         }
         .focusable()
+        .focusEffectDisabled()  // Disable blue focus ring while keeping keyboard shortcuts
         .onKeyPress { keyPress in
-            handleKeyPress(keyPress)
-            return .handled
+            // Only intercept keys we actually handle (arrow keys, space, escape)
+            // Let everything else (letters, numbers, etc.) pass through to TextFields
+            switch keyPress.key {
+            case .leftArrow, .rightArrow, .space, .escape:
+                handleKeyPress(keyPress)
+                return .handled
+            default:
+                return .ignored  // Let other keys pass through to focused controls
+            }
         }
     }
 
@@ -426,7 +434,6 @@ struct ContentView: View {
             }
             Spacer()
         }
-        .allowsHitTesting(false)  // Let mouse events pass through to main ZStack
     }
 
     private var settingsPanelOverlay: some View {
@@ -447,6 +454,7 @@ struct ContentView: View {
                         Rectangle()
                             .fill(Color.clear)
                             .frame(width: 10)
+                            .allowsHitTesting(false)  // Let clicks pass through
 
                         // Settings panel with translucent background
                         SettingsPanelView(
@@ -518,8 +526,10 @@ struct ContentView: View {
                         )
                         .frame(width: 320)
                         .frame(maxHeight: .infinity)
+                        .allowsHitTesting(true)  // Ensure panel receives all events
 
                         Spacer()
+                            .allowsHitTesting(false)  // Let clicks pass through to backdrop
                     }
                 }
                 .transition(.move(edge: .leading))

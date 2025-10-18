@@ -166,9 +166,31 @@ struct SettingsPanelView: View {
                             .font(.headline)
 
                         Toggle("OGS Mode (Live Games)", isOn: $ogsMode)
+                            .onAppear {
+                                // Auto-connect if OGS mode is already enabled on startup
+                                if ogsMode && !app.ogsClient.isConnected {
+                                    app.ogsClient.connect()
+                                    NSLog("OGS: 🔌 Auto-connecting on startup (OGS Mode was already ON)")
+                                }
+                            }
                             .toggleStyle(SwitchToggleStyle(tint: .blue))
+                            .onChange(of: ogsMode) { _, newValue in
+                                if newValue {
+                                    // Auto-connect when OGS mode is turned on
+                                    if !app.ogsClient.isConnected {
+                                        app.ogsClient.connect()
+                                        NSLog("OGS: 🔌 Auto-connecting when OGS Mode enabled")
+                                    }
+                                } else {
+                                    // Disconnect when OGS mode is turned off
+                                    if app.ogsClient.isConnected {
+                                        app.ogsClient.disconnect()
+                                        NSLog("OGS: 🔌 Disconnecting when OGS Mode disabled")
+                                    }
+                                }
+                            }
 
-                        Text(ogsMode ? "Connected to Online Go Server for live games" : "Playing local SGF files")
+                        Text(ogsMode ? "Online Go Server" : "Playing local SGF files")
                             .font(.caption)
                             .foregroundColor(.secondary)
 
@@ -196,7 +218,12 @@ struct SettingsPanelView: View {
                                             .foregroundColor(.secondary)
                                         Spacer()
                                         Button("Logout") {
+                                            // Clear UI fields before deleting credentials
+                                            ogsUsername = ""
+                                            ogsPassword = ""
+                                            hasLoadedCredentials = false
                                             app.ogsClient.deleteCredentials()
+                                            // Note: Connection stays active for anonymous spectating
                                         }
                                         .font(.caption)
                                         .foregroundColor(.blue)
@@ -228,6 +255,13 @@ struct SettingsPanelView: View {
                                                 // Trigger login when Return is pressed
                                                 if !ogsUsername.isEmpty && !ogsPassword.isEmpty && !isAuthenticating {
                                                     NSLog("OGS: 🔑 Login triggered by Return key")
+
+                                                    // Ensure we're connected before authenticating
+                                                    if !app.ogsClient.isConnected {
+                                                        NSLog("OGS: 🔌 Not connected, connecting first...")
+                                                        app.ogsClient.connect()
+                                                    }
+
                                                     isAuthenticating = true
                                                     authError = nil
                                                     app.ogsClient.authenticate(username: ogsUsername, password: ogsPassword) { success, error in
@@ -247,7 +281,13 @@ struct SettingsPanelView: View {
 
                                         Button(isAuthenticating ? "Logging in..." : "Login") {
                                             NSLog("OGS: 🔑 Login button clicked! Username: '\(ogsUsername)', Password length: \(ogsPassword.count)")
-                                            NSLog("OGS: 🔑 isConnected: \(app.ogsClient.isConnected), isAuthenticated: \(app.ogsClient.isAuthenticated)")
+
+                                            // Ensure we're connected before authenticating
+                                            if !app.ogsClient.isConnected {
+                                                NSLog("OGS: 🔌 Not connected, connecting first...")
+                                                app.ogsClient.connect()
+                                            }
+
                                             isAuthenticating = true
                                             authError = nil
                                             app.ogsClient.authenticate(username: ogsUsername, password: ogsPassword) { success, error in
@@ -281,21 +321,25 @@ struct SettingsPanelView: View {
                                     }
                                 }
 
-                                // Connect/Disconnect button after authentication section
-                                Button(app.ogsClient.isConnected ? "Disconnect" : "Connect to OGS") {
-                                    if app.ogsClient.isConnected {
-                                        app.ogsClient.disconnect()
-                                    } else {
-                                        app.ogsClient.connect()
+                                // Find a Game button (shown when authenticated)
+                                if app.ogsClient.isConnected {
+                                    Button(action: {
+                                        // TODO: Show PreGameOverlay
+                                        app.showPreGameOverlay = true
+                                    }) {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "plus.circle.fill")
+                                            Text("Find a Game")
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 8)
+                                        .background(app.ogsClient.isAuthenticated ? Color.green.opacity(0.7) : Color.gray.opacity(0.3))
+                                        .foregroundColor(.white)
+                                        .cornerRadius(8)
                                     }
+                                    .buttonStyle(.plain)
+                                    .disabled(!app.ogsClient.isAuthenticated)
                                 }
-                                .font(.caption)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 4)
-                                .background(app.ogsClient.isConnected ? Color.gray.opacity(0.3) : Color.blue.opacity(0.3))
-                                .foregroundColor(.white.opacity(0.9))
-                                .cornerRadius(4)
-                                .buttonStyle(.plain)
 
                                 // Game ID input (shown when connected)
                                 if app.ogsClient.isConnected {

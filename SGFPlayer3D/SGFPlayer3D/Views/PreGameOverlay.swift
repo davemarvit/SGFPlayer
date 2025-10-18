@@ -5,6 +5,7 @@ import SwiftUI
 struct PreGameOverlay: View {
     @ObservedObject var ogsClient: OGSClient
     @State private var gameSettings: GameSettings = GameSettings.load()
+    @Binding var isVisible: Bool  // Control visibility externally
 
     // UI state
     @State private var isSearching = false
@@ -12,19 +13,29 @@ struct PreGameOverlay: View {
 
     var body: some View {
         ZStack {
-            // Dimmed background
+            // Dimmed background - but allow clicks to pass through around the edges
             Color.black.opacity(0.7)
                 .ignoresSafeArea()
+                .allowsHitTesting(false)  // Let clicks pass through to buttons underneath
 
             // Main content card
             VStack(spacing: 0) {
-                // Header
+                // Header with close button
                 HStack {
                     Text("Find a Game")
                         .font(.title.bold())
                         .foregroundColor(.white)
 
                     Spacer()
+
+                    Button(action: {
+                        isVisible = false
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding()
                 .background(Color.white.opacity(0.1))
@@ -50,9 +61,13 @@ struct PreGameOverlay: View {
                 }
             }
             .frame(maxWidth: 500, maxHeight: 600)
-            .background(.thinMaterial)
+            .background(Color(white: 0.15))  // Dark gray background instead of thinMaterial
             .cornerRadius(12)
             .shadow(radius: 20)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)  // Subtle border, not bright blue
+            )
         }
     }
 
@@ -263,7 +278,7 @@ struct PreGameOverlay: View {
 
 struct PreGameOverlay_Previews: PreviewProvider {
     static var previews: some View {
-        PreGameOverlay(ogsClient: OGSClient())
+        PreGameOverlay(ogsClient: OGSClient(), isVisible: .constant(true))
             .preferredColorScheme(.dark)
     }
 }

@@ -48,6 +48,9 @@ final class AppModel: ObservableObject {
     @Published var timeControl = TimeControlManager()
     @Published var ogsGame: OGSGameViewModel?
 
+    // UI State for OGS live play
+    @Published var showPreGameOverlay: Bool = false
+
     private let folderKey = "sgfplayer.folderURL"
     private let lastGameKey = "sgfplayer.lastGame"
     private var cancellables: Set<AnyCancellable> = []

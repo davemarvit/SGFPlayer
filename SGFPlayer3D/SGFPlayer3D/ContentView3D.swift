@@ -84,8 +84,8 @@ struct ContentView3D: View {
             }
 
             // Pre-game overlay for finding/creating games
-            if ogsClient.gamePhase == .preGame {
-                PreGameOverlay(ogsClient: ogsClient)
+            if app.showPreGameOverlay {
+                PreGameOverlay(ogsClient: ogsClient, isVisible: $app.showPreGameOverlay)
             }
 
             overlayUI
