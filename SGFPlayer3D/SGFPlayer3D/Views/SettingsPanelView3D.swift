@@ -25,8 +25,41 @@ struct SettingsPanelView3D: View {
     @State private var ogsUsername: String = ""
     @State private var ogsPassword: String = ""
     @State private var isAuthenticating: Bool = false
+    @State private var isConnecting: Bool = false
     @State private var authError: String? = nil
     @State private var hasLoadedCredentials = false
+
+    // MARK: - Helper Functions
+
+    /// Extract game ID from either a direct ID number or an OGS URL
+    /// Supports URLs like: https://online-go.com/game/12345 or https://online-go.com/game/12345/review
+    private func joinGame(from input: String) {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Try parsing as direct game ID first
+        if let gameID = Int(trimmed) {
+            NSLog("OGS: 🎮 Parsed direct game ID: \(gameID)")
+            ogsClient.joinGame(gameID: gameID)
+            return
+        }
+
+        // Try extracting from URL
+        if let url = URL(string: trimmed),
+           let host = url.host,
+           host.contains("online-go.com") {
+            // Extract game ID from path like "/game/12345" or "/game/12345/review"
+            let pathComponents = url.pathComponents
+            if let gameIndex = pathComponents.firstIndex(of: "game"),
+               gameIndex + 1 < pathComponents.count,
+               let gameID = Int(pathComponents[gameIndex + 1]) {
+                NSLog("OGS: 🎮 Extracted game ID \(gameID) from URL: \(trimmed)")
+                ogsClient.joinGame(gameID: gameID)
+                return
+            }
+        }
+
+        NSLog("OGS: ❌ Failed to parse game ID from input: '\(trimmed)'")
+    }
 
     var body: some View {
         ZStack {
@@ -43,14 +76,17 @@ struct SettingsPanelView3D: View {
                         }
                     } label: {
                         Image(systemName: "gearshape.fill")
-                            .font(.title2)
+                            .imageScale(.large)
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
+                    .padding(.leading, 20)
+                    .padding(.top, 20)
 
                     Text("Settings")
                         .font(.title2.bold())
                         .foregroundColor(.white)
+                        .padding(.top, 20)
 
                     Spacer()
 
@@ -64,10 +100,9 @@ struct SettingsPanelView3D: View {
                             .foregroundColor(.white.opacity(0.8))
                     }
                     .buttonStyle(.plain)
+                    .padding(.top, 20)
                 }
-                .padding(.leading, 32)
                 .padding(.trailing, 50)
-                .padding(.top, 32)
                 .padding(.bottom, 16)
 
                 // Scrollable content
@@ -76,6 +111,28 @@ struct SettingsPanelView3D: View {
                         // Folder selection
                         FolderSelectionSection3D(app: app)
                             .padding(.horizontal, 16)
+
+                        Divider()
+                            .padding(.horizontal, 16)
+
+                        // View Mode selection
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("View Mode")
+                                .font(.headline)
+                                .foregroundColor(.white)
+
+                            Picker("", selection: $app.viewMode) {
+                                ForEach(ViewMode.allCases) { mode in
+                                    Text(mode.displayName).tag(mode)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+
+                            Text("Switch between 2D and 3D board views. Game progress is preserved when switching.")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.6))
+                        }
+                        .padding(.horizontal, 16)
 
                         Divider()
                             .padding(.horizontal, 16)
@@ -210,19 +267,32 @@ struct SettingsPanelView3D: View {
                                     }
 
                                     // Connect/Disconnect button after authentication section
-                                    Button(ogsClient.isConnected ? "Disconnect" : "Connect to OGS") {
+                                    Button(ogsClient.isConnected ? "Disconnect" : (isConnecting ? "Connecting..." : "Connect")) {
                                         if ogsClient.isConnected {
                                             ogsClient.disconnect()
+                                            isConnecting = false
                                         } else {
+                                            isConnecting = true
                                             ogsClient.connect()
+                                            // Reset connecting state after 3 seconds
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                                                isConnecting = false
+                                            }
                                         }
                                     }
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.white.opacity(0.9))
+                                    .font(.caption)
                                     .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(.blue.opacity(0.8))
-                                    .cornerRadius(6)
+                                    .padding(.vertical, 4)
+                                    .background(ogsClient.isConnected ? Color.gray.opacity(0.3) : (isConnecting ? Color.gray.opacity(0.3) : Color.blue.opacity(0.3)))
+                                    .cornerRadius(4)
                                     .buttonStyle(.plain)
+                                    .disabled(isConnecting)
+                                    .onChange(of: ogsClient.isConnected) { _, newValue in
+                                        if newValue {
+                                            isConnecting = false
+                                        }
+                                    }
 
                                     // Game ID input (shown when connected)
                                     if ogsClient.isConnected {
@@ -232,18 +302,20 @@ struct SettingsPanelView3D: View {
                                                 .foregroundColor(.white.opacity(0.8))
 
                                             HStack {
-                                                TextField("Game ID", text: $ogsGameID)
+                                                TextField("Game ID or URL", text: $ogsGameID)
                                                     .textFieldStyle(.roundedBorder)
                                                     .frame(maxWidth: .infinity)
+                                                    .onSubmit {
+                                                        // Trigger join when Enter is pressed
+                                                        if !ogsGameID.isEmpty {
+                                                            NSLog("OGS: 🎮 Join triggered by Enter key! Input: '\(ogsGameID)'")
+                                                            joinGame(from: ogsGameID)
+                                                        }
+                                                    }
 
                                                 Button("Join") {
-                                                    NSLog("OGS: 🎮 Join button clicked! Game ID text: '\(ogsGameID)'")
-                                                    if let gameID = Int(ogsGameID) {
-                                                        NSLog("OGS: 🎮 Parsed game ID: \(gameID), calling joinGame...")
-                                                        ogsClient.joinGame(gameID: gameID)
-                                                    } else {
-                                                        NSLog("OGS: ❌ Failed to parse game ID from: '\(ogsGameID)'")
-                                                    }
+                                                    NSLog("OGS: 🎮 Join button clicked! Input: '\(ogsGameID)'")
+                                                    joinGame(from: ogsGameID)
                                                 }
                                                 .foregroundColor(.white)
                                                 .padding(.horizontal, 12)

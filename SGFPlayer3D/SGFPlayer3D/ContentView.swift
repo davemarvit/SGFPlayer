@@ -30,8 +30,13 @@ struct LidLayout: Codable {
 // MARK: - Main ContentView (Session 2: ViewModels Integration Started)
 struct ContentView: View {
     @EnvironmentObject private var app: AppModel
-    @StateObject private var player = SGFPlayer()
     @StateObject private var bowls = PlayerCapturesAdapter()
+
+    // Convenience properties to access centralized components from AppModel
+    private var player: SGFPlayer { app.player }
+    private var ogsClient: OGSClient { app.ogsClient }
+    private var timeControl: TimeControlManager { app.timeControl }
+    private var ogsGame: OGSGameViewModel? { app.ogsGame }
 
     // NEW MODULAR PHYSICS ARCHITECTURE
     @StateObject private var physicsIntegration = PhysicsIntegration()
@@ -142,6 +147,16 @@ struct ContentView: View {
             physicsOverlay
             gameInfoOverlay
         }
+        .contentShape(Rectangle())
+        .onContinuousHover { phase in
+            // Show controls on any mouse movement
+            switch phase {
+            case .active(_):
+                resetButtonFadeTimer()
+            case .ended:
+                break
+            }
+        }
         .onAppear {
             if !isInitialized {
                 initializeApp()
@@ -169,10 +184,22 @@ struct ContentView: View {
                 tallyAtMove.removeAll()
                 physicsIntegration.reset()
 
-                // Now load the new game
-                player.load(game: gameWrapper.game)
-                // Load game into cache manager for jitter system
-                app.gameCacheManager.loadGame(gameWrapper.game, fingerprint: gameWrapper.fingerprint)
+                // IMPORTANT: Stop OGS polling and clear OGS state when switching to a local game
+                if app.ogsGame?.blackName != nil {
+                    NSLog("ContentView: 🛑 Switching from OGS game to local game - stopping OGS polling")
+                    app.ogsGame?.stopPolling()
+                    app.ogsGame?.blackName = nil
+                    app.ogsGame?.whiteName = nil
+                    app.ogsGame?.blackRank = nil
+                    app.ogsGame?.whiteRank = nil
+                    app.ogsGame?.komi = nil
+                    app.ogsGame?.ruleset = nil
+                    app.ogsClient.currentGameID = nil
+                    app.timeControl.reset()
+                }
+
+                // Note: Game is now loaded by app.selectGame() in AppModel
+                // This ensures game state is centralized and shared between 2D and 3D views
 
                 // Update window title
                 updateWindowTitle()
@@ -230,6 +257,93 @@ struct ContentView: View {
                     }
                 }
             }
+        }
+        .onChange(of: ogsClient.blackTimeRemaining) { oldTime, newTime in
+            NSLog("ContentView: ⏱️ Black time changed: \(oldTime ?? -1) -> \(newTime ?? -1)")
+            // Sync OGS clock updates to TimeControlManager
+            timeControl.updateFromOGS(
+                blackTime: ogsClient.blackTimeRemaining,
+                whiteTime: ogsClient.whiteTimeRemaining,
+                blackPeriods: ogsClient.blackPeriodsRemaining,
+                whitePeriods: ogsClient.whitePeriodsRemaining,
+                blackPeriod: ogsClient.blackPeriodTime,
+                whitePeriod: ogsClient.whitePeriodTime
+            )
+
+            // Start clock if we're in an OGS game
+            if ogsGame?.blackName != nil && !timeControl.isClockRunning {
+                timeControl.startClock()
+            }
+        }
+        .onChange(of: ogsClient.whiteTimeRemaining) { oldTime, newTime in
+            NSLog("ContentView: ⏱️ White time changed: \(oldTime ?? -1) -> \(newTime ?? -1)")
+            // Sync OGS clock updates to TimeControlManager
+            timeControl.updateFromOGS(
+                blackTime: ogsClient.blackTimeRemaining,
+                whiteTime: ogsClient.whiteTimeRemaining,
+                blackPeriods: ogsClient.blackPeriodsRemaining,
+                whitePeriods: ogsClient.whitePeriodsRemaining,
+                blackPeriod: ogsClient.blackPeriodTime,
+                whitePeriod: ogsClient.whitePeriodTime
+            )
+
+            // Start clock if we're in an OGS game
+            if ogsGame?.blackName != nil && !timeControl.isClockRunning {
+                timeControl.startClock()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameDataReceived"))) { notification in
+            // Only process if we have an active OGS game ID (allows initial game load)
+            guard ogsClient.currentGameID != nil else {
+                NSLog("ContentView: 🛑 Ignoring OGSGameDataReceived - no active game ID")
+                return
+            }
+            ogsGame?.handleGameData(notification)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSMoveReceived"))) { notification in
+            // Only process if we have an active OGS game ID
+            guard ogsClient.currentGameID != nil else {
+                NSLog("ContentView: 🛑 Ignoring OGSMoveReceived - no active game ID")
+                return
+            }
+            ogsGame?.handleMove(notification)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSRateLimited"))) { _ in
+            // Only process if we have an active OGS game ID
+            guard ogsClient.currentGameID != nil else {
+                NSLog("ContentView: 🛑 Ignoring OGSRateLimited - no active game ID")
+                return
+            }
+            ogsGame?.handleThrottling()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSPlayerInfo"))) { notification in
+            // Only process if we have an active OGS game ID (allows initial player info load)
+            guard ogsClient.currentGameID != nil else {
+                NSLog("ContentView: 🛑 Ignoring OGSPlayerInfo - no active game ID")
+                return
+            }
+            ogsGame?.handlePlayerInfo(notification)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameLoaded"))) { notification in
+            // Only process if we have an active OGS game ID
+            guard ogsClient.currentGameID != nil else {
+                NSLog("ContentView: 🛑 Ignoring OGSGameLoaded - no active game ID")
+                return
+            }
+
+            // Handle game loading from OGSGameViewModel
+            guard let userInfo = notification.userInfo,
+                  let game = userInfo["game"] as? SGFGame,
+                  let moveCount = userInfo["moveCount"] as? Int else {
+                NSLog("ContentView: ❌ Invalid OGSGameLoaded notification")
+                return
+            }
+
+            NSLog("ContentView: 🎮 Received OGSGameLoaded notification with \(game.moves.count) moves")
+            player.load(game: game)
+            player.seek(to: moveCount)
+            // Force physics and capture updates for the new move
+            updatePhysicsForMove(moveCount)
         }
         .focusable()
         .onKeyPress { keyPress in
@@ -296,35 +410,17 @@ struct ContentView: View {
                         .imageScale(.large)
                         .foregroundColor(.white)
                 }
-                .buttonStyle(GlassTopButton())
+                .buttonStyle(.plain)
                 .padding(.leading, 20)
                 .padding(.top, 20)
                 .opacity(uiStateVM.buttonsVisible ? 1.0 : 0.0)
                 .animation(.easeInOut(duration: uiStateVM.buttonsVisible ? 0.2 : 0.5), value: uiStateVM.buttonsVisible)
 
                 Spacer()
-
-                // Fullscreen button (upper right)
-                Button {
-                    uiStateVM.toggleFullscreen()
-                } label: {
-                    Image(systemName: uiStateVM.isWindowFullscreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                        .imageScale(.medium)
-                        .foregroundColor(.white)
-                }
-                .buttonStyle(GlassTopButton())
-                .padding(.trailing, 20)
-                .opacity(uiStateVM.buttonsVisible ? 1.0 : 0.0)
-                .animation(.easeInOut(duration: uiStateVM.buttonsVisible ? 0.2 : 0.5), value: uiStateVM.buttonsVisible)
             }
             Spacer()
         }
-        .onHover { isHovering in
-            resetButtonFadeTimer()
-        }
-        .onTapGesture {
-            resetButtonFadeTimer()
-        }
+        .allowsHitTesting(false)  // Let mouse events pass through to main ZStack
     }
 
     private var settingsPanelOverlay: some View {
@@ -456,19 +552,52 @@ struct ContentView: View {
     }
 
     private var gameInfoOverlay: some View {
-        GeometryReader { geometry in
-            let layout = calculateResponsiveLayout(in: geometry)
-            let (currentBlackCaptured, currentWhiteCaptured) = calculateCapturesAtMove(player.currentIndex)
-            GameInfoBar(
-                gameCacheManager: app.gameCacheManager,
-                blackCapturedCount: currentBlackCaptured,
-                whiteCapturedCount: currentWhiteCaptured,
+        VStack {
+            HStack {
+                Spacer()
+
+                // Game info with fullscreen button overlay
+                ZStack(alignment: .topTrailing) {
+                    GameInfoOverlay(
+                        ogsGame: app.ogsGame,
+                        timeControl: app.timeControl,
+                        player: player,
+                        gameSelection: app.selection,
+                        backgroundOpacity: 0.6  // 2D mode: matches settings panel opacity
+                    )
+
+                    // Fullscreen button overlaid on top-right of metadata
+                    Button {
+                        uiStateVM.toggleFullscreen()
+                    } label: {
+                        Image(systemName: uiStateVM.isWindowFullscreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                            .foregroundColor(.white)
+                            .font(.system(size: 14))
+                            .padding(6)
+                            .background(Color.black.opacity(0.3))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .opacity(uiStateVM.buttonsVisible ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: uiStateVM.buttonsVisible ? 0.2 : 0.5), value: uiStateVM.buttonsVisible)
+                }
+                .padding(.trailing, 20)
+                .padding(.top, 20)
+            }
+
+            Spacer()
+
+            // Playback controls at bottom center (using same component as 3D view)
+            PlaybackControls(
                 player: player,
-                autoNext: $autoNext
-            )
-            .position(
-                x: geometry.size.width / 2,
-                y: layout.boardFrame.maxY + (geometry.size.height - layout.boardFrame.maxY) / 2 + (geometry.size.height - layout.boardFrame.maxY) * 0.15
+                isPlaying: $autoNext,
+                onSeek: {
+                    // Update physics when seeking in 2D view
+                    updatePhysicsForMove(player.currentIndex)
+                },
+                onTogglePlayPause: {
+                    autoNext.toggle()
+                }
             )
         }
         .allowsHitTesting(true)
@@ -694,9 +823,9 @@ struct ContentView: View {
             uiStateVM.showButtons()
         }
 
-        // Set timer to hide after 3 seconds
-        fadeTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { _ in
-            withAnimation(.easeOut(duration: 0.8)) {
+        // Set timer to hide after 1.5 seconds (matches 3D view)
+        fadeTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { _ in
+            withAnimation(.easeOut(duration: 0.2)) {
                 uiStateVM.hideButtons()
             }
         }

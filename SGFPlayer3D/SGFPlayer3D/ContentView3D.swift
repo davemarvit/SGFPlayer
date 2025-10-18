@@ -21,15 +21,15 @@ extension String {
 
 struct ContentView3D: View {
     @EnvironmentObject private var app: AppModel
-    @StateObject private var player = SGFPlayer()
     @StateObject private var sceneManager = SceneManager3D()
     @StateObject private var settingsVM = SettingsViewModel()
     @StateObject private var soundManager = SoundManager.shared
-    @StateObject private var ogsClient = OGSClient()
-    @StateObject private var timeControl = TimeControlManager()
 
-    // OGS game view model - will be initialized in onAppear
-    @State private var ogsGame: OGSGameViewModel?
+    // Convenience properties to access centralized components from AppModel
+    private var player: SGFPlayer { app.player }
+    private var ogsClient: OGSClient { app.ogsClient }
+    private var timeControl: TimeControlManager { app.timeControl }
+    private var ogsGame: OGSGameViewModel? { app.ogsGame }
 
     // Camera control tracking - load from UserDefaults
     @State private var lastDragPosition: CGPoint = .zero
@@ -48,6 +48,8 @@ struct ContentView3D: View {
     // UI State
     @State private var isFullscreen: Bool = false
     @State private var showSettings: Bool = false
+    @State private var showControls: Bool = true
+    @State private var hideControlsTimer: Timer? = nil
 
     var body: some View {
         let _ = {
@@ -58,6 +60,15 @@ struct ContentView3D: View {
         return ZStack {
             sceneView
                 .contentShape(Rectangle())
+                .onContinuousHover { phase in
+                    // Show controls on any mouse movement
+                    switch phase {
+                    case .active(_):
+                        showControlsWithTimer()
+                    case .ended:
+                        break
+                    }
+                }
 
             if showSettings {
                 // Background overlay that closes settings when tapped
@@ -111,13 +122,13 @@ struct ContentView3D: View {
                     timeControl.reset()
                 }
 
-                player.load(game: gameWrapper.game)
+                // Note: player.load() is now handled by app.selectGame() in AppModel
+                // This ensures game state is centralized and shared between 2D and 3D views
 
                 // Log board state after loading
                 let setupStoneCount = player.board.grid.flatMap { $0 }.compactMap { $0 }.count
                 NSLog("DEBUG3D: 📂 After load, board has \(setupStoneCount) stones at index \(player.currentIndex)")
 
-                app.selectGame(gameWrapper)  // Load into cache manager
                 updateStonesWithJitter()
             }
         }
@@ -246,9 +257,8 @@ struct ContentView3D: View {
             updateStonesWithJitter()
         }
         .onAppear {
-            // Initialize OGSGameViewModel with shared dependencies
-            ogsGame = OGSGameViewModel(ogsClient: ogsClient, player: player, timeControl: timeControl)
-            NSLog("DEBUG3D: 🎮 Initialized OGSGameViewModel")
+            // OGSGameViewModel is now initialized in AppModel.init()
+            // This ensures it's shared between 2D and 3D views
 
             // Restore camera position on appear
             sceneManager.updateCameraPosition(
@@ -261,15 +271,17 @@ struct ContentView3D: View {
 
             sceneManager.setupInitialScene(player: player)
 
-            // Load the initial game if one is selected
-            // Note: We don't call app.selectGame() here because it's called in .onChange(of: app.selection)
+            // Update stones for initial game if one is selected
+            // Note: Game is already loaded in AppModel.player during AppModel.init()
             if let gameWrapper = app.selection {
-                NSLog("DEBUG3D: 🎮 Loading initial game on appear: \(gameWrapper.url.lastPathComponent)")
-                player.load(game: gameWrapper.game)
+                NSLog("DEBUG3D: 🎮 Initial game already loaded: \(gameWrapper.url.lastPathComponent)")
                 updateStonesWithJitter()
             } else {
                 NSLog("DEBUG3D: ⚠️ No game selected on appear")
             }
+
+            // Start the auto-hide timer for controls
+            showControlsWithTimer()
         }
     }
 
@@ -300,7 +312,7 @@ struct ContentView3D: View {
             player: player,
             settingsVM: settingsVM,
             soundManager: soundManager,
-            ogsClient: ogsClient,
+            ogsClient: app.ogsClient,
             isPlaying: $isPlaying,
             playbackSpeed: $playbackSpeed,
             onGameSelected: { game in
@@ -316,9 +328,9 @@ struct ContentView3D: View {
     }
 
     var overlayUI: some View {
-        VStack {
+        VStack(spacing: 0) {
                 // Top bar
-                HStack {
+                HStack(alignment: .top) {
                     // Settings button (left side)
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.3)) {
@@ -326,38 +338,44 @@ struct ContentView3D: View {
                         }
                     }) {
                         Image(systemName: "gearshape.fill")
-                            .foregroundColor(.gray)
-                            .font(.system(size: 20))
+                            .foregroundColor(.white)
+                            .imageScale(.large)
                     }
                     .buttonStyle(.plain)
-                    .padding()
-
-                    Text("SGFPlayer 3D")
-                        .font(.title)
-                        .foregroundColor(.white)
-                        .padding(.leading, -8)
+                    .padding(.leading, 20)
+                    .padding(.top, 20)
+                    .opacity(showControls ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: 0.2), value: showControls)
 
                     Spacer()
 
-                    // Game info - extracted to GameInfoOverlay
-                    GameInfoOverlay(
-                        ogsGame: ogsGame,
-                        timeControl: timeControl,
-                        player: player,
-                        gameSelection: app.selection
-                    )
-                    .padding()
+                    // Game info with fullscreen button overlay
+                    ZStack(alignment: .topTrailing) {
+                        GameInfoOverlay(
+                            ogsGame: app.ogsGame,
+                            timeControl: app.timeControl,
+                            player: player,
+                            gameSelection: app.selection,
+                            backgroundOpacity: 0.3  // 3D mode: 70% transparent
+                        )
 
-                    // Fullscreen button (right side)
-                    Button(action: {
-                        toggleFullscreen()
-                    }) {
-                        Image(systemName: isFullscreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                            .foregroundColor(.gray)
-                            .font(.system(size: 20))
+                        // Fullscreen button overlaid on top-right of metadata
+                        Button(action: {
+                            toggleFullscreen()
+                        }) {
+                            Image(systemName: isFullscreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                                .foregroundColor(.gray)
+                                .font(.system(size: 16))
+                                .padding(6)
+                                .background(Color.black.opacity(0.3))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .opacity(showControls ? 1.0 : 0.0)
+                        .animation(.easeInOut(duration: 0.2), value: showControls)
                     }
-                    .buttonStyle(.plain)
-                    .padding()
+                    .padding(.trailing, 20)
+                    .padding(.top, 20)
                 }
 
                 Spacer()
@@ -397,6 +415,23 @@ struct ContentView3D: View {
         window.toggleFullScreen(nil)
     }
 
+    private func showControlsWithTimer() {
+        // Show controls immediately
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showControls = true
+        }
+
+        // Cancel existing timer
+        hideControlsTimer?.invalidate()
+
+        // Set new timer to hide after 1.5 seconds
+        hideControlsTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showControls = false
+            }
+        }
+    }
+
     private func advanceToNextGame() {
         guard !app.activePlaylist.isEmpty else { return }
 
@@ -405,8 +440,7 @@ struct ContentView3D: View {
             // Move to next game, or loop to beginning
             let nextIndex = (currentIndex + 1) % app.activePlaylist.count
             app.selection = app.activePlaylist[nextIndex]
-            player.load(game: app.activePlaylist[nextIndex].game)
-            app.selectGame(app.activePlaylist[nextIndex])  // Load into cache manager
+            // Note: Game loading is now handled by app.selectGame() via .onChange(of: app.selection)
             player.seek(to: 0)
             updateStonesWithJitter()
 
@@ -417,8 +451,7 @@ struct ContentView3D: View {
         } else if let first = app.activePlaylist.first {
             // No selection, start with first game
             app.selection = first
-            player.load(game: first.game)
-            app.selectGame(first)  // Load into cache manager
+            // Note: Game loading is now handled by app.selectGame() via .onChange(of: app.selection)
             player.seek(to: 0)
             updateStonesWithJitter()
 

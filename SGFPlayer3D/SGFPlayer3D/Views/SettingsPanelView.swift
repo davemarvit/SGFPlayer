@@ -45,6 +45,47 @@ struct SettingsPanelView: View {
     // Search results callback
     var onSearchResultsChanged: (([SGFGameWrapper]) -> Void)? = nil
 
+    // OGS Mode and authentication state
+    @AppStorage("ogsMode") private var ogsMode: Bool = false
+    @State private var ogsGameID: String = ""
+    @State private var ogsUsername: String = ""
+    @State private var ogsPassword: String = ""
+    @State private var isAuthenticating: Bool = false
+    @State private var authError: String? = nil
+    @State private var hasLoadedCredentials: Bool = false
+
+    // MARK: - Helper Functions
+
+    /// Extract game ID from either a direct ID number or an OGS URL
+    /// Supports URLs like: https://online-go.com/game/12345 or https://online-go.com/game/12345/review
+    private func joinGame(from input: String) {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Try parsing as direct game ID first
+        if let gameID = Int(trimmed) {
+            NSLog("OGS: 🎮 Parsed direct game ID: \(gameID)")
+            app.ogsClient.joinGame(gameID: gameID)
+            return
+        }
+
+        // Try extracting from URL
+        if let url = URL(string: trimmed),
+           let host = url.host,
+           host.contains("online-go.com") {
+            // Extract game ID from path like "/game/12345" or "/game/12345/review"
+            let pathComponents = url.pathComponents
+            if let gameIndex = pathComponents.firstIndex(of: "game"),
+               gameIndex + 1 < pathComponents.count,
+               let gameID = Int(pathComponents[gameIndex + 1]) {
+                NSLog("OGS: 🎮 Extracted game ID \(gameID) from URL: \(trimmed)")
+                app.ogsClient.joinGame(gameID: gameID)
+                return
+            }
+        }
+
+        NSLog("OGS: ❌ Failed to parse game ID from input: '\(trimmed)'")
+    }
+
     var body: some View {
         ZStack {
             // Background for entire panel
@@ -60,14 +101,17 @@ struct SettingsPanelView: View {
                         }
                     } label: {
                         Image(systemName: "gearshape.fill")
-                            .font(.title2)
+                            .imageScale(.large)
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
+                    .padding(.leading, 20)
+                    .padding(.top, 20)
 
                     Text("Settings")
                         .font(.title2.bold())
                         .foregroundColor(.white)
+                        .padding(.top, 20)
 
                     Spacer()
 
@@ -81,10 +125,9 @@ struct SettingsPanelView: View {
                             .foregroundColor(.white.opacity(0.8))
                     }
                     .buttonStyle(.plain)
+                    .padding(.top, 20)
                 }
-                .padding(.leading, 32)
                 .padding(.trailing, 50)
-                .padding(.top, 32)
                 .padding(.bottom, 16)
 
                 // Scrollable content
@@ -92,8 +135,221 @@ struct SettingsPanelView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     FolderSelectionSection(app: app)
                         .padding(.horizontal, 16)
-                    GameSelectionSection(app: app, onSearchResultsChanged: onSearchResultsChanged)
+
+                    Divider()
                         .padding(.horizontal, 16)
+
+                    // View Mode selection
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("View Mode")
+                            .font(.headline)
+
+                        Picker("", selection: $app.viewMode) {
+                            ForEach(ViewMode.allCases) { mode in
+                                Text(mode.displayName).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+
+                        Text("Switch between 2D and 3D board views. Game progress is preserved when switching.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 16)
+
+                    Divider()
+                        .padding(.horizontal, 16)
+
+                    // OGS Mode toggle and controls
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Mode")
+                            .font(.headline)
+
+                        Toggle("OGS Mode (Live Games)", isOn: $ogsMode)
+                            .toggleStyle(SwitchToggleStyle(tint: .blue))
+
+                        Text(ogsMode ? "Connected to Online Go Server for live games" : "Playing local SGF files")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        // OGS Connection controls (shown when OGS mode is on)
+                        if ogsMode {
+                            VStack(alignment: .leading, spacing: 12) {
+                                // Connection status
+                                HStack {
+                                    Circle()
+                                        .fill(app.ogsClient.isConnected ? Color.green : Color.red)
+                                        .frame(width: 8, height: 8)
+                                    Text(app.ogsClient.isConnected ? "Connected" : "Disconnected")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                // Authentication - always show when in OGS mode
+                                if app.ogsClient.isAuthenticated {
+                                    // Show authenticated status
+                                    HStack {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.green)
+                                        Text("Logged in as \(app.ogsClient.username ?? "unknown")")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        Spacer()
+                                        Button("Logout") {
+                                            app.ogsClient.deleteCredentials()
+                                        }
+                                        .font(.caption)
+                                        .foregroundColor(.blue)
+                                    }
+                                } else {
+                                    // Show login form
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Login to OGS")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+
+                                        TextField("Username", text: $ogsUsername)
+                                            .textFieldStyle(.roundedBorder)
+                                            .frame(maxWidth: .infinity)
+                                            .disabled(isAuthenticating)
+                                            .onAppear {
+                                                if !hasLoadedCredentials, let username = app.ogsClient.username {
+                                                    ogsUsername = username
+                                                    hasLoadedCredentials = true
+                                                    NSLog("OGS: 📋 Prepopulated username: \(username)")
+                                                }
+                                            }
+
+                                        SecureField("Password", text: $ogsPassword)
+                                            .textFieldStyle(.roundedBorder)
+                                            .frame(maxWidth: .infinity)
+                                            .disabled(isAuthenticating)
+                                            .onSubmit {
+                                                // Trigger login when Return is pressed
+                                                if !ogsUsername.isEmpty && !ogsPassword.isEmpty && !isAuthenticating {
+                                                    NSLog("OGS: 🔑 Login triggered by Return key")
+                                                    isAuthenticating = true
+                                                    authError = nil
+                                                    app.ogsClient.authenticate(username: ogsUsername, password: ogsPassword) { success, error in
+                                                        DispatchQueue.main.async {
+                                                            isAuthenticating = false
+                                                            if !success {
+                                                                authError = error ?? "Login failed"
+                                                                NSLog("OGS: ❌ Login failed: \(error ?? "unknown")")
+                                                            } else {
+                                                                NSLog("OGS: ✅ Login successful!")
+                                                                ogsPassword = ""
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                        Button(isAuthenticating ? "Logging in..." : "Login") {
+                                            NSLog("OGS: 🔑 Login button clicked! Username: '\(ogsUsername)', Password length: \(ogsPassword.count)")
+                                            NSLog("OGS: 🔑 isConnected: \(app.ogsClient.isConnected), isAuthenticated: \(app.ogsClient.isAuthenticated)")
+                                            isAuthenticating = true
+                                            authError = nil
+                                            app.ogsClient.authenticate(username: ogsUsername, password: ogsPassword) { success, error in
+                                                DispatchQueue.main.async {
+                                                    isAuthenticating = false
+                                                    if !success {
+                                                        authError = error ?? "Login failed"
+                                                        NSLog("OGS: ❌ Login failed: \(error ?? "unknown")")
+                                                    } else {
+                                                        NSLog("OGS: ✅ Login successful!")
+                                                        // Clear password for security
+                                                        ogsPassword = ""
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 6)
+                                        .background(Color.blue)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(6)
+                                        .buttonStyle(.plain)
+                                        .disabled(isAuthenticating || ogsUsername.isEmpty || ogsPassword.isEmpty)
+
+                                        // Show auth error if any
+                                        if let error = authError {
+                                            Text("⚠️ \(error)")
+                                                .font(.caption)
+                                                .foregroundColor(.red)
+                                        }
+                                    }
+                                }
+
+                                // Connect/Disconnect button after authentication section
+                                Button(app.ogsClient.isConnected ? "Disconnect" : "Connect to OGS") {
+                                    if app.ogsClient.isConnected {
+                                        app.ogsClient.disconnect()
+                                    } else {
+                                        app.ogsClient.connect()
+                                    }
+                                }
+                                .font(.caption)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 4)
+                                .background(app.ogsClient.isConnected ? Color.gray.opacity(0.3) : Color.blue.opacity(0.3))
+                                .foregroundColor(.white.opacity(0.9))
+                                .cornerRadius(4)
+                                .buttonStyle(.plain)
+
+                                // Game ID input (shown when connected)
+                                if app.ogsClient.isConnected {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Watch Game")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+
+                                        HStack {
+                                            TextField("Game ID or URL", text: $ogsGameID)
+                                                .textFieldStyle(.roundedBorder)
+                                                .frame(maxWidth: .infinity)
+                                                .onSubmit {
+                                                    // Trigger join when Return is pressed
+                                                    if !ogsGameID.isEmpty {
+                                                        NSLog("OGS: 🎮 Join triggered by Return key! Input: '\(ogsGameID)'")
+                                                        joinGame(from: ogsGameID)
+                                                    }
+                                                }
+
+                                            Button("Join") {
+                                                NSLog("OGS: 🎮 Join button clicked! Input: '\(ogsGameID)'")
+                                                joinGame(from: ogsGameID)
+                                            }
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 6)
+                                            .background(Color.blue)
+                                            .foregroundColor(.white)
+                                            .cornerRadius(6)
+                                            .buttonStyle(.plain)
+                                            .disabled(ogsGameID.isEmpty)
+                                        }
+                                    }
+                                }
+
+                                // Error display
+                                if let error = app.ogsClient.lastError {
+                                    Text("Error: \(error)")
+                                        .font(.caption)
+                                        .foregroundColor(.red)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+
+                    Divider()
+                        .padding(.horizontal, 16)
+
+                    // Game selection list (only shown when NOT in OGS mode)
+                    if !ogsMode {
+                        GameSelectionSection(app: app, onSearchResultsChanged: onSearchResultsChanged)
+                            .padding(.horizontal, 16)
+                    }
 
                     Divider()
                         .padding(.horizontal, 16)
