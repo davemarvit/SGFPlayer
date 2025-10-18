@@ -402,8 +402,37 @@ class OGSClient: NSObject, ObservableObject {
 
                         // REST API returns gamedata in a nested structure
                         // Extract the gamedata object which contains moves, game_id, etc.
-                        if let gamedata = restResponse["gamedata"] as? [String: Any] {
+                        if var gamedata = restResponse["gamedata"] as? [String: Any] {
                             NSLog("OGS: 📦 Extracted gamedata subdictionary")
+
+                            // IMPORTANT: Extract ui_class from top-level players (not gamedata.players)
+                            // gamedata.players doesn't include ui_class, but top-level players does
+                            if let topLevelPlayers = restResponse["players"] as? [String: Any],
+                               var gamedataPlayers = gamedata["players"] as? [String: Any] {
+
+                                // Inject ui_class into gamedata.players.black
+                                if let topBlack = topLevelPlayers["black"] as? [String: Any],
+                                   var gamedataBlack = gamedataPlayers["black"] as? [String: Any] {
+                                    if let uiClass = topBlack["ui_class"] as? String {
+                                        gamedataBlack["ui_class"] = uiClass
+                                        gamedataPlayers["black"] = gamedataBlack
+                                        NSLog("OGS: 📦 Injected black ui_class: \(uiClass)")
+                                    }
+                                }
+
+                                // Inject ui_class into gamedata.players.white
+                                if let topWhite = topLevelPlayers["white"] as? [String: Any],
+                                   var gamedataWhite = gamedataPlayers["white"] as? [String: Any] {
+                                    if let uiClass = topWhite["ui_class"] as? String {
+                                        gamedataWhite["ui_class"] = uiClass
+                                        gamedataPlayers["white"] = gamedataWhite
+                                        NSLog("OGS: 📦 Injected white ui_class: \(uiClass)")
+                                    }
+                                }
+
+                                // Update gamedata with enriched players info
+                                gamedata["players"] = gamedataPlayers
+                            }
 
                             // Process the gamedata (which has the same structure as WebSocket game data)
                             DispatchQueue.main.async {
@@ -765,6 +794,52 @@ class OGSClient: NSObject, ObservableObject {
         let moveNumber = moveData["move_number"] as? Int ?? -1
         let isPass = (x < 0 || y < 0)  // Pass is represented by negative coordinates
 
+        // CRITICAL: Extract time remaining from move data and sync clock
+        // The move array contains [x, y, time] where time is the player's remaining time IN MILLISECONDS
+        if moveArray.count >= 3 {
+            if let timeRemainingMs = moveArray[2] as? Double {
+                // Convert milliseconds to seconds
+                let timeRemaining = timeRemainingMs / 1000.0
+                NSLog("OGS: ⏱️ Move includes time: \(timeRemainingMs)ms = \(timeRemaining)s")
+
+                // The time is for the player who JUST moved (whose clock was running)
+                // currentPlayerColor is who moves NEXT, so the move was made by the OPPOSITE color
+                let playerWhoMoved: Stone = (self.currentPlayerColor == .black) ? .white : .black
+
+                // Update that player's time immediately
+                DispatchQueue.main.async {
+                    if playerWhoMoved == .black {
+                        self.blackTimeRemaining = timeRemaining
+                        NSLog("OGS: ⏱️ Synced Black time from move: \(timeRemaining)s")
+                    } else {
+                        self.whiteTimeRemaining = timeRemaining
+                        NSLog("OGS: ⏱️ Synced White time from move: \(timeRemaining)s")
+                    }
+                }
+            } else if let timeRemainingMs = moveArray[2] as? Int {
+                // Sometimes time comes as Int instead of Double
+                // Convert milliseconds to seconds
+                let timeRemaining = Double(timeRemainingMs) / 1000.0
+                NSLog("OGS: ⏱️ Move includes time (as Int): \(timeRemainingMs)ms = \(timeRemaining)s")
+
+                let playerWhoMoved: Stone = (self.currentPlayerColor == .black) ? .white : .black
+
+                DispatchQueue.main.async {
+                    if playerWhoMoved == .black {
+                        self.blackTimeRemaining = timeRemaining
+                        NSLog("OGS: ⏱️ Synced Black time from move: \(timeRemaining)s")
+                    } else {
+                        self.whiteTimeRemaining = timeRemaining
+                        NSLog("OGS: ⏱️ Synced White time from move: \(timeRemaining)s")
+                    }
+                }
+            } else {
+                NSLog("OGS: ⚠️ Move array[2] is not a number: \(type(of: moveArray[2]))")
+            }
+        } else {
+            NSLog("OGS: ⚠️ Move array too short for time: count=\(moveArray.count)")
+        }
+
         if isPass {
             NSLog("OGS: 🎯 Move #\(moveNumber) - PASS")
         } else {
@@ -946,10 +1021,13 @@ class OGSClient: NSObject, ObservableObject {
                 NSLog("OGS: 🔍 Black player dict: \(blackPlayer)")
 
                 // Extract ranks (OGS uses "rank" field as a Double)
+                // Check for provisional/unrated players (ui_class: "provisional")
                 let blackRankDouble = blackPlayer["rank"] as? Double
                 let whiteRankDouble = whitePlayer["rank"] as? Double
-                let blackRank = formatOGSRank(blackRankDouble.map { Int($0) })
-                let whiteRank = formatOGSRank(whiteRankDouble.map { Int($0) })
+                let blackUIClass = blackPlayer["ui_class"] as? String
+                let whiteUIClass = whitePlayer["ui_class"] as? String
+                let blackRank = formatOGSRank(blackRankDouble.map { Int($0) }, uiClass: blackUIClass)
+                let whiteRank = formatOGSRank(whiteRankDouble.map { Int($0) }, uiClass: whiteUIClass)
 
                 NSLog("OGS: 👥 Black: \(blackName) [\(blackRank)], White: \(whiteName) [\(whiteRank)]")
 
@@ -1184,7 +1262,13 @@ extension OGSClient: URLSessionWebSocketDelegate {
     }
 
     // Format OGS rank number to string (e.g., -5 = 5k, 5 = 5d)
-    private func formatOGSRank(_ rankValue: Int?) -> String {
+    // Handles provisional/unrated players (ui_class: "provisional")
+    private func formatOGSRank(_ rankValue: Int?, uiClass: String? = nil) -> String {
+        // Check if player is provisional/unrated
+        if uiClass == "provisional" {
+            return "?"
+        }
+
         guard let rank = rankValue else { return "" }
 
         // OGS ranking system: 0-29 = 30k-1k, 30+ = 1d+

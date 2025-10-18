@@ -3,6 +3,22 @@ import AppKit
 import AVFoundation
 import Combine
 import Foundation
+import SwiftUI
+
+// MARK: - ViewMode Enum
+enum ViewMode: String, CaseIterable, Identifiable {
+    case view2D = "2D"
+    case view3D = "3D"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .view2D: return "2D Board"
+        case .view3D: return "3D Board"
+        }
+    }
+}
 
 final class AppModel: ObservableObject {
     // Audio player for stone click sound
@@ -21,6 +37,17 @@ final class AppModel: ObservableObject {
     // Game cache manager for pre-calculated states
     @Published var gameCacheManager = GameCacheManager()
 
+    // CENTRALIZED GAME STATE - Shared between 2D and 3D views
+    @Published var player = SGFPlayer()
+
+    // View mode selection - persisted across app launches
+    @AppStorage("viewMode") var viewMode: ViewMode = .view3D
+
+    // CENTRALIZED OGS COMPONENTS - Shared between 2D and 3D views
+    @Published var ogsClient = OGSClient()
+    @Published var timeControl = TimeControlManager()
+    @Published var ogsGame: OGSGameViewModel?
+
     private let folderKey = "sgfplayer.folderURL"
     private let lastGameKey = "sgfplayer.lastGame"
     private var cancellables: Set<AnyCancellable> = []
@@ -29,6 +56,10 @@ final class AppModel: ObservableObject {
         restoreFolderURL()
         if let url = folderURL { loadFolder(url) }
         setupAudio()
+
+        // Initialize OGS game view model with shared dependencies
+        ogsGame = OGSGameViewModel(ogsClient: ogsClient, player: player, timeControl: timeControl)
+        NSLog("AppModel: 🎮 Initialized OGSGameViewModel")
     }
 
     private func setupAudio() {
@@ -76,6 +107,9 @@ final class AppModel: ObservableObject {
     func selectGame(_ gameWrapper: SGFGameWrapper) {
         selection = gameWrapper
         gameCacheManager.loadGame(gameWrapper.game, fingerprint: gameWrapper.fingerprint)
+
+        // Load game into centralized player (shared between 2D and 3D views)
+        player.load(game: gameWrapper.game)
 
         // Pre-calculate nearby games in background (limited to prevent crashes)
         if let currentIndex = games.firstIndex(where: { $0.id == gameWrapper.id }) {

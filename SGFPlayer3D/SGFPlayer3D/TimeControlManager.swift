@@ -11,8 +11,8 @@ class TimeControlManager: ObservableObject {
     @Published var whitePeriodsRemaining: Int?
 
     // Time control settings (from OGS)
-    private var blackPeriodTime: TimeInterval?
-    private var whitePeriodTime: TimeInterval?
+    @Published var blackPeriodTime: TimeInterval?
+    @Published var whitePeriodTime: TimeInterval?
 
     // Current player whose clock is running
     @Published var currentPlayerColor: Stone = .black

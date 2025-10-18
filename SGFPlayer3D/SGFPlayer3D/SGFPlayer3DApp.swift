@@ -21,8 +21,15 @@ struct SGFPlayer3DApp: App {
         try? msg.appendToFile(at: "/tmp/sgfplayer3d_debug.log")
         print(msg)
         return WindowGroup {
-            ContentView3D()
-                .environmentObject(app)
+            Group {
+                if app.viewMode == .view2D {
+                    ContentView()
+                        .environmentObject(app)
+                } else {
+                    ContentView3D()
+                        .environmentObject(app)
+                }
+            }
         }
     }
 }
