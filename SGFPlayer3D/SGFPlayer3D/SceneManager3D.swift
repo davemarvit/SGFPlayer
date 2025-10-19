@@ -17,16 +17,34 @@ class SceneManager3D: ObservableObject {
     private var currentPlayer: SGFPlayer?
 
     // Board configuration
-    private let boardSize: Int = 19
+    private var boardSize: Int = 19  // Default to 19, will update based on loaded game
     // Traditional Japanese board: cells are taller than they are wide
     // Ratio is approximately 1:1.0773 (width:height)
-    private let cellWidth: CGFloat = 1.0
-    private let cellHeight: CGFloat = 1.0773
+    // Base cell sizes for 19x19 board
+    private let baseCellWidth: CGFloat = 1.0
+    private let baseCellHeight: CGFloat = 1.0773
     private let boardThickness: CGFloat = 2.0
+
+    // Computed effective cell sizes - scale smaller boards to fill same space as 19x19
+    private var effectiveCellWidth: CGFloat {
+        let scaleFactor = CGFloat(18) / CGFloat(boardSize - 1)  // 18 = 19-1 cells on standard board
+        return baseCellWidth * scaleFactor
+    }
+    private var effectiveCellHeight: CGFloat {
+        let scaleFactor = CGFloat(18) / CGFloat(boardSize - 1)
+        return baseCellHeight * scaleFactor
+    }
+
     // Traditional Japanese stone sizes: black 22.2mm, white 21.9mm
-    // Scale to our units where cellWidth = 1.0
-    private let blackStoneRadius: CGFloat = 0.456  // 22.2mm / 22mm * 0.45
-    private let whiteStoneRadius: CGFloat = 0.450  // 21.9mm / 22mm * 0.45
+    // Scale to our units and scale with board size to maintain proportion
+    private var effectiveBlackStoneRadius: CGFloat {
+        let scaleFactor = CGFloat(18) / CGFloat(boardSize - 1)
+        return 0.456 * scaleFactor  // 22.2mm / 22mm * 0.45
+    }
+    private var effectiveWhiteStoneRadius: CGFloat {
+        let scaleFactor = CGFloat(18) / CGFloat(boardSize - 1)
+        return 0.450 * scaleFactor  // 21.9mm / 22mm * 0.45
+    }
 
     init() {
         setupCamera()
@@ -129,14 +147,21 @@ class SceneManager3D: ObservableObject {
     }
 
     func updateStones(from player: SGFPlayer, jitterMultiplier: CGFloat = 1.0, jitterOffsets: [BoardPosition: CGPoint] = [:]) {
+        // Check if board size has changed
+        let board = player.board
+        if boardSize != board.size {
+            NSLog("DEBUG3D: Board size changed from \(boardSize) to \(board.size) - recreating board")
+            boardSize = board.size
+            createBoard()  // Recreate the board with new size
+        }
+
         // Remove all existing stones
         stoneNodes.forEach { $0.removeFromParentNode() }
         stoneNodes.removeAll()
 
         // Create stones based on current board state
-        let board = player.board
-        let totalWidth = CGFloat(boardSize - 1) * cellWidth
-        let totalHeight = CGFloat(boardSize - 1) * cellHeight
+        let totalWidth = CGFloat(boardSize - 1) * effectiveCellWidth
+        let totalHeight = CGFloat(boardSize - 1) * effectiveCellHeight
         let offsetX = -totalWidth / 2.0
         let offsetZ = -totalHeight / 2.0
         let boardTopY = boardThickness / 2.0
@@ -150,10 +175,10 @@ class SceneManager3D: ObservableObject {
         for row in 0..<board.size {
             for col in 0..<board.size {
                 if let stone = board.grid[row][col] {
-                    let stoneRadius = stone == .black ? blackStoneRadius : whiteStoneRadius
+                    let stoneRadius = stone == .black ? effectiveBlackStoneRadius : effectiveWhiteStoneRadius
 
-                    var x = CGFloat(col) * cellWidth + offsetX
-                    var z = CGFloat(row) * cellHeight + offsetZ
+                    var x = CGFloat(col) * effectiveCellWidth + offsetX
+                    var z = CGFloat(row) * effectiveCellHeight + offsetZ
 
                     // Apply jitter if available
                     let position = BoardPosition(x: col, y: row)
@@ -245,8 +270,8 @@ class SceneManager3D: ObservableObject {
         // Our scale: cellSize = 1.0 unit
         // Thickness ratio: 10.7 / 22 = 0.486
 
-        // Use appropriate radius for stone color
-        let stoneRadius = color == .black ? blackStoneRadius : whiteStoneRadius
+        // Use appropriate radius for stone color (scaled based on board size)
+        let stoneRadius = color == .black ? effectiveBlackStoneRadius : effectiveWhiteStoneRadius
         let thicknessRatio: CGFloat = 0.486  // 10.7mm / 22mm from real stones
 
         // Create ellipsoid (sphere scaled to lens shape)
@@ -393,11 +418,19 @@ class SceneManager3D: ObservableObject {
     }
 
     private func createBoard() {
+        // Remove old board and grid nodes if they exist
+        boardNode?.removeFromParentNode()
+        scene.rootNode.childNodes.filter { node in
+            // Remove grid lines (SCNBox), hoshi points (SCNSphere), and blocker planes
+            (node.geometry is SCNBox || node.geometry is SCNSphere) && node.position.y >= -boardThickness
+        }.forEach { $0.removeFromParentNode() }
+
         // Create a 3D Go board with traditional Japanese proportions
         // Board has (boardSize - 1) cells, plus 1 cell width border on each side
         // So total = (boardSize - 1) * cellWidth + 2 * cellWidth = (boardSize + 1) * cellWidth
-        let boardWidth = CGFloat(boardSize + 1) * cellWidth
-        let boardLength = CGFloat(boardSize + 1) * cellHeight
+        // Use effectiveCellWidth/Height so all board sizes have same physical dimensions
+        let boardWidth = CGFloat(boardSize + 1) * effectiveCellWidth
+        let boardLength = CGFloat(boardSize + 1) * effectiveCellHeight
 
         // Board base
         let boardGeometry = SCNBox(
@@ -465,14 +498,14 @@ class SceneManager3D: ObservableObject {
         let lineColor = NSColor.black
         let boardTopY = boardThickness / 2.0 + 0.02  // Position lines well above board surface
 
-        let totalWidth = CGFloat(boardSize - 1) * cellWidth
-        let totalHeight = CGFloat(boardSize - 1) * cellHeight
+        let totalWidth = CGFloat(boardSize - 1) * effectiveCellWidth
+        let totalHeight = CGFloat(boardSize - 1) * effectiveCellHeight
         let offsetX = -totalWidth / 2.0
         let offsetZ = -totalHeight / 2.0
 
         // Horizontal lines (run along X axis, spaced in Z direction)
         for i in 0..<boardSize {
-            let z = CGFloat(i) * cellHeight + offsetZ
+            let z = CGFloat(i) * effectiveCellHeight + offsetZ
             let line = SCNBox(
                 width: totalWidth,
                 height: lineHeight,
@@ -493,7 +526,7 @@ class SceneManager3D: ObservableObject {
 
         // Vertical lines (run along Z axis, spaced in X direction)
         for i in 0..<boardSize {
-            let x = CGFloat(i) * cellWidth + offsetX
+            let x = CGFloat(i) * effectiveCellWidth + offsetX
             let line = SCNBox(
                 width: lineThickness,
                 height: lineHeight,
@@ -512,11 +545,23 @@ class SceneManager3D: ObservableObject {
             scene.rootNode.addChildNode(lineNode)
         }
 
-        // Star points (for 19x19 board)
-        let starPoints = [(3, 3), (3, 9), (3, 15), (9, 3), (9, 9), (9, 15), (15, 3), (15, 9), (15, 15)]
+        // Star points (hoshi points) - vary by board size
+        let starPoints: [(Int, Int)] = {
+            switch boardSize {
+            case 19:
+                return [(3, 3), (3, 9), (3, 15), (9, 3), (9, 9), (9, 15), (15, 3), (15, 9), (15, 15)]
+            case 13:
+                return [(3, 3), (3, 9), (6, 6), (9, 3), (9, 9)]
+            case 9:
+                return [(2, 2), (2, 6), (4, 4), (6, 2), (6, 6)]
+            default:
+                return []
+            }
+        }()
+
         for (col, row) in starPoints {
-            let xPos = CGFloat(col) * cellWidth + offsetX
-            let zPos = CGFloat(row) * cellHeight + offsetZ
+            let xPos = CGFloat(col) * effectiveCellWidth + offsetX
+            let zPos = CGFloat(row) * effectiveCellHeight + offsetZ
 
             let star = SCNSphere(radius: 0.08)
             let material = SCNMaterial()

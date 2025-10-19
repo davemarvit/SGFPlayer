@@ -3,7 +3,7 @@
 **Date Started**: 2025-10-15
 **Goal**: Implement live clock countdown and refactor codebase for better maintainability
 
-## Current Status: 🚀 PHASE 4 IN PROGRESS (Session 6) - SceneManager3D Extracted!
+## Current Status: ✅ 2D/3D FEATURE PARITY ACHIEVED (Session 7) - Board Size Support & Unified Controls!
 
 ## Background
 - ContentView3D.swift is 1,566 lines (too large)
@@ -371,6 +371,135 @@
     8. Test files (538 lines)
 
 - **Next**: Test camera controls, then commit Phase 4 Step 2
+
+### 2025-10-18 (Session 7 - Board Size Support & 2D/3D Feature Parity)
+- ✅ **Major Feature Update: Board Size Support & Complete 2D/3D Unification** - COMPLETE (v3.31+)
+
+#### Part 1: Board Size Support (9x9, 13x13, 19x19)
+- **Problem**: App was hardcoded to 19x19 boards only
+- **Goal**: Support all standard board sizes (9x9, 13x13, 19x19)
+
+**2D Implementation:**
+- **SimpleBoardView.swift**:
+  - Changed hardcoded `let gridSize = 19` to `player.board.size`
+  - Added dynamic hoshi points based on board size:
+    - 19x19: 9 points at traditional positions
+    - 13x13: 5 points
+    - 9x9: 5 points
+  - Fixed StoneJitter.prepare() call to use actual board size (line 363)
+
+- **GameBoardView.swift**:
+  - Updated to use `player.board.size` dynamically
+
+**3D Implementation:**
+- **SceneManager3D.swift**:
+  - Changed `boardSize` from constant to variable
+  - Added auto-recreation of board when size changes
+  - Implemented dynamic hoshi points (matching 2D)
+  - **Scaling feature**: Smaller boards scaled to fill same space as 19x19
+    - Uses computed properties: `effectiveCellWidth`, `effectiveCellHeight`
+    - Scale factor: `18 / (boardSize - 1)`
+    - 9x9 boards: 2.25x larger cells
+    - 13x13 boards: 1.5x larger cells
+    - 19x19 boards: normal (1.0x)
+  - Fixed board cleanup to remove both SCNBox (grid lines) and SCNSphere (hoshi points)
+
+**Bug Fixes:**
+- **Crash #1** (StoneJitter array bounds): Fixed hardcoded boardSize in jitter preparation
+- **Crash #2** (AppModel.selectGame): Fixed invalid range when at last game
+  - Changed `for i in 1...min(2, games.count - currentIndex - 1)` to guard with `if gamesAhead > 0`
+
+**Testing**: Created test files test_9x9.sgf and test_13x13.sgf
+**Result**: Both 2D and 3D now correctly render all board sizes
+
+#### Part 2: Search Functionality in 3D
+- **Goal**: Add search to 3D mode to match 2D functionality
+
+**Implementation:**
+- Added search state variables to ContentView3D:
+  - `filteredGames`, `isSearchActive`, `lastSearchQuery`, `isSearchActivePersisted`
+  - Added `activeGamesList` computed property (filtered or all games)
+  - Added `performSearch()` function
+
+- Updated SettingsPanelView3D:
+  - Replaced `GameSelectionSection3D` with unified `GameSelectionSection` component
+  - Added `onSearchResultsChanged` callback parameter
+
+- Updated SettingsPanelContainer to pass search callback through
+
+- Updated ContentView3D to handle search results:
+  - Updates filtered games
+  - Persists search state
+  - Switches to first result when searching
+  - Restores search on app launch
+
+**Result**: 3D mode now has identical search functionality to 2D
+
+#### Part 3: Auto-Advance Unification
+- **Goal**: Make auto-advance behavior identical in 2D and 3D
+
+**Changes:**
+- Aligned timer delay: Both wait 5 seconds (was 3s in 3D)
+- Moved playback restart logic to timer callback (from advanceToNextGame)
+- Updated both to use `activeGamesList` (respects search filtering)
+
+**Result**: Auto-advance now respects search results in both modes
+
+#### Part 4: Autoplay Controls Unification
+- **Goal**: Make all playback controls identical between 2D and 3D
+
+**Changes Made:**
+- **ContentView3D.swift**:
+  - Replaced local `@State isPlaying` with persistent `@AppStorage autoNext`
+  - Added missing control variables:
+    - `@AppStorage("autoNext")` - Auto-play toggle
+    - `@AppStorage("randomNext")` - Random next game
+    - `@AppStorage("autoStartOnLaunch")` - Auto-start on launch
+    - `@AppStorage("randomOnStart")` - Random game on start
+    - `@AppStorage("loopGames")` - Loop games (already existed)
+  - Updated all references from `isPlaying` to `autoNext`
+
+- **SettingsPanelView3D.swift**:
+  - Added bindings for all 4 playback controls
+  - Updated UI to match 2D layout:
+    - Row 1: Auto-play, Random next
+    - Row 2: Auto-start on launch, Loop games
+
+- **SettingsPanelContainer.swift**:
+  - Added bindings for new controls
+  - Passes them through to SettingsPanelView3D
+
+**Result**:
+- Both 2D and 3D have **identical** autoplay controls
+- All settings shared via `@AppStorage` (changes in one mode affect both)
+- Complete feature parity between 2D and 3D views
+
+#### Summary of Changes
+**Files Modified:**
+- SimpleBoardView.swift (board size support, hoshi points)
+- GameBoardView.swift (board size support)
+- SceneManager3D.swift (3D board size, scaling, hoshi points, cleanup)
+- AppModel.swift (fixed auto-advance crash)
+- ContentView3D.swift (search, autoplay controls, auto-advance)
+- SettingsPanelView3D.swift (search, autoplay toggles)
+- SettingsPanelContainer.swift (search callback, autoplay bindings)
+
+**Impact:**
+- ✅ Board size support: 9x9, 13x13, 19x19 in both 2D and 3D
+- ✅ 3D boards scale to fill screen (better UX for small boards)
+- ✅ Search functionality now in both 2D and 3D
+- ✅ Auto-advance respects search filtering in both modes
+- ✅ Identical autoplay controls in both 2D and 3D
+- ✅ Complete feature parity between 2D and 3D rendering modes
+
+**Architecture Improvement:**
+- 2D and 3D now truly parallel implementations
+- Same functionality, just different rendering (2D vs 3D)
+- Maximum code reuse via shared components
+- Consistent, intuitive user experience across modes
+
+**Status**: Ready for commit
+**Next**: Additional features or further refactoring as needed
 
 ---
 

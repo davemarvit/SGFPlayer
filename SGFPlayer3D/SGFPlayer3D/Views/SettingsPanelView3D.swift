@@ -13,10 +13,14 @@ struct SettingsPanelView3D: View {
 
     // Playback controls
     @Binding var autoPlay: Bool
+    @Binding var randomNext: Bool
+    @Binding var autoStartOnLaunch: Bool
+    @Binding var loopGames: Bool
     @Binding var playbackSpeed: Double
 
     var onGameSelected: ((SGFGameWrapper) -> Void)?
     var onJitterChanged: (() -> Void)?
+    var onSearchResultsChanged: (([SGFGameWrapper]) -> Void)?
     var onBackgroundChanged: ((BackgroundType) -> Void)?
     var onResetCamera: (() -> Void)?
 
@@ -401,7 +405,7 @@ struct SettingsPanelView3D: View {
 
                         // Game selection list (only shown when NOT in OGS mode)
                         if !settingsVM.ogsMode {
-                            GameSelectionSection3D(app: app, onGameSelected: onGameSelected)
+                            GameSelectionSection(app: app, onSearchResultsChanged: onSearchResultsChanged)
                                 .padding(.horizontal, 16)
                         }
 
@@ -414,9 +418,28 @@ struct SettingsPanelView3D: View {
                                 .font(.headline)
                                 .foregroundColor(.white)
 
-                            Toggle("Auto-play", isOn: $autoPlay)
-                                .toggleStyle(SwitchToggleStyle(tint: .blue))
-                                .foregroundColor(.white)
+                            // Put both toggles on the same line with consistent blue color
+                            HStack(spacing: 20) {
+                                Toggle("Auto-play", isOn: $autoPlay)
+                                    .toggleStyle(SwitchToggleStyle(tint: .blue))
+                                    .foregroundColor(.white)
+
+                                Toggle("Random next", isOn: $randomNext)
+                                    .toggleStyle(SwitchToggleStyle(tint: .blue))
+                                    .foregroundColor(.white)
+                            }
+
+                            // Additional playback settings
+                            HStack(spacing: 20) {
+                                Toggle("Auto-start on launch", isOn: $autoStartOnLaunch)
+                                    .toggleStyle(SwitchToggleStyle(tint: .blue))
+                                    .foregroundColor(.white)
+
+                                Toggle("Loop games", isOn: $loopGames)
+                                    .toggleStyle(SwitchToggleStyle(tint: .blue))
+                                    .foregroundColor(.white)
+                            }
+                            .padding(.top, 8)
 
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack {

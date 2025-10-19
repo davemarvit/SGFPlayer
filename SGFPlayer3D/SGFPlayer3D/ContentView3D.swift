@@ -40,16 +40,30 @@ struct ContentView3D: View {
     @State private var cameraPanY: CGFloat = UserDefaults.standard.object(forKey: "cameraPanY") as? CGFloat ?? 0.0
 
     // Playback control
-    @State private var isPlaying: Bool = false
+    @AppStorage("autoNext") private var autoNext: Bool = false
+    @AppStorage("randomNext") private var randomNext: Bool = false
+    @AppStorage("autoStartOnLaunch") private var autoStartOnLaunch: Bool = true
+    @AppStorage("randomOnStart") private var randomOnStart: Bool = false
+    @AppStorage("loopGames") private var loopGames: Bool = true
     @State private var playbackSpeed: Double = UserDefaults.standard.object(forKey: "playbackSpeed") as? Double ?? 1.0
     @State private var playbackTimer: Timer? = nil
-    @State private var gameEndTimer: Timer? = nil
+
+    // Search state
+    @State private var filteredGames: [SGFGameWrapper] = []
+    @State private var isSearchActive: Bool = false
+    @AppStorage("lastSearchQuery") private var lastSearchQuery: String = ""
+    @AppStorage("isSearchActivePersisted") private var isSearchActivePersisted: Bool = false
 
     // UI State
     @State private var isFullscreen: Bool = false
     @State private var showSettings: Bool = false
     @State private var showControls: Bool = true
     @State private var hideControlsTimer: Timer? = nil
+
+    // Computed property for active games list (filtered or all)
+    private var activeGamesList: [SGFGameWrapper] {
+        return isSearchActive && !filteredGames.isEmpty ? filteredGames : app.games
+    }
 
     var body: some View {
         let _ = {
@@ -97,14 +111,9 @@ struct ContentView3D: View {
             }
 
             updateStonesWithJitter()
-
-            // Check if game has ended (but not for OGS games - they receive moves continuously)
-            if newIndex >= player.moves.count - 1 && ogsGame?.blackName == nil {
-                gameEndTimer?.invalidate()
-                gameEndTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { _ in
-                    advanceToNextGame()
-                }
-            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .gameDidFinish)) { _ in
+            handleGameFinished()
         }
         .onChange(of: app.selection) { _, newSelection in
             if let gameWrapper = newSelection {
@@ -140,7 +149,7 @@ struct ContentView3D: View {
         .onChange(of: playbackSpeed) { _, newSpeed in
             UserDefaults.standard.set(newSpeed, forKey: "playbackSpeed")
         }
-        .onChange(of: isPlaying) { _, nowPlaying in
+        .onChange(of: autoNext) { _, nowPlaying in
             if nowPlaying {
                 // Auto-play turned on - start playback immediately
                 startPlayback()
@@ -287,6 +296,12 @@ struct ContentView3D: View {
 
             // Start the auto-hide timer for controls
             showControlsWithTimer()
+
+            // Restore search state if persisted
+            if isSearchActivePersisted && !lastSearchQuery.isEmpty {
+                NSLog("DEBUG3D: 🔍 Restoring search state: '\(lastSearchQuery)'")
+                performSearch(query: lastSearchQuery)
+            }
         }
     }
 
@@ -318,7 +333,10 @@ struct ContentView3D: View {
             settingsVM: settingsVM,
             soundManager: soundManager,
             ogsClient: app.ogsClient,
-            isPlaying: $isPlaying,
+            isPlaying: $autoNext,
+            randomNext: $randomNext,
+            autoStartOnLaunch: $autoStartOnLaunch,
+            loopGames: $loopGames,
             playbackSpeed: $playbackSpeed,
             onGameSelected: { game in
                 player.load(game: game.game)
@@ -328,6 +346,41 @@ struct ContentView3D: View {
             onJitterChanged: {
                 NSLog("DEBUG3D: 🎲 onJitterChanged callback triggered")
                 updateStonesWithJitter()
+            },
+            onSearchResultsChanged: { searchResults in
+                filteredGames = searchResults
+                isSearchActive = !searchResults.isEmpty
+
+                // Persist search state
+                isSearchActivePersisted = isSearchActive
+                if isSearchActive && searchResults.count < app.games.count {
+                    // Extract search query by finding the common pattern in search results
+                    if let firstGame = searchResults.first {
+                        let info = firstGame.game.info
+                        let blackPlayer = info.playerBlack ?? ""
+                        let whitePlayer = info.playerWhite ?? ""
+                        // For now, just save the first player name as a simple heuristic
+                        lastSearchQuery = blackPlayer.isEmpty ? whitePlayer : blackPlayer
+                    }
+                } else if !isSearchActive {
+                    lastSearchQuery = ""
+                }
+
+                NSLog("DEBUG3D: 🔍 Updated filtered games to \(searchResults.count) games, search active: \(isSearchActive)")
+
+                // Always switch to first game in search results
+                if !searchResults.isEmpty {
+                    NSLog("DEBUG3D: 🔍 Switching to first game in search results")
+                    app.selection = searchResults.first
+                    player.reset()
+
+                    // Start playback if it was already enabled
+                    if autoNext {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            startPlayback()
+                        }
+                    }
+                }
             }
         )
     }
@@ -398,7 +451,7 @@ struct ContentView3D: View {
                 // Bottom controls - extracted to PlaybackControls
                 PlaybackControls(
                     player: player,
-                    isPlaying: $isPlaying,
+                    isPlaying: $autoNext,
                     onSeek: updateStonesWithJitter,
                     onTogglePlayPause: togglePlayPause
                 )
@@ -438,33 +491,77 @@ struct ContentView3D: View {
     }
 
     private func advanceToNextGame() {
-        guard !app.activePlaylist.isEmpty else { return }
+        guard !activeGamesList.isEmpty else { return }
 
         if let currentSelection = app.selection,
-           let currentIndex = app.activePlaylist.firstIndex(where: { $0.id == currentSelection.id }) {
-            // Move to next game, or loop to beginning
-            let nextIndex = (currentIndex + 1) % app.activePlaylist.count
-            app.selection = app.activePlaylist[nextIndex]
-            // Note: Game loading is now handled by app.selectGame() via .onChange(of: app.selection)
-            player.seek(to: 0)
-            updateStonesWithJitter()
+           let currentIndex = activeGamesList.firstIndex(where: { $0.id == currentSelection.id }) {
+            // Move to next game, or loop back to first if at end
+            let nextIndex = (currentIndex + 1) % activeGamesList.count
+            let nextGame = activeGamesList[nextIndex]
+            app.selectGame(nextGame)
 
-            // Start playing the new game if autoplay was on
-            if isPlaying {
-                startPlayback()
+            if nextIndex == 0 {
+                NSLog("DEBUG3D: 🔄 Looped back to first game: \(nextGame.url.lastPathComponent)")
+            } else {
+                NSLog("DEBUG3D: ⏭️ Advanced to next game: \(nextGame.url.lastPathComponent)")
             }
-        } else if let first = app.activePlaylist.first {
-            // No selection, start with first game
-            app.selection = first
-            // Note: Game loading is now handled by app.selectGame() via .onChange(of: app.selection)
-            player.seek(to: 0)
-            updateStonesWithJitter()
+        } else {
+            // No current selection, start with first game
+            let firstGame = activeGamesList[0]
+            app.selectGame(firstGame)
+            NSLog("DEBUG3D: 🎯 Started with first game: \(firstGame.url.lastPathComponent)")
+        }
+    }
 
-            // Start playing if autoplay was on
-            if isPlaying {
-                startPlayback()
+    private func handleGameFinished() {
+        // Game has finished - advance to next game if in loop mode
+        if randomNext {
+            // Wait 5 seconds, then pick the next random game and restart if auto-play is on
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                pickRandomGame()
+                // If auto-play is enabled, automatically start the new game
+                if autoNext {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        startPlayback()
+                    }
+                }
+            }
+        } else if loopGames && ogsGame?.blackName == nil {
+            // Wait 5 seconds, then advance to next game in sequence (or loop back to first)
+            // Only for local games, not OGS games (they receive moves continuously)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+                advanceToNextGame()
+                // If auto-play is enabled, automatically start the new game
+                if autoNext {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        startPlayback()
+                    }
+                }
             }
         }
+    }
+
+    private func pickRandomGame() {
+        guard !activeGamesList.isEmpty else { return }
+
+        let randomIndex = Int.random(in: 0..<activeGamesList.count)
+        let randomGame = activeGamesList[randomIndex]
+        app.selectGame(randomGame)
+        NSLog("DEBUG3D: 🎲 Random game selected: \(randomGame.url.lastPathComponent)")
+    }
+
+    private func performSearch(query: String) {
+        let searchLower = query.lowercased()
+        let searchResults = app.games.filter { gameWrapper in
+            let info = gameWrapper.game.info
+            let blackPlayer = info.playerBlack?.lowercased() ?? ""
+            let whitePlayer = info.playerWhite?.lowercased() ?? ""
+            return blackPlayer.contains(searchLower) || whitePlayer.contains(searchLower)
+        }
+
+        filteredGames = searchResults
+        isSearchActive = !searchResults.isEmpty
+        NSLog("DEBUG3D: 🔍 Search restored: \(searchResults.count) games found for '\(query)'")
     }
 
     private func startPlayback() {
@@ -490,20 +587,20 @@ struct ContentView3D: View {
                 updateStonesWithJitter()
 
                 // Schedule next move if still playing
-                if isPlaying {
+                if autoNext {
                     scheduleNextMove()
                 }
             } else {
                 print("🎬 Reached end of game - auto-advance will handle next game")
-                // Don't set isPlaying = false here - let auto-advance continue to next game
+                // Don't set autoNext = false here - let auto-advance continue to next game
             }
         }
     }
 
     private func togglePlayPause() {
-        print("🎬 togglePlayPause called - isPlaying will become: \(!isPlaying)")
-        isPlaying.toggle()
-        if isPlaying {
+        print("🎬 togglePlayPause called - autoNext will become: \(!autoNext)")
+        autoNext.toggle()
+        if autoNext {
             startPlayback()
         } else {
             playbackTimer?.invalidate()

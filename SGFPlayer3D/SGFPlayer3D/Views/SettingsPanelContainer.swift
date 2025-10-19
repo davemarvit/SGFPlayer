@@ -14,11 +14,15 @@ struct SettingsPanelContainer: View {
     @ObservedObject var soundManager: SoundManager
     @ObservedObject var ogsClient: OGSClient
     @Binding var isPlaying: Bool
+    @Binding var randomNext: Bool
+    @Binding var autoStartOnLaunch: Bool
+    @Binding var loopGames: Bool
     @Binding var playbackSpeed: Double
 
     // Callbacks
     let onGameSelected: (SGFGameWrapper) -> Void
     let onJitterChanged: () -> Void
+    let onSearchResultsChanged: (([SGFGameWrapper]) -> Void)?
 
     var body: some View {
         HStack {
@@ -30,9 +34,13 @@ struct SettingsPanelContainer: View {
                 soundManager: soundManager,
                 ogsClient: ogsClient,
                 autoPlay: $isPlaying,
+                randomNext: $randomNext,
+                autoStartOnLaunch: $autoStartOnLaunch,
+                loopGames: $loopGames,
                 playbackSpeed: $playbackSpeed,
                 onGameSelected: onGameSelected,
-                onJitterChanged: onJitterChanged
+                onJitterChanged: onJitterChanged,
+                onSearchResultsChanged: onSearchResultsChanged
             )
             .transition(.move(edge: .leading))
 

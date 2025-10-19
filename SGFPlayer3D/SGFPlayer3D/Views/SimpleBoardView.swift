@@ -37,7 +37,8 @@ struct SimpleBoardView: View {
                 ulCenter: ulBowlCenter,
                 lrCenter: lrBowlCenter,
                 bowlRadius: bowlRadius,
-                boardFrame: boardFrame
+                boardFrame: boardFrame,
+                gridSize: player.board.size
             )
         }
         .allowsHitTesting(false)
@@ -53,7 +54,7 @@ struct BoardContent: View {
 
     var body: some View {
         // Calculate proper board size to match grid proportions with uniform borders
-        let gridSize = 19
+        let gridSize = player.board.size
         let cellRatio: CGFloat = 15.0 / 14.0
         let baseCellWidth = boardFrame.width * 0.9 / CGFloat(gridSize - 1)
         let cellWidth = baseCellWidth
@@ -79,10 +80,10 @@ struct BoardContent: View {
                 .position(x: boardFrame.midX, y: boardFrame.midY)
 
             // Grid lines
-            GridLines(boardFrame: boardFrame)
+            GridLines(boardFrame: boardFrame, gridSize: gridSize)
 
             // Hoshi points
-            HoshiPoints(boardFrame: boardFrame)
+            HoshiPoints(boardFrame: boardFrame, gridSize: gridSize)
 
             // Game stones
             GameStones(
@@ -98,9 +99,9 @@ struct BoardContent: View {
 // MARK: - Grid Lines
 struct GridLines: View {
     let boardFrame: CGRect
+    let gridSize: Int
 
     var body: some View {
-        let gridSize = 19
         // Traditional Go board cell ratio: height/width = 15/14 ≈ 1.071
         let cellRatio: CGFloat = 15.0 / 14.0
 
@@ -148,9 +149,9 @@ struct GridLines: View {
 // MARK: - Hoshi Points
 struct HoshiPoints: View {
     let boardFrame: CGRect
+    let gridSize: Int
 
     var body: some View {
-        let gridSize = 19
         // Traditional Go board cell ratio: height/width = 15/14 ≈ 1.071
         let cellRatio: CGFloat = 15.0 / 14.0
 
@@ -169,7 +170,19 @@ struct HoshiPoints: View {
         let offsetX = (boardFrame.width - gridWidth) / 2
         let offsetY = (boardFrame.height - gridHeight) / 2
 
-        let hoshiPoints = [(3, 3), (3, 9), (3, 15), (9, 3), (9, 9), (9, 15), (15, 3), (15, 9), (15, 15)]
+        // Hoshi points depend on board size
+        let hoshiPoints: [(Int, Int)] = {
+            switch gridSize {
+            case 19:
+                return [(3, 3), (3, 9), (3, 15), (9, 3), (9, 9), (9, 15), (15, 3), (15, 9), (15, 15)]
+            case 13:
+                return [(3, 3), (3, 9), (6, 6), (9, 3), (9, 9)]
+            case 9:
+                return [(2, 2), (2, 6), (4, 4), (6, 2), (6, 6)]
+            default:
+                return []
+            }
+        }()
 
         ZStack {
             ForEach(Array(hoshiPoints.enumerated()), id: \.offset) { index, point in
@@ -199,7 +212,7 @@ struct GameStones: View {
         ZStack {
             // Render stones from game state
             let currentGrid = player.board.grid
-            let gridSize = 19
+            let gridSize = player.board.size
             let totalStones = currentGrid.flatMap { $0 }.compactMap { $0 }.count
             let _ = {
                 let stoneDescription = currentGrid[0][0] == nil ? "nil" : (currentGrid[0][0] == .black ? "black" : "white")
@@ -347,7 +360,7 @@ struct GameStones: View {
         // Prepare jitter for current move
         jitter.prepare(
             forMove: currentMove,
-            boardSize: 19,
+            boardSize: player.board.size,
             occupied: occupied
         )
 
@@ -386,10 +399,10 @@ struct BowlContent: View {
     let lrCenter: CGPoint
     let bowlRadius: CGFloat
     let boardFrame: CGRect
+    let gridSize: Int
 
     var body: some View {
         // Calculate stone size based on board cell size for consistency
-        let gridSize = 19
         let cellWidth = boardFrame.width * 0.9 / CGFloat(gridSize - 1)
         let realBlackStoneDiameter = 22.2 // mm
         let realWhiteStoneDiameter = 21.9 // mm

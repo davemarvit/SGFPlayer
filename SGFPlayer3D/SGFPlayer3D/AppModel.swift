@@ -117,11 +117,14 @@ final class AppModel: ObservableObject {
         // Pre-calculate nearby games in background (limited to prevent crashes)
         if let currentIndex = games.firstIndex(where: { $0.id == gameWrapper.id }) {
             // Pre-calculate only next 2 games to avoid overloading with large folders
-            for i in 1...min(2, games.count - currentIndex - 1) {
-                let nextIndex = currentIndex + i
-                if nextIndex < games.count {
-                    let nextGame = games[nextIndex]
-                    gameCacheManager.preCalculateGame(nextGame.game, fingerprint: nextGame.fingerprint)
+            let gamesAhead = games.count - currentIndex - 1
+            if gamesAhead > 0 {
+                for i in 1...min(2, gamesAhead) {
+                    let nextIndex = currentIndex + i
+                    if nextIndex < games.count {
+                        let nextGame = games[nextIndex]
+                        gameCacheManager.preCalculateGame(nextGame.game, fingerprint: nextGame.fingerprint)
+                    }
                 }
             }
         }

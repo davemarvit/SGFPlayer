@@ -84,7 +84,7 @@ struct GameBoardView: View {
             let baseBowlStoneSize = actualBowlRadius * 0.30
             
             // Calculate grid positioning for alignment
-            let gridSize = 19
+            let gridSize = player.board.size
             let _ = boardWidth * 0.9 / CGFloat(gridSize - 1)  // cellWidth for future use
             let cellHeight = boardHeight * 0.9 / CGFloat(gridSize - 1)
             let _ = boardWidth * 0.05  // offsetX for future use
@@ -300,7 +300,7 @@ struct GoGridView: View {
     var body: some View {
         ZStack {
             // Calculate cell dimensions once for use across all elements
-            let gridSize = 19
+            let gridSize = player.board.size
             // Traditional Japanese Go board proportions: cells are 23.7mm tall x 22mm wide
             let traditionalCellRatio: CGFloat = 23.7 / 22.0 // Height/Width = 1.077
 
