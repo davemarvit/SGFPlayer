@@ -218,6 +218,12 @@ struct ContentView3D: View {
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { _ in
             isFullscreen = false
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            if randomOnStart, app.selection == nil {
+                pickRandomGame()
+                NSLog("DEBUG3D: 🎲 Random game selected on app activation")
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameDataReceived"))) { notification in
             // Only process if we have an active OGS game ID (allows initial game load)
             guard ogsClient.currentGameID != nil else {
@@ -302,6 +308,8 @@ struct ContentView3D: View {
                 NSLog("DEBUG3D: 🔍 Restoring search state: '\(lastSearchQuery)'")
                 performSearch(query: lastSearchQuery)
             }
+
+            handleAppLaunch()
         }
     }
 
@@ -562,6 +570,17 @@ struct ContentView3D: View {
         filteredGames = searchResults
         isSearchActive = !searchResults.isEmpty
         NSLog("DEBUG3D: 🔍 Search restored: \(searchResults.count) games found for '\(query)'")
+    }
+
+    private func handleAppLaunch() {
+        // Auto-start playing on launch if enabled and we have a game selected
+        if autoStartOnLaunch && app.selection != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                autoNext = true
+                startPlayback()
+                NSLog("DEBUG3D: 🚀 Auto-started playback on launch")
+            }
+        }
     }
 
     private func startPlayback() {
