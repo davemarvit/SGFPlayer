@@ -1,7 +1,96 @@
 # SGFPlayer3D Refactoring Status
 
 **Date Started**: 2025-10-15
-**Goal**: Implement live clock countdown and refactor codebase for better maintainability
+**Original Goal**: Implement live clock countdown and refactor codebase for better maintainability
+
+---
+
+## 🎯 CURRENT WORK: TWO PARALLEL TRACKS
+
+### Track A: Live Play / OGS Integration (Primary Goal)
+**Status**: ✅ Phase 1 Complete - TimeControlManager working
+**Last Session**: Session 6 (2025-10-16)
+**Current State**:
+- TimeControlManager successfully extracts clock countdown logic
+- Live clocks counting down during OGS games
+- All critical stability bugs fixed (game switching, state interference)
+- **PAUSED** - Ready to resume when needed
+
+**What's Working:**
+- ✅ Live clock countdown during play
+- ✅ Clock switching on moves
+- ✅ Byo-yomi period tracking
+- ✅ OGS clock sync via REST API
+- ✅ TimeControlManager tests (10 passing)
+- ✅ OGSGameViewModel tests (11 passing)
+
+**Known Issues to Address (when resuming Track A):**
+- ⏳ WebSocket clock events not being received (subscription mechanism needs investigation)
+- Currently using REST API polling as workaround
+- Works but not optimal for real-time play
+
+**Next Steps (when resuming Track A):**
+1. Investigate WebSocket subscription for clock events
+2. Implement real-time clock updates without polling
+3. Test with live OGS games
+
+**Files to Review (when resuming Track A):**
+- SGFPlayer3D/TimeControlManager.swift (186 lines)
+- SGFPlayer3D/ViewModels/OGSGameViewModel.swift (308 lines)
+- SGFPlayer3D/OGSClient.swift (WebSocket subscription logic)
+
+---
+
+### Track B: Playback Consolidation (Current Active Track)
+**Status**: 🚧 Phase 0 Complete - Auto-start attempted (not working in 3D)
+**Last Session**: Session 7 (2025-10-18)
+**Current State**:
+- Complete 2D/3D feature parity achieved (board sizes, search, controls)
+- Auto-start logic added to 3D but not working yet
+- **Will be fixed naturally during consolidation**
+- About to start Phase 1
+
+**Motivation for Track B:**
+- Discovered duplicate playback logic between 2D and 3D
+- 2D uses SGFPlayer's built-in timer, 3D uses custom timer
+- Same game navigation code duplicated
+- Opportunity to consolidate and reduce maintenance burden
+
+**What's Working:**
+- ✅ Board size support (9x9, 13x13, 19x19) in both 2D and 3D
+- ✅ 3D boards scale to fill screen (better UX)
+- ✅ Search functionality in both modes
+- ✅ Auto-advance respects search filtering
+- ✅ All 4 autoplay controls unified (auto-play, random next, auto-start on launch, loop games)
+- ✅ Random next game works in 3D
+- ⚠️ Auto-start on launch: Works in 2D, **not working in 3D** (will fix during consolidation)
+
+**Current Known Issues:**
+- Auto-start on launch not working in 3D (ContentView3D.swift:575-584)
+- Will be fixed naturally when we consolidate playback logic in Phase 1-2
+
+**Consolidation Plan:**
+- **Phase 0** (15 min): ✅ COMPLETE - Auto-start attempted (not working, will fix in Phase 1-2)
+- **Phase 1** (30 min): Extract shared playback helpers to AppModel
+  - Move game navigation logic (advanceToNextGame, pickRandomGame) to AppModel
+  - Both 2D and 3D call same shared methods
+  - Reduces code duplication
+- **Phase 2** (45 min): Make 3D use SGFPlayer's built-in playback timer
+  - 3D currently uses custom playback timer
+  - Switch to `player.play()` / `player.pause()` (like 2D does)
+  - Eliminates timer management code in 3D
+  - **This will fix auto-start bug naturally**
+- **Phase 3** (Optional): Extract GamePlaybackController (only if needed after Phase 1-2)
+
+**Files to Modify (Phase 1-2):**
+- AppModel.swift (add shared game navigation methods)
+- ContentView3D.swift (remove custom timer, use player.play/pause)
+- ContentView.swift (extract game navigation to AppModel)
+
+**Decision Point:**
+After Phase 2, evaluate whether Phase 3 (controller extraction) is needed or if we're happy with the simpler solution.
+
+---
 
 ## Current Status: ✅ 2D/3D FEATURE PARITY ACHIEVED (Session 7) - Board Size Support & Unified Controls!
 
@@ -498,8 +587,55 @@
 - Maximum code reuse via shared components
 - Consistent, intuitive user experience across modes
 
-**Status**: Ready for commit
-**Next**: Additional features or further refactoring as needed
+**Status**: Committed (v3.32, commit f499828)
+
+#### Part 5: Last Move Replay Bug Fix
+- **Problem**: In 3D, game would sit on last move, then replay it, then advance to next game
+- **Root Cause**: Manual game-end detection in `.onChange(of: player.currentIndex)` conflicted with playback timer
+- **Solution**: Replaced manual detection with `.gameDidFinish` notification (v3.32)
+  - Removed `gameEndTimer` state variable
+  - Added `.onReceive` for `.gameDidFinish` notification
+  - Added `handleGameFinished()` function
+  - Added `pickRandomGame()` function
+  - Random next now works in 3D!
+- **Result**: Clean game-end detection, no replay issue
+
+#### Part 6: Phase 0 - Auto-Start Bug (v3.33)
+- **Goal**: Fix auto-start on launch for 3D mode
+- **Implementation** (commit f73fba2):
+  - Added `handleAppLaunch()` function to ContentView3D
+  - Added auto-start logic in `.onAppear` (lines 306-313)
+  - Added notification handler for `NSApplication.didBecomeActiveNotification` (lines 221-226)
+  - Matches 2D behavior: if `autoStartOnLaunch` is enabled and game is selected, starts playback after 0.1s
+  - Random game selection on app activation if `randomOnStart` is enabled
+- **Status**: ⚠️ Auto-start logic added but **not working in 3D** (works in 2D)
+- **Decision**: Don't debug further - will be fixed naturally during Phase 1-2 consolidation
+- **Next**: Proceed with Phase 1 (extract shared helpers to AppModel)
+
+**Status**: Track B Phase 0 complete, ready for Phase 1
+**Next**: Extract shared playback helpers to AppModel (Phase 1)
+
+---
+
+## How to Resume Each Track
+
+### Resuming Track A (Live Play / OGS Integration):
+1. Review the "Known Issues to Address" section above
+2. Focus on WebSocket subscription mechanism in OGSClient.swift
+3. Search for WebSocket-related code: `grep -r "subscribe" SGFPlayer3D/OGSClient.swift`
+4. Test with live OGS games using PreGameOverlay "Join Game" feature
+5. Monitor console logs for WebSocket events
+
+### Resuming Track B (Playback Consolidation):
+1. Check current phase status in Track B section above
+2. Review the Consolidation Plan to see which phase to start
+3. If starting Phase 1:
+   - Read ContentView.swift game navigation logic (lines ~240-260)
+   - Read ContentView3D.swift game navigation logic (lines ~493-551)
+   - Extract common patterns to AppModel
+4. If starting Phase 2:
+   - Read how 2D uses `player.play()` / `player.pause()` (ContentView.swift)
+   - Replace 3D's custom timer with built-in playback (ContentView3D.swift)
 
 ---
 
