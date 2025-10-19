@@ -130,6 +130,44 @@ final class AppModel: ObservableObject {
         }
     }
 
+    // MARK: - Shared Game Navigation (used by both 2D and 3D views)
+
+    /// Picks a random game from the provided game list and selects it
+    /// - Parameter gameList: The list of games to choose from (could be filtered search results or all games)
+    func pickRandomGame(from gameList: [SGFGameWrapper]) {
+        guard !gameList.isEmpty else { return }
+
+        let randomIndex = Int.random(in: 0..<gameList.count)
+        let randomGame = gameList[randomIndex]
+        selectGame(randomGame)
+        print("🎲 Random game selected: \(randomGame.url.lastPathComponent)")
+    }
+
+    /// Advances to the next game in the provided game list (or loops back to first)
+    /// - Parameter gameList: The list of games to navigate through (could be filtered search results or all games)
+    func advanceToNextGame(from gameList: [SGFGameWrapper]) {
+        guard !gameList.isEmpty else { return }
+
+        if let currentSelection = selection,
+           let currentIndex = gameList.firstIndex(where: { $0.id == currentSelection.id }) {
+            // Move to next game, or loop back to first if at end
+            let nextIndex = (currentIndex + 1) % gameList.count
+            let nextGame = gameList[nextIndex]
+            selectGame(nextGame)
+
+            if nextIndex == 0 {
+                print("🔄 Looped back to first game: \(nextGame.url.lastPathComponent)")
+            } else {
+                print("⏭️ Advanced to next game: \(nextGame.url.lastPathComponent)")
+            }
+        } else {
+            // No current selection, start with first game
+            let firstGame = gameList[0]
+            selectGame(firstGame)
+            print("🎯 Started with first game: \(firstGame.url.lastPathComponent)")
+        }
+    }
+
     private func loadFolder(_ url: URL) {
         let fm = FileManager.default
 

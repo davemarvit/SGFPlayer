@@ -220,7 +220,7 @@ struct ContentView3D: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             if randomOnStart, app.selection == nil {
-                pickRandomGame()
+                app.pickRandomGame(from: activeGamesList)
                 NSLog("DEBUG3D: 🎲 Random game selected on app activation")
             }
         }
@@ -498,35 +498,12 @@ struct ContentView3D: View {
         }
     }
 
-    private func advanceToNextGame() {
-        guard !activeGamesList.isEmpty else { return }
-
-        if let currentSelection = app.selection,
-           let currentIndex = activeGamesList.firstIndex(where: { $0.id == currentSelection.id }) {
-            // Move to next game, or loop back to first if at end
-            let nextIndex = (currentIndex + 1) % activeGamesList.count
-            let nextGame = activeGamesList[nextIndex]
-            app.selectGame(nextGame)
-
-            if nextIndex == 0 {
-                NSLog("DEBUG3D: 🔄 Looped back to first game: \(nextGame.url.lastPathComponent)")
-            } else {
-                NSLog("DEBUG3D: ⏭️ Advanced to next game: \(nextGame.url.lastPathComponent)")
-            }
-        } else {
-            // No current selection, start with first game
-            let firstGame = activeGamesList[0]
-            app.selectGame(firstGame)
-            NSLog("DEBUG3D: 🎯 Started with first game: \(firstGame.url.lastPathComponent)")
-        }
-    }
-
     private func handleGameFinished() {
         // Game has finished - advance to next game if in loop mode
         if randomNext {
             // Wait 5 seconds, then pick the next random game and restart if auto-play is on
             DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-                pickRandomGame()
+                app.pickRandomGame(from: activeGamesList)
                 // If auto-play is enabled, automatically start the new game
                 if autoNext {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -538,7 +515,7 @@ struct ContentView3D: View {
             // Wait 5 seconds, then advance to next game in sequence (or loop back to first)
             // Only for local games, not OGS games (they receive moves continuously)
             DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-                advanceToNextGame()
+                app.advanceToNextGame(from: activeGamesList)
                 // If auto-play is enabled, automatically start the new game
                 if autoNext {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -547,15 +524,6 @@ struct ContentView3D: View {
                 }
             }
         }
-    }
-
-    private func pickRandomGame() {
-        guard !activeGamesList.isEmpty else { return }
-
-        let randomIndex = Int.random(in: 0..<activeGamesList.count)
-        let randomGame = activeGamesList[randomIndex]
-        app.selectGame(randomGame)
-        NSLog("DEBUG3D: 🎲 Random game selected: \(randomGame.url.lastPathComponent)")
     }
 
     private func performSearch(query: String) {
