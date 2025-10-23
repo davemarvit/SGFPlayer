@@ -475,6 +475,33 @@ Transform SGFPlayer3D from a game viewer into a full OGS live game player while 
 - Time presets fully defined with mainTime, periodTime, periods, and timeSystem
 - Placeholder methods (TODO) added for automatch and challenge actions
 
+### Session 3 - 2025-10-22
+**Completed:**
+- ✅ WebSocket Clock Subscription Fix (v3.36)
+  - **Problem:** Clock events weren't arriving via WebSocket
+  - **Root Cause:** Missing player_id parameter in game/connect subscription
+  - **Research:** Analyzed flovo/ogs_api Python implementation on GitHub
+  - **Solution:**
+    - Added `@Published var playerID: Int?` to OGSClient (line 27)
+    - Parse player ID from REST API login response (lines 307-317)
+    - Include player_id in game/connect WebSocket message (lines 520-561)
+    - Fallback to spectator mode if no player_id available
+  - **Expected Result:** Real-time clock updates via WebSocket, eliminating REST polling
+
+**In Progress:**
+- 🧪 TESTING WebSocket clock fix
+  - User authenticated with OGS
+  - User loaded a game
+  - Verifying player_id appears in subscription
+  - Checking if clock events arrive via WebSocket
+
+**Next Session:**
+- Complete testing of WebSocket clock fix
+- Document test results
+- Start Stage 2: Automatch/Quick Match
+- Research OGS automatch WebSocket protocol
+- Implement startAutomatch() in OGSClient
+
 ---
 
 ## Open Questions & Research Needed

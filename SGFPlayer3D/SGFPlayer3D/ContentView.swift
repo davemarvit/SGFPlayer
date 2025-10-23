@@ -55,6 +55,9 @@ struct ContentView: View {
     @AppStorage("autoStartOnLaunch") private var autoStartOnLaunch: Bool = true
     @AppStorage("loopGames") private var loopGames: Bool = true
 
+    // Track last loaded OGS move count to avoid re-seeking on every poll
+    @State private var lastLoadedOGSMoveCount: Int = -1
+
     // Filtered games for navigation (when search is active)
     @State private var filteredGames: [SGFGameWrapper] = []
     @State private var isSearchActive: Bool = false
@@ -347,11 +350,18 @@ struct ContentView: View {
                 return
             }
 
-            NSLog("ContentView: 🎮 Received OGSGameLoaded notification with \(game.moves.count) moves")
-            player.load(game: game)
-            player.seek(to: moveCount)
-            // Force physics and capture updates for the new move
-            updatePhysicsForMove(moveCount)
+            // IMPORTANT: Only reload/seek if the move count has actually changed
+            // Otherwise polling will trigger seek() every second, causing spurious updates
+            if moveCount != lastLoadedOGSMoveCount {
+                NSLog("ContentView: 🎮 Received OGSGameLoaded notification with \(game.moves.count) moves (changed from \(lastLoadedOGSMoveCount))")
+                player.load(game: game)
+                player.seek(to: moveCount)
+                // Force physics and capture updates for the new move
+                updatePhysicsForMove(moveCount)
+                lastLoadedOGSMoveCount = moveCount
+            } else {
+                NSLog("ContentView: 🔄 OGSGameLoaded poll - move count unchanged (\(moveCount))")
+            }
         }
         .focusable()
         .focusEffectDisabled()  // Disable blue focus ring while keeping keyboard shortcuts

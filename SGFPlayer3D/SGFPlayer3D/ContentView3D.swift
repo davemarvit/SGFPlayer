@@ -47,6 +47,11 @@ struct ContentView3D: View {
     @AppStorage("loopGames") private var loopGames: Bool = true
     @AppStorage("playbackSpeed") private var playbackSpeed: Double = 0.75
 
+    // Track previous currentIndex to only play sound on NEW moves (not every poll)
+    @State private var previousMoveIndex: Int = -1
+    // Track last loaded OGS move count to avoid re-seeking on every poll
+    @State private var lastLoadedOGSMoveCount: Int = -1
+
     // Search state
     @State private var filteredGames: [SGFGameWrapper] = []
     @State private var isSearchActive: Bool = false
@@ -107,10 +112,12 @@ struct ContentView3D: View {
             // Update 3D board immediately
             updateStonesWithJitter()
 
-            // Play stone click sound when moving forward
-            if newIndex > 0 {
+            // Play stone click sound ONLY when moving forward to a NEW move
+            // Don't play on polling updates (newIndex == previousMoveIndex)
+            if newIndex > previousMoveIndex && newIndex > 0 {
                 soundManager.playStoneClick()
             }
+            previousMoveIndex = newIndex
         }
         .onReceive(NotificationCenter.default.publisher(for: .gameDidFinish)) { _ in
             handleGameFinished()
@@ -276,10 +283,17 @@ struct ContentView3D: View {
                 return
             }
 
-            NSLog("DEBUG3D: 🎮 Received OGSGameLoaded notification with \(game.moves.count) moves")
-            player.load(game: game)
-            player.seek(to: moveCount)
-            updateStonesWithJitter()
+            // IMPORTANT: Only reload/seek if the move count has actually changed
+            // Otherwise polling will trigger seek() every second, causing spurious click sounds
+            if moveCount != lastLoadedOGSMoveCount {
+                NSLog("DEBUG3D: 🎮 Received OGSGameLoaded notification with \(game.moves.count) moves (changed from \(lastLoadedOGSMoveCount))")
+                player.load(game: game)
+                player.seek(to: moveCount)
+                updateStonesWithJitter()
+                lastLoadedOGSMoveCount = moveCount
+            } else {
+                NSLog("DEBUG3D: 🔄 OGSGameLoaded poll - move count unchanged (\(moveCount))")
+            }
         }
         .onAppear {
             // OGSGameViewModel is now initialized in AppModel.init()
