@@ -24,6 +24,7 @@ class OGSClient: NSObject, ObservableObject {
     @Published var playerColor: Stone?  // The color we are playing (also known as myColor)
     @Published var isAuthenticated = false
     @Published var username: String?
+    @Published var playerID: Int?  // OGS player ID for the authenticated user
 
     // MARK: - Live Play State
     /// Current game phase - drives UI visibility and interaction
@@ -303,6 +304,18 @@ class OGSClient: NSObject, ObservableObject {
                 if httpResponse.statusCode == 200 {
                     NSLog("OGS: ✅ Login successful! Session cookies established.")
 
+                    // Parse response to extract player ID
+                    var extractedPlayerID: Int? = nil
+                    if let data = data,
+                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        NSLog("OGS: 📦 Login response JSON: \(json)")
+                        // OGS login response includes player info
+                        if let id = json["id"] as? Int {
+                            extractedPlayerID = id
+                            NSLog("OGS: 🆔 Extracted player ID: \(id)")
+                        }
+                    }
+
                     // Save credentials for future use
                     if username != nil && password != nil {
                         self.saveCredentials(username: user, password: pass)
@@ -311,6 +324,7 @@ class OGSClient: NSObject, ObservableObject {
                     DispatchQueue.main.async {
                         self.isAuthenticated = true
                         self.username = user
+                        self.playerID = extractedPlayerID
                         completion(true, nil)
                     }
                 } else {
@@ -507,11 +521,20 @@ class OGSClient: NSObject, ObservableObject {
     private func subscribeToGame(gameID: Int) {
         NSLog("OGS: 📡 Subscribing to WebSocket updates for game \(gameID)")
 
-        // Try different subscription formats
-        // Format 1: game/connect
-        let connectMessage = """
-        42["game/connect",{"game_id":\(gameID)}]
-        """
+        // Build game/connect message with player_id if available
+        // player_id is required to receive clock events and other game updates
+        let connectMessage: String
+        if let playerID = playerID {
+            NSLog("OGS: 🆔 Using player_id \(playerID) for subscription")
+            connectMessage = """
+            42["game/connect",{"game_id":\(gameID),"player_id":\(playerID),"chat":true}]
+            """
+        } else {
+            NSLog("OGS: ⚠️ No player_id available - subscribing as spectator (may not receive all events)")
+            connectMessage = """
+            42["game/connect",{"game_id":\(gameID),"chat":false}]
+            """
+        }
 
         let message1 = URLSessionWebSocketTask.Message.string(connectMessage)
         webSocketTask?.send(message1) { error in
@@ -522,7 +545,7 @@ class OGSClient: NSObject, ObservableObject {
             }
         }
 
-        // Format 2: Spectate the game (for watching games in progress)
+        // Format 2: Spectate the game (backup subscription)
         let spectateMessage = """
         42["spectate",{"game_id":\(gameID)}]
         """
