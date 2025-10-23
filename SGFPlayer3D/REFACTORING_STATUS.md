@@ -41,18 +41,18 @@
 
 ---
 
-### Track B: Playback Consolidation (Current Active Track)
-**Status**: 🚧 Phase 0 Complete - Auto-start attempted (not working in 3D)
-**Last Session**: Session 7 (2025-10-18)
+### Track B: Playback Consolidation ✅ COMPLETE
+**Status**: ✅ Phase 0, 1, and 2 Complete - Full Consolidation Achieved!
+**Last Session**: Session 7 (2025-10-22)
 **Current State**:
-- Complete 2D/3D feature parity achieved (board sizes, search, controls)
-- Auto-start logic added to 3D but not working yet
-- **Will be fixed naturally during consolidation**
-- About to start Phase 1
+- Complete 2D/3D feature parity achieved
+- Playback logic fully consolidated
+- All bugs fixed
+- **Ready for decision on Phase 3**
 
 **Motivation for Track B:**
 - Discovered duplicate playback logic between 2D and 3D
-- 2D uses SGFPlayer's built-in timer, 3D uses custom timer
+- 2D uses SGFPlayer's built-in timer, 3D had custom timer
 - Same game navigation code duplicated
 - Opportunity to consolidate and reduce maintenance burden
 
@@ -60,35 +60,52 @@
 - ✅ Board size support (9x9, 13x13, 19x19) in both 2D and 3D
 - ✅ 3D boards scale to fill screen (better UX)
 - ✅ Search functionality in both modes
-- ✅ Auto-advance respects search filtering
+- ✅ Auto-advance respects search filtering (works reliably now!)
 - ✅ All 4 autoplay controls unified (auto-play, random next, auto-start on launch, loop games)
 - ✅ Random next game works in 3D
-- ⚠️ Auto-start on launch: Works in 2D, **not working in 3D** (will fix during consolidation)
+- ✅ Auto-start on launch: **NOW WORKS in both 2D and 3D!**
+- ✅ Board updates smoothly on every move (no batching)
+- ✅ Move counter and board position stay in sync
+- ✅ Playback speed changes take effect immediately
 
-**Current Known Issues:**
-- Auto-start on launch not working in 3D (ContentView3D.swift:575-584)
-- Will be fixed naturally when we consolidate playback logic in Phase 1-2
+**Consolidation Completed:**
+- **Phase 0** (v3.33): ✅ COMPLETE - Auto-start logic added (didn't work initially)
+- **Phase 1** (v3.34): ✅ COMPLETE - Shared game navigation in AppModel
+  - Added pickRandomGame(from:) and advanceToNextGame(from:) to AppModel
+  - Eliminated ~60 lines of duplicate code
+  - Both 2D and 3D use same shared methods
+- **Phase 2** (v3.35): ✅ COMPLETE - 3D uses SGFPlayer's built-in playback timer
+  - Removed ~70 lines of custom timer code from 3D
+  - Both 2D and 3D use player.play() / player.pause()
+  - Fixed board update issue (.onChange → .onReceive for publisher)
+  - All bugs resolved (auto-start, auto-advance, board updates)
+- **Phase 3**: OPTIONAL - Evaluate if GamePlaybackController extraction is needed
 
-**Consolidation Plan:**
-- **Phase 0** (15 min): ✅ COMPLETE - Auto-start attempted (not working, will fix in Phase 1-2)
-- **Phase 1** (30 min): Extract shared playback helpers to AppModel
-  - Move game navigation logic (advanceToNextGame, pickRandomGame) to AppModel
-  - Both 2D and 3D call same shared methods
-  - Reduces code duplication
-- **Phase 2** (45 min): Make 3D use SGFPlayer's built-in playback timer
-  - 3D currently uses custom playback timer
-  - Switch to `player.play()` / `player.pause()` (like 2D does)
-  - Eliminates timer management code in 3D
-  - **This will fix auto-start bug naturally**
-- **Phase 3** (Optional): Extract GamePlaybackController (only if needed after Phase 1-2)
+**All Bugs Fixed:**
+- ✅ Auto-start on launch works in 3D
+- ✅ Auto-advance to next game reliable in 3D
+- ✅ Board updates on every move (no batching/skipping)
+- ✅ Move counter and board stay synchronized
+- ✅ Random next game works correctly
 
-**Files to Modify (Phase 1-2):**
-- AppModel.swift (add shared game navigation methods)
-- ContentView3D.swift (remove custom timer, use player.play/pause)
-- ContentView.swift (extract game navigation to AppModel)
+**Code Reduction:**
+- Phase 1: ~60 lines eliminated (game navigation)
+- Phase 2: ~70 lines eliminated (playback timer)
+- Total: ~130 lines of duplicate code removed
+
+**Files Modified:**
+- AppModel.swift: Added 2 shared methods (pickRandomGame, advanceToNextGame)
+- ContentView.swift: Uses shared AppModel methods
+- ContentView3D.swift: Uses shared AppModel methods + built-in timer + .onReceive publisher
+- SGFPlayerEngine.swift: Cleaned up debug logging
 
 **Decision Point:**
-After Phase 2, evaluate whether Phase 3 (controller extraction) is needed or if we're happy with the simpler solution.
+Phase 3 (GamePlaybackController extraction) is optional. Current solution works well with:
+- Single source of truth for playback (SGFPlayer's built-in timer)
+- Shared game navigation (AppModel)
+- Clean, maintainable code
+
+Recommend: **Skip Phase 3** unless we identify specific maintenance issues.
 
 ---
 
