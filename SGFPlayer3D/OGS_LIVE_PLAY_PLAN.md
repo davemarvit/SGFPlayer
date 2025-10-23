@@ -488,16 +488,27 @@ Transform SGFPlayer3D from a game viewer into a full OGS live game player while 
     - Fallback to spectator mode if no player_id available
   - **Expected Result:** Real-time clock updates via WebSocket, eliminating REST polling
 
-**In Progress:**
-- 🧪 TESTING WebSocket clock fix
-  - User authenticated with OGS
-  - User loaded a game
-  - Verifying player_id appears in subscription
-  - Checking if clock events arrive via WebSocket
+- ✅ Spurious Click Sound Fix (v3.37)
+  - **Problem:** Stone click sounds playing every ~1 second during OGS game observation
+  - **Root Cause:** OGSGameLoaded notification fires on every poll, causing unnecessary player.seek() calls
+  - **Investigation:** Logs showed notification firing every second even when move count unchanged
+  - **Solution:**
+    - Track lastLoadedOGSMoveCount in ContentView and ContentView3D
+    - Only call player.seek() when moveCount actually changes
+    - Added debug logging for polling vs. new move detection
+  - **Testing:** User confirmed spurious clicks eliminated, sounds only play on actual new moves
+  - **Files Modified:**
+    - SGFPlayer3D/ContentView3D.swift (lines 51-53, 286-296)
+    - SGFPlayer3D/ContentView.swift (lines 58-59, 350-361)
+
+- ✅ Created SESSION_STATE.md crash recovery document
+  - Comprehensive state snapshot for easy recovery after crashes
+  - Documents current work, testing status, recovery instructions
+  - Links to all key documents and recent commits
 
 **Next Session:**
-- Complete testing of WebSocket clock fix
-- Document test results
+- Test WebSocket clock events are arriving properly
+- Verify player_id appears in subscription logs
 - Start Stage 2: Automatch/Quick Match
 - Research OGS automatch WebSocket protocol
 - Implement startAutomatch() in OGSClient

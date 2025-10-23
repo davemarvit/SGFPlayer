@@ -1,22 +1,26 @@
 # Current Session State - Recovery Document
 
-**Last Updated:** 2025-10-22 23:10 PST
-**Session Activity:** Testing WebSocket Clock Subscription Fix
+**Last Updated:** 2025-10-22 23:21 PST
+**Session Activity:** Completed WebSocket Clock Fix & Click Sound Bug Fix
 **Branch:** `layout-refactor-option-a`
-**App State:** SGFPlayer3D is RUNNING and authenticated with OGS
+**App State:** SGFPlayer3D is RUNNING, authenticated, testing completed
 
 ---
 
-## CURRENT STATUS: TESTING WEBSOCKET CLOCK FIX
+## CURRENT STATUS: SESSION COMPLETE ✅
 
-### What We Just Did (Before This Note)
-1. ✅ Built SGFPlayer3D successfully
-2. ✅ Launched the app
-3. ✅ **User logged into OGS**
-4. ✅ **User loaded a game**
+### What We Completed This Session
+1. ✅ WebSocket Clock Subscription Fix (v3.36)
+   - Added player_id to game/connect WebSocket subscriptions
+   - Enables real-time clock events instead of REST polling
 
-### What We're Testing Now
-**Feature:** WebSocket clock subscription with player_id (commit 0752488, v3.36)
+2. ✅ Spurious Click Sound Bug Fix (v3.37)
+   - Fixed stone click sounds playing every second during OGS polling
+   - Sounds now only play on actual new moves
+   - User confirmed fix works perfectly
+
+### Session Summary
+**Feature 1:** WebSocket clock subscription with player_id (commit 0752488, v3.36)
 
 **Fix Details:**
 - Added `@Published var playerID: Int?` to OGSClient
