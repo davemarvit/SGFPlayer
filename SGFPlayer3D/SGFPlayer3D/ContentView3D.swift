@@ -45,8 +45,7 @@ struct ContentView3D: View {
     @AppStorage("autoStartOnLaunch") private var autoStartOnLaunch: Bool = true
     @AppStorage("randomOnStart") private var randomOnStart: Bool = false
     @AppStorage("loopGames") private var loopGames: Bool = true
-    @State private var playbackSpeed: Double = UserDefaults.standard.object(forKey: "playbackSpeed") as? Double ?? 1.0
-    @State private var playbackTimer: Timer? = nil
+    @AppStorage("playbackSpeed") private var playbackSpeed: Double = 0.75
 
     // Search state
     @State private var filteredGames: [SGFGameWrapper] = []
@@ -104,13 +103,14 @@ struct ContentView3D: View {
 
             overlayUI
         }
-        .onChange(of: player.currentIndex) { oldIndex, newIndex in
-            // Play stone click sound when moving forward (not backward or seeking)
-            if newIndex > oldIndex && newIndex > 0 {
+        .onReceive(player.$currentIndex) { newIndex in
+            // Update 3D board immediately
+            updateStonesWithJitter()
+
+            // Play stone click sound when moving forward
+            if newIndex > 0 {
                 soundManager.playStoneClick()
             }
-
-            updateStonesWithJitter()
         }
         .onReceive(NotificationCenter.default.publisher(for: .gameDidFinish)) { _ in
             handleGameFinished()
@@ -144,19 +144,24 @@ struct ContentView3D: View {
                 NSLog("DEBUG3D: 📂 After load, board has \(setupStoneCount) stones at index \(player.currentIndex)")
 
                 updateStonesWithJitter()
+
+                // Auto-start playback if autoplay is enabled
+                if autoNext {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        player.play()
+                        NSLog("DEBUG3D: 🔄 Auto-started playback for new game selection")
+                    }
+                }
             }
         }
         .onChange(of: playbackSpeed) { _, newSpeed in
-            UserDefaults.standard.set(newSpeed, forKey: "playbackSpeed")
+            player.setPlayInterval(newSpeed)
         }
-        .onChange(of: autoNext) { _, nowPlaying in
-            if nowPlaying {
-                // Auto-play turned on - start playback immediately
-                startPlayback()
+        .onChange(of: autoNext) { _, isAutoPlay in
+            if isAutoPlay {
+                player.play()
             } else {
-                // Auto-play turned off - stop playback
-                playbackTimer?.invalidate()
-                playbackTimer = nil
+                player.pause()
             }
         }
         .onChange(of: app.gameCacheManager.defaultJitterMultiplier) { _, newJitter in
@@ -303,6 +308,9 @@ struct ContentView3D: View {
             // Start the auto-hide timer for controls
             showControlsWithTimer()
 
+            // Set initial playback speed
+            player.setPlayInterval(playbackSpeed)
+
             // Restore search state if persisted
             if isSearchActivePersisted && !lastSearchQuery.isEmpty {
                 NSLog("DEBUG3D: 🔍 Restoring search state: '\(lastSearchQuery)'")
@@ -385,7 +393,8 @@ struct ContentView3D: View {
                     // Start playback if it was already enabled
                     if autoNext {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            startPlayback()
+                            player.play()
+                            NSLog("DEBUG3D: 🔍 Started autoplay after search switch")
                         }
                     }
                 }
@@ -507,7 +516,7 @@ struct ContentView3D: View {
                 // If auto-play is enabled, automatically start the new game
                 if autoNext {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        startPlayback()
+                        player.play()
                     }
                 }
             }
@@ -519,7 +528,7 @@ struct ContentView3D: View {
                 // If auto-play is enabled, automatically start the new game
                 if autoNext {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        startPlayback()
+                        player.play()
                     }
                 }
             }
@@ -545,53 +554,15 @@ struct ContentView3D: View {
         if autoStartOnLaunch && app.selection != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 autoNext = true
-                startPlayback()
+                player.play()
                 NSLog("DEBUG3D: 🚀 Auto-started playback on launch")
             }
         }
     }
 
-    private func startPlayback() {
-        print("🎬 startPlayback called - currentIndex: \(player.currentIndex), moves: \(player.moves.count), speed: \(playbackSpeed)")
-
-        // If we're at the end, go back to start
-        if player.currentIndex >= player.moves.count - 1 {
-            print("🎬 At end of game, resetting to start")
-            player.seek(to: 0)
-            updateStonesWithJitter()
-        }
-
-        playbackTimer?.invalidate()
-        scheduleNextMove()
-    }
-
-    private func scheduleNextMove() {
-        // Use a non-repeating timer so we can respect playbackSpeed changes
-        playbackTimer = Timer.scheduledTimer(withTimeInterval: playbackSpeed, repeats: false) { [self] _ in
-            print("🎬 Timer fired - currentIndex: \(player.currentIndex), moves: \(player.moves.count)")
-            if player.currentIndex < player.moves.count - 1 {
-                player.seek(to: player.currentIndex + 1)
-                updateStonesWithJitter()
-
-                // Schedule next move if still playing
-                if autoNext {
-                    scheduleNextMove()
-                }
-            } else {
-                print("🎬 Reached end of game - auto-advance will handle next game")
-                // Don't set autoNext = false here - let auto-advance continue to next game
-            }
-        }
-    }
-
     private func togglePlayPause() {
-        print("🎬 togglePlayPause called - autoNext will become: \(!autoNext)")
         autoNext.toggle()
-        if autoNext {
-            startPlayback()
-        } else {
-            playbackTimer?.invalidate()
-        }
+        // The .onChange(of: autoNext) handler will call player.play() or player.pause()
     }
 
     private func updateStonesWithJitter() {
