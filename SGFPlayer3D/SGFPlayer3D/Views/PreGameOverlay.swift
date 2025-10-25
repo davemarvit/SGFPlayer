@@ -7,8 +7,19 @@ struct PreGameOverlay: View {
     @State private var gameSettings: GameSettings = GameSettings.load()
     @Binding var isVisible: Bool  // Control visibility externally
 
-    // UI state - sync with OGSClient.isSearchingForMatch
+    // UI state
     @State private var challengeUsername = ""
+
+    // Filter state
+    @State private var filterBlitz = true
+    @State private var filterLive = true
+    @State private var filterCorrespondence = false
+    @State private var filter9x9 = true
+    @State private var filter13x13 = true
+    @State private var filter19x19 = true
+
+    // Auto-refresh timer
+    @State private var refreshTimer: Timer?
 
     var body: some View {
         ZStack {
@@ -79,6 +90,16 @@ struct PreGameOverlay: View {
         .onAppear {
             // Fetch available games when overlay appears
             refreshAvailableGames()
+
+            // Start auto-refresh timer (every 10 seconds)
+            refreshTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { _ in
+                refreshAvailableGames()
+            }
+        }
+        .onDisappear {
+            // Stop timer when overlay closes
+            refreshTimer?.invalidate()
+            refreshTimer = nil
         }
     }
 
@@ -86,27 +107,94 @@ struct PreGameOverlay: View {
 
     private var availableGamesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Available Games")
-                .font(.headline)
-                .foregroundColor(.white)
+            HStack {
+                Text("Available Games")
+                    .font(.headline)
+                    .foregroundColor(.white)
 
-            if ogsClient.availableGames.isEmpty {
-                Text("No games available. Create one below!")
+                Spacer()
+
+                Text("\(filteredGames.count) games")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.6))
+            }
+
+            // Filter checkboxes
+            VStack(spacing: 8) {
+                HStack(spacing: 16) {
+                    Text("Speed:")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+
+                    Toggle("Blitz", isOn: $filterBlitz)
+                        .toggleStyle(.checkbox)
+                        .font(.caption)
+
+                    Toggle("Live", isOn: $filterLive)
+                        .toggleStyle(.checkbox)
+                        .font(.caption)
+
+                    Toggle("Correspondence", isOn: $filterCorrespondence)
+                        .toggleStyle(.checkbox)
+                        .font(.caption)
+                }
+
+                HStack(spacing: 16) {
+                    Text("Board:")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+
+                    Toggle("9×9", isOn: $filter9x9)
+                        .toggleStyle(.checkbox)
+                        .font(.caption)
+
+                    Toggle("13×13", isOn: $filter13x13)
+                        .toggleStyle(.checkbox)
+                        .font(.caption)
+
+                    Toggle("19×19", isOn: $filter19x19)
+                        .toggleStyle(.checkbox)
+                        .font(.caption)
+                }
+            }
+            .padding(.vertical, 8)
+
+            if filteredGames.isEmpty {
+                Text("No games match your filters. Try adjusting above!")
                     .font(.caption)
                     .foregroundColor(.white.opacity(0.7))
                     .padding()
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(ogsClient.availableGames) { challenge in
+                ScrollView(.vertical, showsIndicators: true) {
+                    VStack(spacing: 8) {
+                        ForEach(filteredGames) { challenge in
                             GameChallengeCard(challenge: challenge) {
                                 acceptChallenge(challenge)
                             }
                         }
                     }
                 }
-                .frame(height: 140)
+                .frame(maxHeight: 250)
             }
+        }
+    }
+
+    // Filter games based on speed and board size
+    private var filteredGames: [OGSChallenge] {
+        ogsClient.availableGames.filter { challenge in
+            // Speed filter
+            let timeControlDisplay = challenge.timeControlDisplay.lowercased()
+            let speedMatches = (filterBlitz && timeControlDisplay == "blitz") ||
+                               (filterLive && timeControlDisplay == "live") ||
+                               (filterCorrespondence && timeControlDisplay == "correspondence")
+
+            // Board size filter
+            let boardSize = challenge.game.width
+            let sizeMatches = (filter9x9 && boardSize == 9) ||
+                              (filter13x13 && boardSize == 13) ||
+                              (filter19x19 && boardSize == 19)
+
+            return speedMatches && sizeMatches
         }
     }
 
@@ -296,71 +384,115 @@ struct GameChallengeCard: View {
     let onAccept: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Player info
-            if let challenger = challenge.challenger {
-                HStack {
-                    Text(challenger.username)
-                        .font(.headline)
-                        .foregroundColor(.white)
-
-                    Text("(\(challenger.displayRank))")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
-                }
-            }
-
-            // Game info
-            HStack(spacing: 12) {
-                // Board size
-                Label(challenge.boardSize, systemImage: "square.grid.3x3")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.9))
-
-                // Ranked/Unranked
-                if challenge.ranked {
-                    Label("Ranked", systemImage: "star.fill")
-                        .font(.caption)
-                        .foregroundColor(.yellow)
-                } else {
-                    Label("Unranked", systemImage: "star")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
-                }
-            }
-
-            // Time control
-            if let timeControl = challenge.timeControl {
-                Text(timeControl)
-                    .font(.caption2)
-                    .foregroundColor(.white.opacity(0.6))
-            }
-
-            Spacer()
-
-            // Accept button
+        HStack(spacing: 12) {
+            // Left: Accept button
             Button(action: onAccept) {
-                HStack {
+                VStack(spacing: 2) {
                     Image(systemName: "checkmark.circle.fill")
+                        .font(.title3)
                     Text("Accept")
+                        .font(.caption2)
                 }
-                .font(.caption.bold())
-                .frame(maxWidth: .infinity)
+                .frame(width: 60)
                 .padding(.vertical, 8)
                 .background(Color.blue.opacity(0.8))
                 .foregroundColor(.white)
-                .cornerRadius(6)
+                .cornerRadius(8)
             }
             .buttonStyle(.plain)
+
+            // Right: Game info
+            VStack(alignment: .leading, spacing: 6) {
+                // Player info
+                HStack(spacing: 6) {
+                    Text(challenge.challenger.username)
+                        .font(.subheadline.bold())
+                        .foregroundColor(.white)
+
+                    Text("(\(challenge.challenger.displayRank))")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+
+                // Game details - first row
+                HStack(spacing: 12) {
+                    // Board size
+                    HStack(spacing: 3) {
+                        Image(systemName: "square.grid.3x3")
+                            .font(.caption2)
+                        Text(challenge.boardSize)
+                            .font(.caption)
+                    }
+                    .foregroundColor(.white.opacity(0.9))
+
+                    // Ranked/Unranked
+                    HStack(spacing: 3) {
+                        if challenge.game.ranked {
+                            Image(systemName: "star.fill")
+                                .font(.caption2)
+                                .foregroundColor(.yellow)
+                            Text("Ranked")
+                                .font(.caption)
+                                .foregroundColor(.yellow)
+                        } else {
+                            Image(systemName: "star")
+                                .font(.caption2)
+                                .foregroundColor(.white.opacity(0.7))
+                            Text("Unranked")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.7))
+                        }
+                    }
+                }
+
+                // Time control - second row (more prominent)
+                HStack(spacing: 4) {
+                    Image(systemName: "clock.fill")
+                        .font(.caption2)
+                    Text(timeControlDetails)
+                        .font(.caption)
+                }
+                .foregroundColor(.cyan)
+            }
+
+            Spacer()
         }
-        .padding()
-        .frame(width: 200)
+        .padding(10)
+        .frame(maxWidth: .infinity)
         .background(Color.white.opacity(0.1))
         .cornerRadius(8)
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.white.opacity(0.2), lineWidth: 1)
         )
+    }
+
+    // Extract detailed time control info
+    private var timeControlDetails: String {
+        guard let params = challenge.game.timeControlParameters,
+              let data = params.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return challenge.timeControlDisplay
+        }
+
+        let speed = (json["speed"] as? String ?? "").capitalized
+
+        if let system = json["system"] as? String {
+            if system == "byoyomi" {
+                if let mainTime = json["main_time"] as? Int,
+                   let periodTime = json["period_time"] as? Int,
+                   let periods = json["periods"] as? Int {
+                    return "\(speed): \(mainTime/60)m + \(periods)×\(periodTime)s"
+                }
+            } else if system == "fischer" {
+                if let initialTime = json["initial_time"] as? Int,
+                   let increment = json["time_increment"] as? Int {
+                    return "\(speed): \(initialTime/60)m + \(increment)s/move"
+                }
+            }
+        }
+
+        return speed
     }
 }
 

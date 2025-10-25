@@ -314,6 +314,7 @@ struct SettingsPanelView3D: View {
                                     if ogsClient.isConnected {
                                         Button(action: {
                                             app.showPreGameOverlay = true
+                                            isPanelOpen = false
                                         }) {
                                             HStack(spacing: 4) {
                                                 Image(systemName: "plus.circle.fill")

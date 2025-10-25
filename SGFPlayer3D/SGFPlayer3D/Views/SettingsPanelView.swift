@@ -324,8 +324,9 @@ struct SettingsPanelView: View {
                                 // Find a Game button (shown when authenticated)
                                 if app.ogsClient.isConnected {
                                     Button(action: {
-                                        // TODO: Show PreGameOverlay
+                                        // Show PreGameOverlay and close settings panel
                                         app.showPreGameOverlay = true
+                                        isPanelOpen = false
                                     }) {
                                         HStack(spacing: 4) {
                                             Image(systemName: "plus.circle.fill")

@@ -345,12 +345,19 @@ class OGSClient: NSObject, ObservableObject {
                             self.username = user
                             self.playerID = extractedPlayerID
 
-                            // If WebSocket was already connected (but without JWT), reconnect it now
-                            if self.isConnected {
-                                NSLog("OGS: 🔄 Reconnecting WebSocket with JWT token")
-                                self.disconnect()
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                    self.connect()
+                            // If WebSocket is already connected, send authenticate message with new JWT
+                            if self.isConnected, let jwt = self.jwtToken {
+                                NSLog("OGS: 🔑 Sending WebSocket authenticate with new JWT token")
+                                let authMessage = """
+                                42["authenticate",{"jwt":"\(jwt)"}]
+                                """
+                                let wsMessage = URLSessionWebSocketTask.Message.string(authMessage)
+                                self.webSocketTask?.send(wsMessage) { error in
+                                    if let error = error {
+                                        NSLog("OGS: ❌ Failed to send WebSocket auth: \(error.localizedDescription)")
+                                    } else {
+                                        NSLog("OGS: ✅ WebSocket authenticate message sent (no reconnect needed)")
+                                    }
                                 }
                             }
 
@@ -861,32 +868,33 @@ class OGSClient: NSObject, ObservableObject {
 
             // Log response for debugging
             if let responseString = String(data: data, encoding: .utf8) {
-                NSLog("OGS: 📋 Available games response: \(responseString.prefix(500))")
+                NSLog("OGS: 📋 Available games response (full): \(responseString)")
+                // Also write to file for detailed inspection
+                let logPath = "/Users/Dave/Desktop/ogs_available_games_response.json"
+                try? responseString.write(toFile: logPath, atomically: true, encoding: .utf8)
+                NSLog("OGS: 📋 Response saved to: \(logPath)")
             }
 
             if httpResponse.statusCode == 200 {
-                do {
-                    // Try parsing as array first
-                    let decoder = JSONDecoder()
-                    if let challenges = try? decoder.decode([OGSChallenge].self, from: data) {
-                        NSLog("OGS: ✅ Fetched \(challenges.count) available games")
-                        DispatchQueue.main.async {
-                            self.availableGames = challenges
-                        }
-                        completion(challenges, nil)
-                    } else if let response = try? decoder.decode(OGSChallengesResponse.self, from: data) {
-                        NSLog("OGS: ✅ Fetched \(response.results.count) available games")
-                        DispatchQueue.main.async {
-                            self.availableGames = response.results
-                        }
-                        completion(response.results, nil)
-                    } else {
-                        NSLog("OGS: ❌ Could not parse challenges response")
-                        completion(nil, "Failed to parse response")
+                let decoder = JSONDecoder()
+
+                // Try parsing as wrapped response (standard OGS format)
+                if let response = try? decoder.decode(OGSChallengesResponse.self, from: data) {
+                    NSLog("OGS: ✅ Fetched \(response.results.count) available games (total: \(response.count))")
+                    DispatchQueue.main.async {
+                        self.availableGames = response.results
                     }
-                } catch {
-                    NSLog("OGS: ❌ JSON decode error: \(error)")
-                    completion(nil, "Parse error: \(error.localizedDescription)")
+                    completion(response.results, nil)
+                } else if let challenges = try? decoder.decode([OGSChallenge].self, from: data) {
+                    // Fallback: try parsing as array
+                    NSLog("OGS: ✅ Fetched \(challenges.count) available games")
+                    DispatchQueue.main.async {
+                        self.availableGames = challenges
+                    }
+                    completion(challenges, nil)
+                } else {
+                    NSLog("OGS: ❌ Could not parse challenges response")
+                    completion(nil, "Failed to parse response")
                 }
             } else {
                 let errorMsg = "HTTP \(httpResponse.statusCode)"
@@ -975,7 +983,11 @@ class OGSClient: NSObject, ObservableObject {
             NSLog("OGS: 🎮 Custom game response status: \(httpResponse.statusCode)")
 
             if let data = data, let responseString = String(data: data, encoding: .utf8) {
-                NSLog("OGS: 🎮 Custom game response: \(responseString)")
+                NSLog("OGS: 🎮 Custom game response (full): \(responseString)")
+                // Also write to file for detailed inspection
+                let logPath = "/Users/Dave/Desktop/ogs_create_game_response.json"
+                try? responseString.write(toFile: logPath, atomically: true, encoding: .utf8)
+                NSLog("OGS: 🎮 Response saved to: \(logPath)")
             }
 
             if httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
