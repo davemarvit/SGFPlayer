@@ -30,12 +30,26 @@ class OGSClient: NSObject, ObservableObject {
     /// Current game phase - drives UI visibility and interaction
     @Published var gamePhase: GamePhase = .preGame
 
+    // MARK: - Automatch State
+    /// UUID of the current automatch request (if any)
+    @Published var activeAutomatchUUID: String?
+    /// Whether an automatch search is currently active
+    @Published var isSearchingForMatch: Bool = false
+
+    // MARK: - Challenge State
+    /// Whether a challenge is being sent
+    @Published var isSendingChallenge: Bool = false
+    /// Available games/challenges that can be accepted
+    @Published var availableGames: [OGSChallenge] = []
+
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
     private var authToken: String?
+    private var jwtToken: String?  // JWT token for WebSocket authentication
     private let keychainService = "com.davemarvit.SGFPlayer3D.OGS"
     private var authCompletionHandler: ((Bool, String?) -> Void)?
     private var authTimeoutTimer: Timer?
+    private var wsAuthPending = false  // Track if WebSocket auth is in progress
 
     /// Returns true if it's our turn to play
     var isMyTurn: Bool {
@@ -164,7 +178,10 @@ class OGSClient: NSObject, ObservableObject {
         // Ensure URLSession exists - recreate if needed
         if urlSession == nil {
             NSLog("OGS: ⚠️ URLSession was nil, recreating...")
-            urlSession = URLSession(configuration: .default, delegate: self, delegateQueue: OperationQueue())
+            let config = URLSessionConfiguration.default
+            config.httpCookieStorage = HTTPCookieStorage.shared
+            config.httpCookieAcceptPolicy = .always
+            urlSession = URLSession(configuration: config, delegate: self, delegateQueue: OperationQueue())
         }
 
         log("OGS: 🔌 Connecting to OGS WebSocket at \(url.absoluteString)")
@@ -321,11 +338,24 @@ class OGSClient: NSObject, ObservableObject {
                         self.saveCredentials(username: user, password: pass)
                     }
 
-                    DispatchQueue.main.async {
-                        self.isAuthenticated = true
-                        self.username = user
-                        self.playerID = extractedPlayerID
-                        completion(true, nil)
+                    // After successful login, get JWT token for WebSocket authentication
+                    self.fetchJWTToken { jwtSuccess in
+                        DispatchQueue.main.async {
+                            self.isAuthenticated = true
+                            self.username = user
+                            self.playerID = extractedPlayerID
+
+                            // If WebSocket was already connected (but without JWT), reconnect it now
+                            if self.isConnected {
+                                NSLog("OGS: 🔄 Reconnecting WebSocket with JWT token")
+                                self.disconnect()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                    self.connect()
+                                }
+                            }
+
+                            completion(true, nil)
+                        }
                     }
                 } else {
                     var errorMessage = "Login failed with status \(httpResponse.statusCode)"
@@ -346,6 +376,40 @@ class OGSClient: NSObject, ObservableObject {
         NSLog("OGS: 🔑 ========== AUTHENTICATE END ==========")
     }
 
+    /// Fetch JWT token for WebSocket authentication
+    private func fetchJWTToken(completion: @escaping (Bool) -> Void) {
+        NSLog("OGS: 🔑 Fetching JWT token from /api/v1/ui/config")
+
+        guard let url = URL(string: "https://online-go.com/api/v1/ui/config") else {
+            NSLog("OGS: ❌ Invalid UI config URL")
+            completion(false)
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            if let error = error {
+                NSLog("OGS: ❌ Failed to fetch JWT: \(error.localizedDescription)")
+                completion(false)
+                return
+            }
+
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let jwt = json["user_jwt"] as? String else {
+                NSLog("OGS: ❌ No JWT token in ui/config response")
+                completion(false)
+                return
+            }
+
+            NSLog("OGS: ✅ Got JWT token: \(jwt.prefix(20))...")
+            self?.jwtToken = jwt
+            completion(true)
+        }.resume()
+    }
+
     /// Disconnect from OGS
     func disconnect() {
         webSocketTask?.cancel(with: .goingAway, reason: nil)
@@ -353,6 +417,579 @@ class OGSClient: NSObject, ObservableObject {
         isConnected = false
         NSLog("OGS: 🔌 Disconnected from OGS")
     }
+
+    // MARK: - Automatch Methods
+
+    /// Start searching for a game via automatch
+    /// - Parameter settings: Game settings (board size, time control, rank range, etc.)
+    func startAutomatch(settings: GameSettings) {
+        NSLog("OGS: 🎯 startAutomatch called - isConnected: \(isConnected), isAuthenticated: \(isAuthenticated)")
+        NSLog("OGS: 🎯 WebSocket task state: \(webSocketTask?.state.rawValue ?? -1)")
+
+        guard isConnected else {
+            NSLog("OGS: ❌ Cannot start automatch - not connected")
+            lastError = "Not connected to OGS"
+            return
+        }
+
+        guard isAuthenticated else {
+            NSLog("OGS: ❌ Cannot start automatch - not authenticated")
+            lastError = "Please log in to play games"
+            return
+        }
+
+        // Generate a UUID for this automatch request
+        let uuid = UUID().uuidString
+        NSLog("OGS: 🎯 Starting automatch with UUID: \(uuid)")
+
+        // Convert board size to OGS format ("19x19", "13x13", "9x9")
+        let sizeString = "\(settings.boardSize)x\(settings.boardSize)"
+
+        // Determine speed based on time control
+        // Blitz/Rapid are both "live", Fischer can also be "live"
+        let speed: String
+        switch settings.timeControl {
+        case .blitz:
+            speed = "blitz"
+        case .rapid:
+            speed = "rapid"
+        case .fischer:
+            speed = "live"
+        }
+
+        // Build automatch preferences structure
+        let preferences: [String: Any] = [
+            "uuid": uuid,
+            "size_speed_options": [
+                [
+                    "size": sizeString,
+                    "speed": speed,
+                    "system": settings.timeControl.timeSystem
+                ]
+            ],
+            "lower_rank_diff": -(settings.rankRange.numericValue ?? 36),  // Negative for lower ranks (36 covers full OGS range)
+            "upper_rank_diff": settings.rankRange.numericValue ?? 36,     // Positive for higher ranks (36 covers full OGS range)
+            "rules": [
+                "condition": "required",
+                "value": "japanese"
+            ],
+            "handicap": [
+                "condition": "no-preference",
+                "value": "disabled"
+            ]
+        ]
+
+        // Convert to JSON
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: preferences),
+              let jsonString = String(data: jsonData, encoding: .utf8) else {
+            NSLog("OGS: ❌ Failed to serialize automatch preferences")
+            lastError = "Failed to create automatch request"
+            return
+        }
+
+        // Send automatch/find_match message
+        let message = "42[\"automatch/find_match\",\(jsonString)]"
+        NSLog("OGS: 🎯 ==================== SENDING AUTOMATCH REQUEST ====================")
+        NSLog("OGS: 🎯 Message: \(message)")
+        NSLog("OGS: 🎯 Preferences JSON: \(jsonString)")
+        NSLog("OGS: 🎯 ==================================================================")
+
+        // Also write to file for debugging
+        if let logData = "SENDING AUTOMATCH: \(message)\n".data(using: .utf8) {
+            let logPath = NSHomeDirectory() + "/Desktop/automatch_debug.log"
+            if let handle = FileHandle(forWritingAtPath: logPath) {
+                handle.seekToEndOfFile()
+                handle.write(logData)
+                handle.closeFile()
+            } else {
+                try? logData.write(to: URL(fileURLWithPath: logPath))
+            }
+        }
+
+        let wsMessage = URLSessionWebSocketTask.Message.string(message)
+        webSocketTask?.send(wsMessage) { [weak self] error in
+            if let error = error {
+                NSLog("OGS: ❌ Error sending automatch request: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    self?.lastError = error.localizedDescription
+                    self?.isSearchingForMatch = false
+                }
+            } else {
+                NSLog("OGS: ✅ Automatch request sent successfully")
+                DispatchQueue.main.async {
+                    self?.activeAutomatchUUID = uuid
+                    self?.isSearchingForMatch = true
+                }
+            }
+        }
+    }
+
+    /// Cancel an active automatch request
+    /// - Parameter uuid: The UUID of the automatch request to cancel (uses active UUID if not specified)
+    func cancelAutomatch(uuid: String? = nil) {
+        let uuidToCancel = uuid ?? activeAutomatchUUID
+
+        guard let uuidToCancel = uuidToCancel else {
+            NSLog("OGS: ⚠️ No active automatch to cancel")
+            return
+        }
+
+        NSLog("OGS: 🛑 Canceling automatch with UUID: \(uuidToCancel)")
+
+        // Build cancel message
+        let cancelData: [String: Any] = ["uuid": uuidToCancel]
+
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: cancelData),
+              let jsonString = String(data: jsonData, encoding: .utf8) else {
+            NSLog("OGS: ❌ Failed to serialize cancel request")
+            return
+        }
+
+        let message = "42[\"automatch/cancel\",\(jsonString)]"
+        NSLog("OGS: 🛑 Sending cancel request: \(message)")
+
+        let wsMessage = URLSessionWebSocketTask.Message.string(message)
+        webSocketTask?.send(wsMessage) { [weak self] error in
+            if let error = error {
+                NSLog("OGS: ❌ Error sending cancel request: \(error.localizedDescription)")
+            } else {
+                NSLog("OGS: ✅ Cancel request sent successfully")
+                DispatchQueue.main.async {
+                    self?.activeAutomatchUUID = nil
+                    self?.isSearchingForMatch = false
+                }
+            }
+        }
+    }
+
+    // MARK: - Challenge Methods
+
+    /// Send a direct challenge to a specific player
+    /// - Parameters:
+    ///   - username: The OGS username to challenge
+    ///   - settings: Game settings (board size, time control, etc.)
+    func sendChallenge(to username: String, settings: GameSettings) {
+        let logPath = NSHomeDirectory() + "/Desktop/challenge_debug.log"
+        let logMsg = "[\(Date())] sendChallenge called for username: \(username)\n"
+        try? logMsg.data(using: .utf8)?.write(to: URL(fileURLWithPath: logPath), options: .atomic)
+
+        NSLog("OGS: ⚔️ Sending challenge to \(username)")
+
+        guard isAuthenticated else {
+            let errMsg = "[\(Date())] ERROR: Not authenticated\n"
+            if let handle = FileHandle(forWritingAtPath: logPath) {
+                handle.seekToEndOfFile()
+                handle.write(errMsg.data(using: .utf8)!)
+                handle.closeFile()
+            }
+            NSLog("OGS: ❌ Cannot send challenge - not authenticated")
+            lastError = "Please log in to send challenges"
+            return
+        }
+
+        let authMsg = "[\(Date())] Authenticated, sending challenge\n"
+        if let handle = FileHandle(forWritingAtPath: logPath) {
+            handle.seekToEndOfFile()
+            handle.write(authMsg.data(using: .utf8)!)
+            handle.closeFile()
+        }
+
+        DispatchQueue.main.async {
+            self.isSendingChallenge = true
+        }
+
+        // First, look up the player ID from username
+        lookupPlayerID(username: username) { [weak self] playerID in
+            guard let self = self, let playerID = playerID else {
+                NSLog("OGS: ❌ Could not find player: \(username)")
+                DispatchQueue.main.async {
+                    self?.lastError = "Player '\(username)' not found"
+                    self?.isSendingChallenge = false
+                }
+                return
+            }
+
+            self.sendChallengeToPlayerID(playerID, settings: settings)
+        }
+    }
+
+    private func lookupPlayerID(username: String, completion: @escaping (Int?) -> Void) {
+        let logPath = NSHomeDirectory() + "/Desktop/challenge_debug.log"
+        let lookupMsg = "[\(Date())] Looking up player ID for: \(username)\n"
+        if let handle = FileHandle(forWritingAtPath: logPath) {
+            handle.seekToEndOfFile()
+            handle.write(lookupMsg.data(using: .utf8)!)
+            handle.closeFile()
+        }
+
+        let urlString = "https://online-go.com/api/v1/players?username=\(username)"
+        guard let url = URL(string: urlString) else {
+            completion(nil)
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            let logPath = NSHomeDirectory() + "/Desktop/challenge_debug.log"
+
+            if let error = error {
+                let errMsg = "[\(Date())] Lookup ERROR: \(error.localizedDescription)\n"
+                if let handle = FileHandle(forWritingAtPath: logPath) {
+                    handle.seekToEndOfFile()
+                    handle.write(errMsg.data(using: .utf8)!)
+                    handle.closeFile()
+                }
+            }
+
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let results = json["results"] as? [[String: Any]],
+                  let firstResult = results.first,
+                  let id = firstResult["id"] as? Int else {
+                let failMsg = "[\(Date())] Failed to parse player ID for \(username)\n"
+                if let handle = FileHandle(forWritingAtPath: logPath) {
+                    handle.seekToEndOfFile()
+                    handle.write(failMsg.data(using: .utf8)!)
+                    handle.closeFile()
+                }
+                NSLog("OGS: ❌ Failed to lookup player ID for \(username)")
+                completion(nil)
+                return
+            }
+
+            let successMsg = "[\(Date())] Found player ID: \(id) for \(username)\n"
+            if let handle = FileHandle(forWritingAtPath: logPath) {
+                handle.seekToEndOfFile()
+                handle.write(successMsg.data(using: .utf8)!)
+                handle.closeFile()
+            }
+
+            NSLog("OGS: ✅ Found player ID \(id) for username \(username)")
+            completion(id)
+        }.resume()
+    }
+
+    private func sendChallengeToPlayerID(_ playerID: Int, settings: GameSettings) {
+        let logPath = NSHomeDirectory() + "/Desktop/challenge_debug.log"
+        let startMsg = "[\(Date())] Sending challenge to player ID: \(playerID)\n"
+        if let handle = FileHandle(forWritingAtPath: logPath) {
+            handle.seekToEndOfFile()
+            handle.write(startMsg.data(using: .utf8)!)
+            handle.closeFile()
+        }
+
+        // OGS uses cookie-based authentication - session cookies are automatically sent by URLSession
+        // Also need CSRF protection headers
+        let url = URL(string: "https://online-go.com/api/v1/challenges")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("https://online-go.com", forHTTPHeaderField: "Referer")
+        request.setValue("https://online-go.com", forHTTPHeaderField: "Origin")
+
+        // Get CSRF token from cookies
+        if let cookies = HTTPCookieStorage.shared.cookies(for: url),
+           let csrfCookie = cookies.first(where: { $0.name == "csrftoken" }) {
+            request.setValue(csrfCookie.value, forHTTPHeaderField: "X-CSRFToken")
+            NSLog("OGS: ✅ Added CSRF token to challenge request: \(csrfCookie.value)")
+        } else {
+            NSLog("OGS: ⚠️ No CSRF token found in cookies")
+        }
+
+        // Build challenge request body
+        let challengeData: [String: Any] = [
+            "challenged_player_id": playerID,
+            "challenger_color": settings.colorPreference.apiValue,
+            "game": [
+                "width": settings.boardSize,
+                "height": settings.boardSize,
+                "ranked": true,
+                "handicap": 0,
+                "komi_auto": "automatic",
+                "disable_analysis": false,
+                "rules": "japanese",
+                "time_control": settings.timeControl.timeSystem,
+                "time_control_parameters": [
+                    "time_control": settings.timeControl.timeSystem,
+                    "system": settings.timeControl.timeSystem,
+                    "main_time": settings.timeControl.mainTime,
+                    "period_time": settings.timeControl.periodTime,
+                    "periods": settings.timeControl.periods
+                ]
+            ]
+        ]
+
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: challengeData) else {
+            NSLog("OGS: ❌ Failed to serialize challenge data")
+            DispatchQueue.main.async {
+                self.lastError = "Failed to create challenge"
+                self.isSendingChallenge = false
+            }
+            return
+        }
+
+        request.httpBody = jsonData
+
+        // Log all headers and body to debug file
+        let headersMsg = "[\(Date())] Request headers: \(request.allHTTPHeaderFields ?? [:])\n"
+        let bodyMsg = "[\(Date())] Request body: \(String(data: jsonData, encoding: .utf8) ?? "nil")\n"
+        if let handle = FileHandle(forWritingAtPath: logPath) {
+            handle.seekToEndOfFile()
+            handle.write(headersMsg.data(using: .utf8)!)
+            handle.write(bodyMsg.data(using: .utf8)!)
+            handle.closeFile()
+        }
+
+        NSLog("OGS: ⚔️ Sending challenge request: \(String(data: jsonData, encoding: .utf8) ?? "")")
+        NSLog("OGS: 📋 Request headers: \(request.allHTTPHeaderFields ?? [:])")
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            let logPath = NSHomeDirectory() + "/Desktop/challenge_debug.log"
+
+            DispatchQueue.main.async {
+                self?.isSendingChallenge = false
+            }
+
+            if let error = error {
+                let errMsg = "[\(Date())] HTTP ERROR: \(error.localizedDescription)\n"
+                if let handle = FileHandle(forWritingAtPath: logPath) {
+                    handle.seekToEndOfFile()
+                    handle.write(errMsg.data(using: .utf8)!)
+                    handle.closeFile()
+                }
+                NSLog("OGS: ❌ Challenge request failed: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    self?.lastError = "Challenge failed: \(error.localizedDescription)"
+                }
+                return
+            }
+
+            if let httpResponse = response as? HTTPURLResponse {
+                let statusMsg = "[\(Date())] HTTP Status: \(httpResponse.statusCode)\n"
+                if let handle = FileHandle(forWritingAtPath: logPath) {
+                    handle.seekToEndOfFile()
+                    handle.write(statusMsg.data(using: .utf8)!)
+                    handle.closeFile()
+                }
+
+                NSLog("OGS: ⚔️ Challenge response status: \(httpResponse.statusCode)")
+
+                if let data = data, let responseString = String(data: data, encoding: .utf8) {
+                    let respMsg = "[\(Date())] Response: \(responseString)\n"
+                    if let handle = FileHandle(forWritingAtPath: logPath) {
+                        handle.seekToEndOfFile()
+                        handle.write(respMsg.data(using: .utf8)!)
+                        handle.closeFile()
+                    }
+                    NSLog("OGS: ⚔️ Challenge response: \(responseString)")
+                }
+
+                if httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
+                    let successMsg = "[\(Date())] SUCCESS! Challenge sent.\n"
+                    if let handle = FileHandle(forWritingAtPath: logPath) {
+                        handle.seekToEndOfFile()
+                        handle.write(successMsg.data(using: .utf8)!)
+                        handle.closeFile()
+                    }
+                    NSLog("OGS: ✅ Challenge sent successfully!")
+                    DispatchQueue.main.async {
+                        self?.lastError = nil
+                    }
+                } else {
+                    let errorMsg = "Challenge failed with status \(httpResponse.statusCode)"
+                    let failMsg = "[\(Date())] FAILED: \(errorMsg)\n"
+                    if let handle = FileHandle(forWritingAtPath: logPath) {
+                        handle.seekToEndOfFile()
+                        handle.write(failMsg.data(using: .utf8)!)
+                        handle.closeFile()
+                    }
+                    NSLog("OGS: ❌ \(errorMsg)")
+                    DispatchQueue.main.async {
+                        self?.lastError = errorMsg
+                    }
+                }
+            }
+        }.resume()
+    }
+
+    // MARK: - Available Games / Public Challenges
+
+    /// Fetch available games/challenges from OGS
+    /// - Parameter completion: Callback with array of challenges or error
+    func fetchAvailableGames(completion: @escaping ([OGSChallenge]?, String?) -> Void) {
+        NSLog("OGS: 📋 Fetching available games list...")
+
+        guard let url = URL(string: "https://online-go.com/api/v1/challenges") else {
+            NSLog("OGS: ❌ Invalid challenges URL")
+            completion(nil, "Invalid URL")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        // Add session cookies for authentication (if logged in)
+        if let cookies = HTTPCookieStorage.shared.cookies(for: url) {
+            let headers = HTTPCookie.requestHeaderFields(with: cookies)
+            for (key, value) in headers {
+                request.setValue(value, forHTTPHeaderField: key)
+            }
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                NSLog("OGS: ❌ Failed to fetch available games: \(error.localizedDescription)")
+                completion(nil, error.localizedDescription)
+                return
+            }
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                NSLog("OGS: ❌ Invalid HTTP response")
+                completion(nil, "Invalid response")
+                return
+            }
+
+            NSLog("OGS: 📋 Available games response status: \(httpResponse.statusCode)")
+
+            guard let data = data else {
+                NSLog("OGS: ❌ No data in response")
+                completion(nil, "No data")
+                return
+            }
+
+            // Log response for debugging
+            if let responseString = String(data: data, encoding: .utf8) {
+                NSLog("OGS: 📋 Available games response: \(responseString.prefix(500))")
+            }
+
+            if httpResponse.statusCode == 200 {
+                do {
+                    // Try parsing as array first
+                    let decoder = JSONDecoder()
+                    if let challenges = try? decoder.decode([OGSChallenge].self, from: data) {
+                        NSLog("OGS: ✅ Fetched \(challenges.count) available games")
+                        DispatchQueue.main.async {
+                            self.availableGames = challenges
+                        }
+                        completion(challenges, nil)
+                    } else if let response = try? decoder.decode(OGSChallengesResponse.self, from: data) {
+                        NSLog("OGS: ✅ Fetched \(response.results.count) available games")
+                        DispatchQueue.main.async {
+                            self.availableGames = response.results
+                        }
+                        completion(response.results, nil)
+                    } else {
+                        NSLog("OGS: ❌ Could not parse challenges response")
+                        completion(nil, "Failed to parse response")
+                    }
+                } catch {
+                    NSLog("OGS: ❌ JSON decode error: \(error)")
+                    completion(nil, "Parse error: \(error.localizedDescription)")
+                }
+            } else {
+                let errorMsg = "HTTP \(httpResponse.statusCode)"
+                NSLog("OGS: ❌ Available games request failed: \(errorMsg)")
+                completion(nil, errorMsg)
+            }
+        }.resume()
+    }
+
+    /// Post a custom game/challenge to OGS
+    /// - Parameters:
+    ///   - settings: Game settings configuration
+    ///   - completion: Callback with success status and error message if any
+    func postCustomGame(settings: GameSettings, completion: @escaping (Bool, String?) -> Void) {
+        NSLog("OGS: 🎮 Posting custom game with settings: \(settings)")
+
+        guard isAuthenticated else {
+            NSLog("OGS: ❌ Cannot post game - not authenticated")
+            completion(false, "Not authenticated")
+            return
+        }
+
+        guard let url = URL(string: "https://online-go.com/api/v1/challenges") else {
+            NSLog("OGS: ❌ Invalid challenges URL")
+            completion(false, "Invalid URL")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Add CSRF protection headers
+        if let csrfCookie = HTTPCookieStorage.shared.cookies?.first(where: { $0.name == "csrftoken" }) {
+            request.setValue(csrfCookie.value, forHTTPHeaderField: "X-CSRFToken")
+        }
+        request.setValue("https://online-go.com", forHTTPHeaderField: "Referer")
+        request.setValue("https://online-go.com", forHTTPHeaderField: "Origin")
+
+        // Build request body
+        let timeControl = settings.timeControl
+        let body: [String: Any] = [
+            "game": [
+                "name": "SGFPlayer3D Game",
+                "rules": "japanese",
+                "ranked": true,
+                "width": settings.boardSize,
+                "height": settings.boardSize,
+                "handicap": 0,
+                "komi_auto": "automatic",
+                "disable_analysis": false,
+                "pause_on_weekends": false,
+                "time_control": timeControl.timeSystem,
+                "time_control_parameters": [
+                    "time_control": timeControl.timeSystem,
+                    "main_time": timeControl.mainTime,
+                    "period_time": timeControl.periodTime,
+                    "periods": timeControl.periods
+                ]
+            ],
+            "challenger_color": settings.colorPreference.apiValue
+        ]
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            NSLog("OGS: 🎮 Custom game request body: \(String(data: request.httpBody!, encoding: .utf8) ?? "?")")
+        } catch {
+            NSLog("OGS: ❌ Failed to encode custom game request: \(error)")
+            completion(false, "Failed to encode request")
+            return
+        }
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                NSLog("OGS: ❌ Custom game request failed: \(error.localizedDescription)")
+                completion(false, error.localizedDescription)
+                return
+            }
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                NSLog("OGS: ❌ Invalid HTTP response")
+                completion(false, "Invalid response")
+                return
+            }
+
+            NSLog("OGS: 🎮 Custom game response status: \(httpResponse.statusCode)")
+
+            if let data = data, let responseString = String(data: data, encoding: .utf8) {
+                NSLog("OGS: 🎮 Custom game response: \(responseString)")
+            }
+
+            if httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
+                NSLog("OGS: ✅ Custom game posted successfully!")
+                completion(true, nil)
+            } else {
+                let errorMsg = "Failed with status \(httpResponse.statusCode)"
+                NSLog("OGS: ❌ \(errorMsg)")
+                completion(false, errorMsg)
+            }
+        }.resume()
+    }
+
+    // MARK: - Game Play
 
     /// Send a move to OGS
     /// - Parameters:
@@ -593,11 +1230,16 @@ class OGSClient: NSObject, ObservableObject {
     }
 
     private func receiveMessage() {
+        NSLog("OGS: 🔄 receiveMessage() called - task state: \(webSocketTask?.state.rawValue ?? -1)")
         webSocketTask?.receive { [weak self] result in
-            guard let self = self else { return }
+            guard let self = self else {
+                NSLog("OGS: ⚠️ receiveMessage: self is nil")
+                return
+            }
 
             switch result {
             case .success(let message):
+                NSLog("OGS: ✅ Received message successfully")
                 switch message {
                 case .string(let text):
                     self.handleMessage(text)
@@ -610,13 +1252,20 @@ class OGSClient: NSObject, ObservableObject {
                 }
 
                 // Continue receiving messages
+                NSLog("OGS: 🔄 Calling receiveMessage() again to continue loop")
                 self.receiveMessage()
 
             case .failure(let error):
                 NSLog("OGS: ❌ WebSocket receive error: \(error.localizedDescription)")
+                NSLog("OGS: ❌ Error code: \(error)")
                 DispatchQueue.main.async {
                     self.lastError = error.localizedDescription
                     self.isConnected = false
+                }
+                // Try to continue receiving even after error
+                NSLog("OGS: 🔄 Attempting to restart receive loop after error")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    self.receiveMessage()
                 }
             }
         }
@@ -655,6 +1304,25 @@ class OGSClient: NSObject, ObservableObject {
             // Set connected flag on main queue
             DispatchQueue.main.async { [weak self] in
                 self?.isConnected = true
+            }
+
+            // Send WebSocket authenticate message with JWT token
+            if let jwt = self.jwtToken {
+                NSLog("OGS: 🔑 Sending WebSocket authenticate with JWT")
+                let authMessage = """
+                42["authenticate",{"jwt":"\(jwt)"}]
+                """
+                let wsMessage = URLSessionWebSocketTask.Message.string(authMessage)
+                self.webSocketTask?.send(wsMessage) { error in
+                    if let error = error {
+                        NSLog("OGS: ❌ Failed to send WebSocket auth: \(error.localizedDescription)")
+                    } else {
+                        NSLog("OGS: ✅ WebSocket authenticate message sent")
+                        self.wsAuthPending = true
+                    }
+                }
+            } else {
+                NSLog("OGS: ⚠️ No JWT token available for WebSocket auth")
             }
 
             // Credentials should already be loaded from init()
@@ -727,6 +1395,16 @@ class OGSClient: NSObject, ObservableObject {
         // DEBUGGING: Log ALL events to catch authentication response
         NSLog("OGS: 📨 EVENT RECEIVED: \(eventName)")
 
+        // Also write to file for debugging
+        if let logData = "RECEIVED EVENT: \(eventName)\n".data(using: .utf8) {
+            let logPath = NSHomeDirectory() + "/Desktop/automatch_debug.log"
+            if let handle = FileHandle(forWritingAtPath: logPath) {
+                handle.seekToEndOfFile()
+                handle.write(logData)
+                handle.closeFile()
+            }
+        }
+
         // Suppress logging for noisy broadcast messages
         let suppressedEvents = ["active-bots", "active-players", "incident-report"]
         if !suppressedEvents.contains(eventName) {
@@ -767,6 +1445,21 @@ class OGSClient: NSObject, ObservableObject {
             } else {
                 NSLog("OGS: ❌ Failed to cast json[1] to [String: Any]. json[1] type: \(type(of: json[1]))")
             }
+        case "automatch/entry":
+            NSLog("OGS: 🎯 ========== AUTOMATCH ENTRY ==========")
+            if let preferencesData = json[1] as? [String: Any] {
+                handleAutomatchEntry(preferencesData)
+            }
+        case "automatch/start":
+            NSLog("OGS: 🎯 ========== AUTOMATCH START - GAME FOUND! ==========")
+            if let startData = json[1] as? [String: Any] {
+                handleAutomatchStart(startData)
+            }
+        case "automatch/cancel":
+            NSLog("OGS: 🎯 ========== AUTOMATCH CANCELED ==========")
+            if let cancelData = json[1] as? [String: Any] {
+                handleAutomatchCancel(cancelData)
+            }
         case "active-bots", "active-players", "incident-report":
             // Suppress these broadcast messages - they're noisy
             break
@@ -779,31 +1472,42 @@ class OGSClient: NSObject, ObservableObject {
     }
 
     private func handleAuthentication(_ authData: [String: Any]) {
-        NSLog("OGS: 🔑 Authentication response: \(authData)")
+        NSLog("OGS: 🔑 WebSocket authentication response: \(authData)")
 
         // Cancel the timeout timer
         authTimeoutTimer?.invalidate()
         authTimeoutTimer = nil
 
-        if let success = authData["success"] as? Bool, success {
+        // JWT auth response format: {"id": number, "username": string}
+        if let userId = authData["id"] as? Int, let username = authData["username"] as? String {
+            NSLog("OGS: ✅ WebSocket authentication successful - user: \(username) (id: \(userId))")
+            DispatchQueue.main.async {
+                self.wsAuthPending = false
+                // Note: isAuthenticated is already set from REST login
+                // This just confirms WebSocket is also authenticated
+            }
+        } else if let success = authData["success"] as? Bool, success {
             NSLog("OGS: ✅ Authentication successful")
             DispatchQueue.main.async {
                 self.isAuthenticated = true
+                self.wsAuthPending = false
                 self.authCompletionHandler?(true, nil)
                 self.authCompletionHandler = nil
             }
         } else if let error = authData["error"] as? String {
-            NSLog("OGS: ❌ Authentication failed: \(error)")
+            NSLog("OGS: ❌ WebSocket authentication failed: \(error)")
             DispatchQueue.main.async {
                 self.isAuthenticated = false
+                self.wsAuthPending = false
                 self.lastError = error
                 self.authCompletionHandler?(false, error)
                 self.authCompletionHandler = nil
             }
         } else {
-            // Unknown response format
-            NSLog("OGS: ⚠️ Unknown authentication response format: \(authData)")
+            // Unknown response format or auth failed
+            NSLog("OGS: ⚠️ WebSocket auth response format: \(authData)")
             DispatchQueue.main.async {
+                self.wsAuthPending = false
                 self.authCompletionHandler?(false, "Unknown response format")
                 self.authCompletionHandler = nil
             }
@@ -1193,6 +1897,75 @@ class OGSClient: NSObject, ObservableObject {
             }
         } else {
             NSLog("OGS: ❌ Could not extract white_time dictionary from clockData")
+        }
+    }
+
+    // MARK: - Automatch Event Handlers
+
+    private func handleAutomatchEntry(_ preferencesData: [String: Any]) {
+        NSLog("OGS: 🎯 ==================== AUTOMATCH ENTRY RECEIVED ====================")
+        NSLog("OGS: 🎯 Server confirmed automatch request!")
+        NSLog("OGS: 🎯 Data: \(preferencesData)")
+        NSLog("OGS: 🎯 ==================================================================")
+
+        // Also write to file for debugging
+        if let logData = "RECEIVED AUTOMATCH ENTRY: \(preferencesData)\n".data(using: .utf8) {
+            let logPath = NSHomeDirectory() + "/Desktop/automatch_debug.log"
+            if let handle = FileHandle(forWritingAtPath: logPath) {
+                handle.seekToEndOfFile()
+                handle.write(logData)
+                handle.closeFile()
+            } else {
+                try? logData.write(to: URL(fileURLWithPath: logPath))
+            }
+        }
+
+        // Extract UUID from preferences
+        if let uuid = preferencesData["uuid"] as? String {
+            DispatchQueue.main.async {
+                self.activeAutomatchUUID = uuid
+                self.isSearchingForMatch = true
+            }
+            NSLog("OGS: 🎯 Automatch active with UUID: \(uuid)")
+        }
+    }
+
+    private func handleAutomatchStart(_ startData: [String: Any]) {
+        NSLog("OGS: 🎉 GAME FOUND! Data: \(startData)")
+
+        // Extract game_id and uuid
+        guard let gameID = startData["game_id"] as? Int else {
+            NSLog("OGS: ❌ No game_id in automatch/start")
+            return
+        }
+
+        if let uuid = startData["uuid"] as? String {
+            NSLog("OGS: 🎯 Match found for UUID: \(uuid)")
+        }
+
+        NSLog("OGS: 🎮 Starting game \(gameID)")
+
+        // Update state
+        DispatchQueue.main.async {
+            self.activeAutomatchUUID = nil
+            self.isSearchingForMatch = false
+            self.gamePhase = .playing
+
+            // Join the game to start receiving updates
+            self.joinGame(gameID: gameID)
+        }
+    }
+
+    private func handleAutomatchCancel(_ cancelData: [String: Any]) {
+        NSLog("OGS: 🛑 Automatch canceled: \(cancelData)")
+
+        if let uuid = cancelData["uuid"] as? String {
+            NSLog("OGS: 🛑 Canceled UUID: \(uuid)")
+        }
+
+        DispatchQueue.main.async {
+            self.activeAutomatchUUID = nil
+            self.isSearchingForMatch = false
         }
     }
 

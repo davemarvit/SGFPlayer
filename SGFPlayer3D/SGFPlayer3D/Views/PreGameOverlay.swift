@@ -7,8 +7,7 @@ struct PreGameOverlay: View {
     @State private var gameSettings: GameSettings = GameSettings.load()
     @Binding var isVisible: Bool  // Control visibility externally
 
-    // UI state
-    @State private var isSearching = false
+    // UI state - sync with OGSClient.isSearchingForMatch
     @State private var challengeUsername = ""
 
     var body: some View {
@@ -28,6 +27,14 @@ struct PreGameOverlay: View {
 
                     Spacer()
 
+                    // Refresh button
+                    Button(action: refreshAvailableGames) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.title3)
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                    .buttonStyle(.plain)
+
                     Button(action: {
                         isVisible = false
                     }) {
@@ -42,14 +49,14 @@ struct PreGameOverlay: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
-                        // Quick Match Section
-                        quickMatchSection
+                        // Available Games Section
+                        availableGamesSection
 
                         Divider()
                             .background(Color.white.opacity(0.3))
 
-                        // Challenge Player Section
-                        challengePlayerSection
+                        // Create Custom Game Section
+                        createGameSection
 
                         Divider()
                             .background(Color.white.opacity(0.3))
@@ -60,7 +67,7 @@ struct PreGameOverlay: View {
                     .padding()
                 }
             }
-            .frame(maxWidth: 500, maxHeight: 600)
+            .frame(maxWidth: 700, maxHeight: 700)
             .background(Color(white: 0.15))  // Dark gray background instead of thinMaterial
             .cornerRadius(12)
             .shadow(radius: 20)
@@ -69,78 +76,64 @@ struct PreGameOverlay: View {
                     .stroke(Color.white.opacity(0.1), lineWidth: 1)  // Subtle border, not bright blue
             )
         }
+        .onAppear {
+            // Fetch available games when overlay appears
+            refreshAvailableGames()
+        }
     }
 
-    // MARK: - Quick Match Section
+    // MARK: - Available Games Section
 
-    private var quickMatchSection: some View {
+    private var availableGamesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Quick Match")
+            Text("Available Games")
                 .font(.headline)
                 .foregroundColor(.white)
 
-            Text("Find an opponent automatically")
+            if ogsClient.availableGames.isEmpty {
+                Text("No games available. Create one below!")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.7))
+                    .padding()
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(ogsClient.availableGames) { challenge in
+                            GameChallengeCard(challenge: challenge) {
+                                acceptChallenge(challenge)
+                            }
+                        }
+                    }
+                }
+                .frame(height: 140)
+            }
+        }
+    }
+
+    // MARK: - Create Game Section
+
+    private var createGameSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Create Custom Game")
+                .font(.headline)
+                .foregroundColor(.white)
+
+            Text("Post a public challenge with your settings")
                 .font(.caption)
                 .foregroundColor(.white.opacity(0.7))
 
-            Button(action: {
-                if isSearching {
-                    cancelAutomatch()
-                } else {
-                    startAutomatch()
-                }
-            }) {
+            Button(action: createCustomGame) {
                 HStack {
-                    if isSearching {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            .scaleEffect(0.8)
-                        Text("Searching...")
-                    } else {
-                        Image(systemName: "play.fill")
-                        Text("Start Game")
-                    }
+                    Image(systemName: "plus.circle.fill")
+                    Text("Create Game")
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(isSearching ? Color.gray.opacity(0.5) : Color.blue.opacity(0.8))
+                .background(Color.green.opacity(0.8))
                 .foregroundColor(.white)
                 .cornerRadius(8)
             }
             .buttonStyle(.plain)
-        }
-    }
-
-    // MARK: - Challenge Player Section
-
-    private var challengePlayerSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Challenge Player")
-                .font(.headline)
-                .foregroundColor(.white)
-
-            Text("Send a direct challenge")
-                .font(.caption)
-                .foregroundColor(.white.opacity(0.7))
-
-            HStack {
-                TextField("Username", text: $challengeUsername)
-                    .textFieldStyle(.roundedBorder)
-
-                Button(action: sendChallenge) {
-                    HStack {
-                        Image(systemName: "paperplane.fill")
-                        Text("Send")
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(challengeUsername.isEmpty ? Color.gray.opacity(0.5) : Color.orange.opacity(0.8))
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
-                }
-                .buttonStyle(.plain)
-                .disabled(challengeUsername.isEmpty)
-            }
         }
     }
 
@@ -256,21 +249,118 @@ struct PreGameOverlay: View {
 
     // MARK: - Actions
 
-    private func startAutomatch() {
-        isSearching = true
-        // TODO: Stage 2 - Implement automatch API call
-        NSLog("PreGameOverlay: Starting automatch with settings: \(gameSettings)")
+    private func refreshAvailableGames() {
+        NSLog("PreGameOverlay: Refreshing available games...")
+
+        ogsClient.fetchAvailableGames { challenges, error in
+            if let error = error {
+                NSLog("PreGameOverlay: Failed to fetch games: \(error)")
+            } else if let challenges = challenges {
+                NSLog("PreGameOverlay: Fetched \(challenges.count) available games")
+            }
+        }
     }
 
-    private func cancelAutomatch() {
-        isSearching = false
-        // TODO: Stage 2 - Implement cancel automatch
-        NSLog("PreGameOverlay: Canceling automatch")
+    private func acceptChallenge(_ challenge: OGSChallenge) {
+        NSLog("PreGameOverlay: Accepting challenge \(challenge.id)")
+
+        // TODO: Implement challenge acceptance
+        // This will require adding an acceptChallenge() method to OGSClient
+        // For now, just log it
+        NSLog("PreGameOverlay: ⚠️ Challenge acceptance not yet implemented")
     }
 
-    private func sendChallenge() {
-        // TODO: Stage 3 - Implement challenge sending
-        NSLog("PreGameOverlay: Sending challenge to \(challengeUsername) with settings: \(gameSettings)")
+    private func createCustomGame() {
+        NSLog("PreGameOverlay: Creating custom game with settings: \(gameSettings)")
+
+        // Save settings
+        gameSettings.save()
+
+        // Post custom game
+        ogsClient.postCustomGame(settings: gameSettings) { success, error in
+            if success {
+                NSLog("PreGameOverlay: ✅ Custom game posted successfully")
+                // Refresh the list to show our new game
+                self.refreshAvailableGames()
+            } else {
+                NSLog("PreGameOverlay: ❌ Failed to post game: \(error ?? "unknown error")")
+            }
+        }
+    }
+}
+
+// MARK: - Game Challenge Card
+
+struct GameChallengeCard: View {
+    let challenge: OGSChallenge
+    let onAccept: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Player info
+            if let challenger = challenge.challenger {
+                HStack {
+                    Text(challenger.username)
+                        .font(.headline)
+                        .foregroundColor(.white)
+
+                    Text("(\(challenger.displayRank))")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+            }
+
+            // Game info
+            HStack(spacing: 12) {
+                // Board size
+                Label(challenge.boardSize, systemImage: "square.grid.3x3")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.9))
+
+                // Ranked/Unranked
+                if challenge.ranked {
+                    Label("Ranked", systemImage: "star.fill")
+                        .font(.caption)
+                        .foregroundColor(.yellow)
+                } else {
+                    Label("Unranked", systemImage: "star")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+            }
+
+            // Time control
+            if let timeControl = challenge.timeControl {
+                Text(timeControl)
+                    .font(.caption2)
+                    .foregroundColor(.white.opacity(0.6))
+            }
+
+            Spacer()
+
+            // Accept button
+            Button(action: onAccept) {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                    Text("Accept")
+                }
+                .font(.caption.bold())
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(Color.blue.opacity(0.8))
+                .foregroundColor(.white)
+                .cornerRadius(6)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding()
+        .frame(width: 200)
+        .background(Color.white.opacity(0.1))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+        )
     }
 }
 
