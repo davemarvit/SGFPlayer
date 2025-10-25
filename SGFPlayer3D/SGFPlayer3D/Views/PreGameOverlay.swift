@@ -11,9 +11,8 @@ struct PreGameOverlay: View {
     @State private var challengeUsername = ""
 
     // Filter state
-    @State private var filterBlitz = true
-    @State private var filterLive = true
-    @State private var filterCorrespondence = false
+    @State private var filterLive = true  // Real-time games (Blitz + Live)
+    @State private var filterCorrespondence = false  // Turn-based (days/weeks per move)
     @State private var filter9x9 = true
     @State private var filter13x13 = true
     @State private var filter19x19 = true
@@ -91,9 +90,15 @@ struct PreGameOverlay: View {
             // Fetch available games when overlay appears
             refreshAvailableGames()
 
-            // Start auto-refresh timer (every 10 seconds)
-            refreshTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { _ in
-                refreshAvailableGames()
+            // Start auto-refresh timer (every 10 seconds) on main thread
+            DispatchQueue.main.async {
+                self.refreshTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { _ in
+                    self.refreshAvailableGames()
+                }
+                // Add to run loop to ensure it fires
+                if let timer = self.refreshTimer {
+                    RunLoop.current.add(timer, forMode: .common)
+                }
             }
         }
         .onDisappear {
@@ -126,17 +131,15 @@ struct PreGameOverlay: View {
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.7))
 
-                    Toggle("Blitz", isOn: $filterBlitz)
+                    Toggle("Real-time", isOn: $filterLive)
                         .toggleStyle(.checkbox)
                         .font(.caption)
-
-                    Toggle("Live", isOn: $filterLive)
-                        .toggleStyle(.checkbox)
-                        .font(.caption)
+                        .help("Live games played in minutes (includes Blitz and Live)")
 
                     Toggle("Correspondence", isOn: $filterCorrespondence)
                         .toggleStyle(.checkbox)
                         .font(.caption)
+                        .help("Turn-based games with days/weeks per move")
                 }
 
                 HStack(spacing: 16) {
@@ -166,7 +169,11 @@ struct PreGameOverlay: View {
                     .padding()
             } else {
                 ScrollView(.vertical, showsIndicators: true) {
-                    VStack(spacing: 8) {
+                    // 2-column grid layout
+                    LazyVGrid(columns: [
+                        GridItem(.flexible(), spacing: 8),
+                        GridItem(.flexible(), spacing: 8)
+                    ], spacing: 8) {
                         ForEach(filteredGames) { challenge in
                             GameChallengeCard(challenge: challenge) {
                                 acceptChallenge(challenge)
@@ -182,11 +189,12 @@ struct PreGameOverlay: View {
     // Filter games based on speed and board size
     private var filteredGames: [OGSChallenge] {
         ogsClient.availableGames.filter { challenge in
-            // Speed filter
+            // Speed filter - "Real-time" includes both Blitz and Live
             let timeControlDisplay = challenge.timeControlDisplay.lowercased()
-            let speedMatches = (filterBlitz && timeControlDisplay == "blitz") ||
-                               (filterLive && timeControlDisplay == "live") ||
-                               (filterCorrespondence && timeControlDisplay == "correspondence")
+            let isRealTime = timeControlDisplay == "blitz" || timeControlDisplay == "live"
+            let isCorr = timeControlDisplay == "correspondence"
+
+            let speedMatches = (filterLive && isRealTime) || (filterCorrespondence && isCorr)
 
             // Board size filter
             let boardSize = challenge.game.width
@@ -476,6 +484,7 @@ struct GameChallengeCard: View {
         }
 
         let speed = (json["speed"] as? String ?? "").capitalized
+        let isCorrespondence = speed.lowercased() == "correspondence"
 
         if let system = json["system"] as? String {
             if system == "byoyomi" {
@@ -487,7 +496,46 @@ struct GameChallengeCard: View {
             } else if system == "fischer" {
                 if let initialTime = json["initial_time"] as? Int,
                    let increment = json["time_increment"] as? Int {
-                    return "\(speed): \(initialTime/60)m + \(increment)s/move"
+                    // Format correspondence games in days/weeks
+                    if isCorrespondence {
+                        let initialDays = initialTime / 86400
+                        let incrementDays = increment / 86400
+
+                        // Format initial time
+                        let initialStr: String
+                        if initialDays >= 7 {
+                            let weeks = initialDays / 7
+                            initialStr = "\(weeks)w"
+                        } else {
+                            initialStr = "\(initialDays)d"
+                        }
+
+                        // Format increment
+                        let incrementStr: String
+                        if incrementDays >= 7 {
+                            let weeks = incrementDays / 7
+                            incrementStr = "\(weeks)w"
+                        } else {
+                            incrementStr = "\(incrementDays)d"
+                        }
+
+                        return "\(speed): \(initialStr) + \(incrementStr)/move"
+                    } else {
+                        // Format live/blitz games in minutes
+                        return "\(speed): \(initialTime/60)m + \(increment)s/move"
+                    }
+                }
+            } else if system == "simple" {
+                // Handle simple time control (used by some correspondence games)
+                if let perMove = json["per_move"] as? Int {
+                    if isCorrespondence {
+                        let days = perMove / 86400
+                        if days >= 7 {
+                            return "\(speed): \(days/7)w/move"
+                        } else {
+                            return "\(speed): \(days)d/move"
+                        }
+                    }
                 }
             }
         }
