@@ -17,8 +17,8 @@ struct PreGameOverlay: View {
     @State private var filter13x13 = true
     @State private var filter19x19 = true
 
-    // Auto-refresh timer
-    @State private var refreshTimer: Timer?
+    // Auto-refresh timer using DispatchSourceTimer for reliability
+    @State private var refreshTimer: DispatchSourceTimer?
 
     var body: some View {
         ZStack {
@@ -90,20 +90,19 @@ struct PreGameOverlay: View {
             // Fetch available games when overlay appears
             refreshAvailableGames()
 
-            // Start auto-refresh timer (every 10 seconds) on main thread
-            DispatchQueue.main.async {
-                self.refreshTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { _ in
-                    self.refreshAvailableGames()
-                }
-                // Add to run loop to ensure it fires
-                if let timer = self.refreshTimer {
-                    RunLoop.current.add(timer, forMode: .common)
-                }
+            // Start auto-refresh timer (every 10 seconds) using DispatchSourceTimer
+            let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
+            timer.schedule(deadline: .now() + 10.0, repeating: 10.0)
+            timer.setEventHandler {
+                NSLog("PreGameOverlay: ⏰ Timer fired - refreshing games")
+                self.refreshAvailableGames()
             }
+            timer.resume()
+            refreshTimer = timer
         }
         .onDisappear {
             // Stop timer when overlay closes
-            refreshTimer?.invalidate()
+            refreshTimer?.cancel()
             refreshTimer = nil
         }
     }
@@ -346,13 +345,14 @@ struct PreGameOverlay: View {
     // MARK: - Actions
 
     private func refreshAvailableGames() {
-        NSLog("PreGameOverlay: Refreshing available games...")
+        let currentCount = ogsClient.availableGames.count
+        NSLog("PreGameOverlay: 🔄 Refreshing available games (current: \(currentCount))...")
 
         ogsClient.fetchAvailableGames { challenges, error in
             if let error = error {
-                NSLog("PreGameOverlay: Failed to fetch games: \(error)")
+                NSLog("PreGameOverlay: ❌ Failed to fetch games: \(error)")
             } else if let challenges = challenges {
-                NSLog("PreGameOverlay: Fetched \(challenges.count) available games")
+                NSLog("PreGameOverlay: ✅ Fetched \(challenges.count) available games")
             }
         }
     }

@@ -883,7 +883,9 @@ class OGSClient: NSObject, ObservableObject {
                 if let response = try? decoder.decode(OGSChallengesResponse.self, from: data) {
                     NSLog("OGS: ✅ Fetched \(response.results.count) available games (total: \(response.count))")
                     DispatchQueue.main.async {
+                        let oldCount = self.availableGames.count
                         self.availableGames = response.results
+                        NSLog("OGS: 🔄 Updated availableGames: \(oldCount) → \(self.availableGames.count)")
                     }
                     completion(response.results, nil)
                 } else if let challenges = try? decoder.decode([OGSChallenge].self, from: data) {
