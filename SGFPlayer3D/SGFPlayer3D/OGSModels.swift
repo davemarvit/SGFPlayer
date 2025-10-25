@@ -76,13 +76,18 @@ struct GameInfo: Codable {
     let black: Int?  // Player ID of black player (null if not accepted yet)
     let white: Int?  // Player ID of white player (null if not accepted yet)
     let started: String?  // Timestamp when game started (null if not started)
+    let blackLost: Bool  // True if black lost/abandoned (challenge expired)
+    let whiteLost: Bool  // True if white lost/abandoned (challenge expired)
+    let annulled: Bool  // True if game was cancelled/annulled
 
     enum CodingKeys: String, CodingKey {
-        case id, name, width, height, rules, ranked, handicap, komi, black, white, started
+        case id, name, width, height, rules, ranked, handicap, komi, black, white, started, annulled
         case timeControl = "time_control"
         case timeControlParameters = "time_control_parameters"
         case disableAnalysis = "disable_analysis"
         case pauseOnWeekends = "pause_on_weekends"
+        case blackLost = "black_lost"
+        case whiteLost = "white_lost"
     }
 }
 

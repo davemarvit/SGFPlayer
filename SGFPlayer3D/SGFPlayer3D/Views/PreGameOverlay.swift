@@ -183,14 +183,19 @@ struct PreGameOverlay: View {
     // Filter games based on speed and board size
     private var filteredGames: [OGSChallenge] {
         ogsClient.availableGames.filter { challenge in
-            // MOST IMPORTANT: Only show games that haven't been accepted yet
-            // Once someone accepts, black/white/started fields get populated
-            let isStillAvailable = challenge.game.black == nil &&
-                                   challenge.game.white == nil &&
-                                   challenge.game.started == nil
+            // MOST IMPORTANT: Only show games that are truly available
+            // Skip if already accepted (black/white/started are populated)
+            let notAccepted = challenge.game.black == nil &&
+                             challenge.game.white == nil &&
+                             challenge.game.started == nil
 
-            guard isStillAvailable else {
-                return false  // Skip accepted/started games
+            // Skip expired/cancelled/abandoned games
+            let notExpired = !challenge.game.blackLost &&
+                           !challenge.game.whiteLost &&
+                           !challenge.game.annulled
+
+            guard notAccepted && notExpired else {
+                return false  // Skip accepted/expired/cancelled games
             }
 
             // Speed filter - "Real-time" includes both Blitz and Live
@@ -466,6 +471,44 @@ struct GameChallengeCard: View {
                         .font(.caption)
                 }
                 .foregroundColor(.cyan)
+
+                // Game settings - third row (rules, handicap, komi)
+                HStack(spacing: 8) {
+                    // Rules
+                    Text(challenge.game.rules.capitalized)
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.7))
+
+                    Text("•")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.5))
+
+                    // Handicap
+                    if challenge.game.handicap > 0 {
+                        Text("H\(challenge.game.handicap)")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                    } else {
+                        Text("Even")
+                            .font(.caption2)
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+
+                    Text("•")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.5))
+
+                    // Komi
+                    if let komi = challenge.game.komi {
+                        Text("Komi \(komi)")
+                            .font(.caption2)
+                            .foregroundColor(.white.opacity(0.7))
+                    } else {
+                        Text("Auto komi")
+                            .font(.caption2)
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                }
             }
 
             Spacer()
