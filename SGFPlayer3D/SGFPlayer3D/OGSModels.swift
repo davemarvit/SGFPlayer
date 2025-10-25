@@ -73,9 +73,12 @@ struct GameInfo: Codable {
     let timeControlParameters: String?
     let disableAnalysis: Bool
     let pauseOnWeekends: Bool
+    let black: Int?  // Player ID of black player (null if not accepted yet)
+    let white: Int?  // Player ID of white player (null if not accepted yet)
+    let started: String?  // Timestamp when game started (null if not started)
 
     enum CodingKeys: String, CodingKey {
-        case id, name, width, height, rules, ranked, handicap, komi
+        case id, name, width, height, rules, ranked, handicap, komi, black, white, started
         case timeControl = "time_control"
         case timeControlParameters = "time_control_parameters"
         case disableAnalysis = "disable_analysis"

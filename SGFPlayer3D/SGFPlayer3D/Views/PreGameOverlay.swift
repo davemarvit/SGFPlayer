@@ -183,6 +183,16 @@ struct PreGameOverlay: View {
     // Filter games based on speed and board size
     private var filteredGames: [OGSChallenge] {
         ogsClient.availableGames.filter { challenge in
+            // MOST IMPORTANT: Only show games that haven't been accepted yet
+            // Once someone accepts, black/white/started fields get populated
+            let isStillAvailable = challenge.game.black == nil &&
+                                   challenge.game.white == nil &&
+                                   challenge.game.started == nil
+
+            guard isStillAvailable else {
+                return false  // Skip accepted/started games
+            }
+
             // Speed filter - "Real-time" includes both Blitz and Live
             let timeControlDisplay = challenge.timeControlDisplay.lowercased()
             let isRealTime = timeControlDisplay == "blitz" || timeControlDisplay == "live"
@@ -196,18 +206,7 @@ struct PreGameOverlay: View {
                               (filter13x13 && boardSize == 13) ||
                               (filter19x19 && boardSize == 19)
 
-            // Date filter - only show challenges created in the last 7 days
-            // (OGS API returns many old stale challenges from years ago)
-            let isRecent: Bool
-            if let createdStr = challenge.created,
-               let createdDate = ISO8601DateFormatter().date(from: createdStr) {
-                let sevenDaysAgo = Date().addingTimeInterval(-7 * 24 * 60 * 60)
-                isRecent = createdDate > sevenDaysAgo
-            } else {
-                isRecent = true  // Include if we can't parse the date
-            }
-
-            return speedMatches && sizeMatches && isRecent
+            return speedMatches && sizeMatches
         }
     }
 
