@@ -86,16 +86,22 @@ struct PreGameOverlay: View {
         .task {
             // Fetch games immediately when overlay appears
             NSLog("PreGameOverlay: 📋 Overlay appeared - fetching initial games")
+            print("PreGameOverlay: 📋 Overlay appeared - fetching initial games")
             refreshAvailableGames()
 
             // Auto-refresh loop
+            var count = 0
             while !Task.isCancelled {
                 do {
                     try await Task.sleep(nanoseconds: 10_000_000_000) // 10 seconds
-                    NSLog("PreGameOverlay: ⏰ Timer fired - refreshing games")
+                    count += 1
+                    NSLog("PreGameOverlay: ⏰ Timer #\(count) fired - refreshing games")
+                    print("PreGameOverlay: ⏰ Timer #\(count) fired - refreshing games")
                     refreshAvailableGames()
                 } catch {
                     // Task cancelled, stop loop
+                    NSLog("PreGameOverlay: ❌ Task cancelled")
+                    print("PreGameOverlay: ❌ Task cancelled")
                     break
                 }
             }
