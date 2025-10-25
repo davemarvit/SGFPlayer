@@ -182,20 +182,29 @@ struct PreGameOverlay: View {
 
     // Filter games based on speed and board size
     private var filteredGames: [OGSChallenge] {
-        ogsClient.availableGames.filter { challenge in
+        let all = ogsClient.availableGames
+        NSLog("PreGameOverlay: Filtering \(all.count) total games")
+
+        let filtered = all.filter { challenge in
             // MOST IMPORTANT: Only show games that are truly available
             // Skip if already accepted (black/white/started are populated)
             let notAccepted = challenge.game.black == nil &&
                              challenge.game.white == nil &&
                              challenge.game.started == nil
 
-            // Skip expired/cancelled/abandoned games
-            let notExpired = !challenge.game.blackLost &&
-                           !challenge.game.whiteLost &&
-                           !challenge.game.annulled
+            // Check expired flags (but may not be reliable)
+            let blackLost = challenge.game.blackLost
+            let whiteLost = challenge.game.whiteLost
+            let annulled = challenge.game.annulled
 
-            guard notAccepted && notExpired else {
-                return false  // Skip accepted/expired/cancelled games
+            // Debug first game
+            if challenge.id == all.first?.id {
+                NSLog("PreGameOverlay: First game - black:\(challenge.game.black?.description ?? "nil") white:\(challenge.game.white?.description ?? "nil") started:\(challenge.game.started ?? "nil") blackLost:\(blackLost) whiteLost:\(whiteLost) annulled:\(annulled)")
+            }
+
+            // Only check if accepted for now - ignore lost/annulled flags
+            guard notAccepted else {
+                return false  // Skip accepted/started games
             }
 
             // Speed filter - "Real-time" includes both Blitz and Live
@@ -213,6 +222,9 @@ struct PreGameOverlay: View {
 
             return speedMatches && sizeMatches
         }
+
+        NSLog("PreGameOverlay: After filtering: \(filtered.count) games (from \(all.count))")
+        return filtered
     }
 
     // MARK: - Create Game Section
