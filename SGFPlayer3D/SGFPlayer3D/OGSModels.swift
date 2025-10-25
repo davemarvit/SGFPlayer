@@ -8,6 +8,7 @@ struct OGSChallenge: Codable, Identifiable {
     let challengerColor: String
     let minRanking: Int
     let maxRanking: Int
+    let created: String?  // ISO 8601 timestamp when challenge was created
 
     var boardSize: String {
         "\(game.width)×\(game.height)"
@@ -30,7 +31,7 @@ struct OGSChallenge: Codable, Identifiable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, challenger, game
+        case id, challenger, game, created
         case challengerColor = "challenger_color"
         case minRanking = "min_ranking"
         case maxRanking = "max_ranking"
