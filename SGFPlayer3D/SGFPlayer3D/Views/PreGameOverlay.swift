@@ -17,6 +17,16 @@ struct PreGameOverlay: View {
     @State private var filter13x13 = true
     @State private var filter19x19 = true
 
+    // Last refresh timestamp for debugging
+    @State private var lastRefresh: Date = Date()
+
+    // Time formatter for display
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .medium
+        return formatter
+    }()
+
     var body: some View {
         ZStack {
             // Dimmed background - but allow clicks to pass through around the edges
@@ -119,9 +129,15 @@ struct PreGameOverlay: View {
 
                 Spacer()
 
-                Text("\(filteredGames.count) games")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.6))
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(filteredGames.count) games")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.6))
+
+                    Text("Updated: \(lastRefresh, formatter: Self.timeFormatter)")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.5))
+                }
             }
 
             // Filter checkboxes
@@ -381,6 +397,10 @@ struct PreGameOverlay: View {
                 NSLog("PreGameOverlay: ❌ Failed to fetch games: \(error)")
             } else if let challenges = challenges {
                 NSLog("PreGameOverlay: ✅ Fetched \(challenges.count) available games")
+                // Update last refresh timestamp on main thread
+                DispatchQueue.main.async {
+                    self.lastRefresh = Date()
+                }
             }
         }
     }
