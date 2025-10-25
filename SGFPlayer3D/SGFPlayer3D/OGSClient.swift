@@ -828,8 +828,9 @@ class OGSClient: NSObject, ObservableObject {
     func fetchAvailableGames(completion: @escaping ([OGSChallenge]?, String?) -> Void) {
         NSLog("OGS: 📋 Fetching available games list...")
 
-        // Fetch 50 games per page instead of default 10
-        guard let url = URL(string: "https://online-go.com/api/v1/challenges?page_size=50") else {
+        // Use /me/challenges to get games relevant to the logged-in user
+        // This matches what OGS browser does
+        guard let url = URL(string: "https://online-go.com/api/v1/me/challenges?page_size=30") else {
             NSLog("OGS: ❌ Invalid challenges URL")
             completion(nil, "Invalid URL")
             return
