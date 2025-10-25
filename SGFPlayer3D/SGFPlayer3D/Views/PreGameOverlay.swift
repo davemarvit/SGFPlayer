@@ -17,9 +17,6 @@ struct PreGameOverlay: View {
     @State private var filter13x13 = true
     @State private var filter19x19 = true
 
-    // Auto-refresh timer using DispatchSourceTimer for reliability
-    @State private var refreshTimer: DispatchSourceTimer?
-
     var body: some View {
         ZStack {
             // Dimmed background - but allow clicks to pass through around the edges
@@ -86,24 +83,22 @@ struct PreGameOverlay: View {
                     .stroke(Color.white.opacity(0.1), lineWidth: 1)  // Subtle border, not bright blue
             )
         }
-        .onAppear {
-            // Fetch available games when overlay appears
+        .task {
+            // Fetch games immediately when overlay appears
+            NSLog("PreGameOverlay: 📋 Overlay appeared - fetching initial games")
             refreshAvailableGames()
 
-            // Start auto-refresh timer (every 10 seconds) using DispatchSourceTimer
-            let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.main)
-            timer.schedule(deadline: .now() + 10.0, repeating: 10.0)
-            timer.setEventHandler {
-                NSLog("PreGameOverlay: ⏰ Timer fired - refreshing games")
-                self.refreshAvailableGames()
+            // Auto-refresh loop
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(nanoseconds: 10_000_000_000) // 10 seconds
+                    NSLog("PreGameOverlay: ⏰ Timer fired - refreshing games")
+                    refreshAvailableGames()
+                } catch {
+                    // Task cancelled, stop loop
+                    break
+                }
             }
-            timer.resume()
-            refreshTimer = timer
-        }
-        .onDisappear {
-            // Stop timer when overlay closes
-            refreshTimer?.cancel()
-            refreshTimer = nil
         }
     }
 
