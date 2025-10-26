@@ -25,6 +25,7 @@ class OGSClient: NSObject, ObservableObject {
     @Published var isAuthenticated = false
     @Published var username: String?
     @Published var playerID: Int?  // OGS player ID for the authenticated user
+    @Published var userRank: Double?  // User's rank for filtering challenges
 
     // MARK: - Live Play State
     /// Current game phase - drives UI visibility and interaction
@@ -50,6 +51,7 @@ class OGSClient: NSObject, ObservableObject {
     private var authCompletionHandler: ((Bool, String?) -> Void)?
     private var authTimeoutTimer: Timer?
     private var wsAuthPending = false  // Track if WebSocket auth is in progress
+    private var isSubscribedToSeekgraph = false  // Track if we're subscribed to seekgraph
 
     /// Returns true if it's our turn to play
     var isMyTurn: Bool {
@@ -321,8 +323,9 @@ class OGSClient: NSObject, ObservableObject {
                 if httpResponse.statusCode == 200 {
                     NSLog("OGS: ✅ Login successful! Session cookies established.")
 
-                    // Parse response to extract player ID
+                    // Parse response to extract player ID and rank
                     var extractedPlayerID: Int? = nil
+                    var extractedRank: Double? = nil
                     if let data = data,
                        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                         NSLog("OGS: 📦 Login response JSON: \(json)")
@@ -330,6 +333,17 @@ class OGSClient: NSObject, ObservableObject {
                         if let id = json["id"] as? Int {
                             extractedPlayerID = id
                             NSLog("OGS: 🆔 Extracted player ID: \(id)")
+                        }
+                        // Extract rank (could be "ranking" or "rank" field)
+                        if let ranking = json["ranking"] as? Double {
+                            extractedRank = ranking
+                            NSLog("OGS: 📊 Extracted user rank: \(ranking)")
+                        } else if let rank = json["rank"] as? Double {
+                            extractedRank = rank
+                            NSLog("OGS: 📊 Extracted user rank: \(rank)")
+                        } else if let rank = json["rank"] as? Int {
+                            extractedRank = Double(rank)
+                            NSLog("OGS: 📊 Extracted user rank: \(rank)")
                         }
                     }
 
@@ -344,6 +358,10 @@ class OGSClient: NSObject, ObservableObject {
                             self.isAuthenticated = true
                             self.username = user
                             self.playerID = extractedPlayerID
+                            self.userRank = extractedRank
+
+                            // Fetch user rank from ui/config (more reliable than login response)
+                            self.fetchUserRank()
 
                             // If WebSocket is already connected, send authenticate message with new JWT
                             if self.isConnected, let jwt = self.jwtToken {
@@ -413,6 +431,37 @@ class OGSClient: NSObject, ObservableObject {
 
             NSLog("OGS: ✅ Got JWT token: \(jwt.prefix(20))...")
             self?.jwtToken = jwt
+
+            // Also extract user rank from ui/config if available
+            NSLog("OGS: 🔍 Checking for user rank in ui/config response...")
+            if let user = json["user"] as? [String: Any] {
+                NSLog("OGS: 🔍 Found user object, keys: \(user.keys)")
+                if let ranking = user["ranking"] as? Double {
+                    // Skip rank -100 (unranked/provisional players)
+                    if ranking >= 0 {
+                        DispatchQueue.main.async {
+                            self?.userRank = ranking
+                            NSLog("OGS: 📊 Extracted user rank from ui/config: \(ranking)")
+                        }
+                    } else {
+                        NSLog("OGS: ⚠️ User rank is \(ranking) (provisional/unranked), not filtering by rank")
+                    }
+                } else if let ranking = user["ranking"] as? Int {
+                    if ranking >= 0 {
+                        DispatchQueue.main.async {
+                            self?.userRank = Double(ranking)
+                            NSLog("OGS: 📊 Extracted user rank from ui/config: \(ranking)")
+                        }
+                    } else {
+                        NSLog("OGS: ⚠️ User rank is \(ranking) (provisional/unranked), not filtering by rank")
+                    }
+                } else {
+                    NSLog("OGS: ⚠️ No ranking field found in user object")
+                }
+            } else {
+                NSLog("OGS: ⚠️ No user object in ui/config response")
+            }
+
             completion(true)
         }.resume()
     }
@@ -423,6 +472,61 @@ class OGSClient: NSObject, ObservableObject {
         webSocketTask = nil
         isConnected = false
         NSLog("OGS: 🔌 Disconnected from OGS")
+    }
+
+    /// Fetch user's rank from the API (called after authentication)
+    func fetchUserRank() {
+        NSLog("OGS: 📊 Fetching user rank from /api/v1/ui/config...")
+
+        guard let url = URL(string: "https://online-go.com/api/v1/ui/config") else {
+            NSLog("OGS: ❌ Invalid UI config URL")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            if let error = error {
+                NSLog("OGS: ❌ Failed to fetch user rank: \(error.localizedDescription)")
+                return
+            }
+
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                NSLog("OGS: ❌ Failed to parse ui/config response")
+                return
+            }
+
+            NSLog("OGS: 🔍 Checking for user rank in ui/config response...")
+            if let user = json["user"] as? [String: Any] {
+                NSLog("OGS: 🔍 Found user object, keys: \(user.keys)")
+                if let ranking = user["ranking"] as? Double {
+                    // Skip rank -100 (unranked/provisional players)
+                    if ranking >= 0 {
+                        DispatchQueue.main.async {
+                            self?.userRank = ranking
+                            NSLog("OGS: 📊 ✅ Extracted user rank: \(ranking)")
+                        }
+                    } else {
+                        NSLog("OGS: ⚠️ User rank is \(ranking) (provisional/unranked), not filtering by rank")
+                    }
+                } else if let ranking = user["ranking"] as? Int {
+                    if ranking >= 0 {
+                        DispatchQueue.main.async {
+                            self?.userRank = Double(ranking)
+                            NSLog("OGS: 📊 ✅ Extracted user rank: \(ranking)")
+                        }
+                    } else {
+                        NSLog("OGS: ⚠️ User rank is \(ranking) (provisional/unranked), not filtering by rank")
+                    }
+                } else {
+                    NSLog("OGS: ⚠️ No ranking field found in user object")
+                }
+            } else {
+                NSLog("OGS: ⚠️ No user object in ui/config response")
+            }
+        }.resume()
     }
 
     // MARK: - Automatch Methods
@@ -823,89 +927,75 @@ class OGSClient: NSObject, ObservableObject {
 
     // MARK: - Available Games / Public Challenges
 
-    /// Fetch available games/challenges from OGS
-    /// - Parameter completion: Callback with array of challenges or error
-    func fetchAvailableGames(completion: @escaping ([OGSChallenge]?, String?) -> Void) {
-        NSLog("OGS: 📋 Fetching available games list...")
-
-        // Use /me/challenges to get games relevant to the logged-in user
-        // This matches what OGS browser does
-        guard let url = URL(string: "https://online-go.com/api/v1/me/challenges?page_size=30") else {
-            NSLog("OGS: ❌ Invalid challenges URL")
-            completion(nil, "Invalid URL")
+    /// Subscribe to seekgraph to get real-time updates of available challenges
+    /// This uses socket.io, not REST API
+    func subscribeToSeekgraph() {
+        guard isConnected else {
+            NSLog("OGS: ⚠️ Cannot subscribe to seekgraph - not connected")
             return
         }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-
-        // Add session cookies for authentication (if logged in)
-        if let cookies = HTTPCookieStorage.shared.cookies(for: url) {
-            let headers = HTTPCookie.requestHeaderFields(with: cookies)
-            for (key, value) in headers {
-                request.setValue(value, forHTTPHeaderField: key)
-            }
+        // Don't subscribe if already subscribed
+        if isSubscribedToSeekgraph {
+            NSLog("OGS: 📊 Already subscribed to seekgraph, skipping")
+            return
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        NSLog("OGS: 📊 Subscribing to seekgraph...")
+
+        let message = """
+        42["seek_graph/connect",{"channel":"global"}]
+        """
+
+        let wsMessage = URLSessionWebSocketTask.Message.string(message)
+        webSocketTask?.send(wsMessage) { [weak self] error in
             if let error = error {
-                NSLog("OGS: ❌ Failed to fetch available games: \(error.localizedDescription)")
-                completion(nil, error.localizedDescription)
-                return
-            }
-
-            guard let httpResponse = response as? HTTPURLResponse else {
-                NSLog("OGS: ❌ Invalid HTTP response")
-                completion(nil, "Invalid response")
-                return
-            }
-
-            NSLog("OGS: 📋 Available games response status: \(httpResponse.statusCode)")
-
-            guard let data = data else {
-                NSLog("OGS: ❌ No data in response")
-                completion(nil, "No data")
-                return
-            }
-
-            // Log response for debugging
-            if let responseString = String(data: data, encoding: .utf8) {
-                NSLog("OGS: 📋 Available games response (full): \(responseString)")
-                // Also write to file for detailed inspection
-                let logPath = "/Users/Dave/Desktop/ogs_available_games_response.json"
-                try? responseString.write(toFile: logPath, atomically: true, encoding: .utf8)
-                NSLog("OGS: 📋 Response saved to: \(logPath)")
-            }
-
-            if httpResponse.statusCode == 200 {
-                let decoder = JSONDecoder()
-
-                // Try parsing as wrapped response (standard OGS format)
-                if let response = try? decoder.decode(OGSChallengesResponse.self, from: data) {
-                    NSLog("OGS: ✅ Fetched \(response.results.count) available games (total: \(response.count))")
-                    DispatchQueue.main.async {
-                        let oldCount = self.availableGames.count
-                        self.availableGames = response.results
-                        NSLog("OGS: 🔄 Updated availableGames: \(oldCount) → \(self.availableGames.count)")
-                    }
-                    completion(response.results, nil)
-                } else if let challenges = try? decoder.decode([OGSChallenge].self, from: data) {
-                    // Fallback: try parsing as array
-                    NSLog("OGS: ✅ Fetched \(challenges.count) available games")
-                    DispatchQueue.main.async {
-                        self.availableGames = challenges
-                    }
-                    completion(challenges, nil)
-                } else {
-                    NSLog("OGS: ❌ Could not parse challenges response")
-                    completion(nil, "Failed to parse response")
-                }
+                NSLog("OGS: ❌ Error subscribing to seekgraph: \(error.localizedDescription)")
             } else {
-                let errorMsg = "HTTP \(httpResponse.statusCode)"
-                NSLog("OGS: ❌ Available games request failed: \(errorMsg)")
-                completion(nil, errorMsg)
+                NSLog("OGS: ✅ Seekgraph subscription sent")
+                self?.isSubscribedToSeekgraph = true
             }
-        }.resume()
+        }
+    }
+
+    /// Unsubscribe from seekgraph updates
+    func unsubscribeFromSeekgraph() {
+        guard isConnected else { return }
+
+        if !isSubscribedToSeekgraph {
+            NSLog("OGS: 📊 Not subscribed to seekgraph, nothing to unsubscribe")
+            return
+        }
+
+        NSLog("OGS: 📊 Unsubscribing from seekgraph...")
+
+        let message = """
+        42["seek_graph/disconnect",{"channel":"global"}]
+        """
+
+        let wsMessage = URLSessionWebSocketTask.Message.string(message)
+        webSocketTask?.send(wsMessage) { [weak self] error in
+            if let error = error {
+                NSLog("OGS: ❌ Error unsubscribing from seekgraph: \(error.localizedDescription)")
+            } else {
+                NSLog("OGS: ✅ Seekgraph unsubscribed")
+                self?.isSubscribedToSeekgraph = false
+            }
+        }
+    }
+
+    /// Fetch available games/challenges from OGS
+    /// - Parameter completion: Callback with array of challenges or error
+    /// NOTE: This is now deprecated in favor of subscribeToSeekgraph() which uses socket.io
+    func fetchAvailableGames(completion: @escaping ([OGSChallenge]?, String?) -> Void) {
+        NSLog("OGS: 📋 fetchAvailableGames called - using seekgraph subscription instead")
+
+        // Simply subscribe to seekgraph - the data will arrive via socket messages
+        subscribeToSeekgraph()
+
+        // Call completion immediately to satisfy the callback
+        // Real data will be populated via socket messages
+        completion(availableGames, nil)
     }
 
     /// Post a custom game/challenge to OGS
@@ -1476,6 +1566,14 @@ class OGSClient: NSObject, ObservableObject {
             if let cancelData = json[1] as? [String: Any] {
                 handleAutomatchCancel(cancelData)
             }
+        case "seekgraph/global":
+            NSLog("OGS: 📊 ========== SEEKGRAPH UPDATE ==========")
+            if let seekgraphData = json[1] as? [[String: Any]] {
+                NSLog("OGS: 📊 Received seekgraph with \(seekgraphData.count) items")
+                handleSeekgraph(seekgraphData)
+            } else {
+                NSLog("OGS: ⚠️ Seekgraph data in unexpected format: \(type(of: json[1]))")
+            }
         case "active-bots", "active-players", "incident-report":
             // Suppress these broadcast messages - they're noisy
             break
@@ -1509,6 +1607,9 @@ class OGSClient: NSObject, ObservableObject {
                 self.wsAuthPending = false
                 self.authCompletionHandler?(true, nil)
                 self.authCompletionHandler = nil
+
+                // Fetch user rank
+                self.fetchUserRank()
             }
         } else if let error = authData["error"] as? String {
             NSLog("OGS: ❌ WebSocket authentication failed: \(error)")
@@ -1983,6 +2084,155 @@ class OGSClient: NSObject, ObservableObject {
             self.activeAutomatchUUID = nil
             self.isSearchingForMatch = false
         }
+    }
+
+    private func handleSeekgraph(_ seekgraphData: [[String: Any]]) {
+        NSLog("OGS: 📊 Processing \(seekgraphData.count) seekgraph update(s)...")
+
+        // Save seekgraph data to file for debugging
+        if let jsonData = try? JSONSerialization.data(withJSONObject: seekgraphData, options: .prettyPrinted),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            let logPath = NSHomeDirectory() + "/Desktop/ogs_seekgraph_debug.json"
+            try? jsonString.write(toFile: logPath, atomically: true, encoding: .utf8)
+        }
+
+        // Process each update incrementally (add/remove from existing list)
+        for item in seekgraphData {
+            guard let challengeID = item["challenge_id"] as? Int else {
+                NSLog("OGS: ⚠️ Seekgraph item missing challenge_id")
+                continue
+            }
+
+            // Check if this is a delete message
+            if item["delete"] != nil {
+                NSLog("OGS: 📊 DELETE challenge #\(challengeID)")
+                DispatchQueue.main.async {
+                    self.availableGames.removeAll { $0.id == challengeID }
+                    NSLog("OGS: 📊 Removed challenge #\(challengeID), now have \(self.availableGames.count) games")
+                }
+                continue
+            }
+
+            // Check if this is a game_started message (also remove)
+            if item["game_started"] != nil {
+                NSLog("OGS: 📊 GAME STARTED for challenge #\(challengeID)")
+                DispatchQueue.main.async {
+                    self.availableGames.removeAll { $0.id == challengeID }
+                    NSLog("OGS: 📊 Removed started game #\(challengeID), now have \(self.availableGames.count) games")
+                }
+                continue
+            }
+
+            // This is an ADD message - add or update the challenge
+            // Skip private games (invite-only to specific players)
+            if let isPrivate = item["private"] as? Bool, isPrivate {
+                NSLog("OGS: 📊 Skipping private challenge #\(challengeID)")
+                continue
+            }
+
+            // Filter by rank if user is authenticated and has a rank
+            if let userRank = self.userRank {
+                let minRank = item["min_rank"] as? Int ?? -1000
+                let maxRank = item["max_rank"] as? Int ?? 1000
+
+                // Check if user's rank is within the acceptable range
+                // Rank in OGS: higher number = stronger player (opposite of kyu/dan system)
+                if Int(userRank) < minRank || Int(userRank) > maxRank {
+                    NSLog("OGS: 📊 Skipping challenge #\(challengeID) - rank \(Int(userRank)) not in range [\(minRank)-\(maxRank)]")
+                    continue
+                }
+            }
+
+            NSLog("OGS: 📊 ADD/UPDATE challenge #\(challengeID)")
+            if let challenge = convertSeekgraphToChallenge(item) {
+                DispatchQueue.main.async {
+                    // Remove existing if present (in case this is an update)
+                    self.availableGames.removeAll { $0.id == challengeID }
+                    // Add the new/updated challenge
+                    self.availableGames.append(challenge)
+                    NSLog("OGS: 📊 Added challenge #\(challengeID), now have \(self.availableGames.count) games")
+                }
+            }
+        }
+    }
+
+    private func convertSeekgraphToChallenge(_ seekgraphItem: [String: Any]) -> OGSChallenge? {
+        // Seekgraph format is different from REST API format
+        // We need to convert it to match our OGSChallenge struct
+
+        guard let challengeID = seekgraphItem["challenge_id"] as? Int,
+              let userID = seekgraphItem["user_id"] as? Int,
+              let username = seekgraphItem["username"] as? String,
+              let ranking = seekgraphItem["rank"] as? Double else {
+            NSLog("OGS: ⚠️ Missing required fields in seekgraph item")
+            return nil
+        }
+
+        let width = seekgraphItem["width"] as? Int ?? 19
+        let height = seekgraphItem["height"] as? Int ?? 19
+        let ranked = seekgraphItem["ranked"] as? Bool ?? false
+        let handicap = seekgraphItem["handicap"] as? Int ?? 0
+        let minRanking = seekgraphItem["min_rank"] as? Int ?? 0
+        let maxRanking = seekgraphItem["max_rank"] as? Int ?? 100
+
+        // Convert time_control_parameters from object to JSON string
+        var timeControlParamsString: String? = nil
+        if let timeControlParams = seekgraphItem["time_control_parameters"] as? [String: Any],
+           let jsonData = try? JSONSerialization.data(withJSONObject: timeControlParams),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            timeControlParamsString = jsonString
+        }
+
+        // Convert komi to string if it's a number
+        var komiString: String? = nil
+        if let komiNum = seekgraphItem["komi"] as? Double {
+            komiString = String(komiNum)
+        } else if let komiNum = seekgraphItem["komi"] as? Int {
+            komiString = String(komiNum)
+        }
+
+        // Build challenger info
+        let challenger = ChallengerInfo(
+            id: userID,
+            username: username,
+            ranking: ranking,
+            professional: seekgraphItem["pro"] as? Bool ?? false
+        )
+
+        // Build game info
+        let game = GameInfo(
+            id: challengeID,
+            name: seekgraphItem["name"] as? String,
+            width: width,
+            height: height,
+            rules: seekgraphItem["rules"] as? String ?? "japanese",
+            ranked: ranked,
+            handicap: handicap == -1 ? 0 : handicap,  // -1 means automatic, treat as 0
+            komi: komiString,
+            timeControl: seekgraphItem["time_control"] as? String,
+            timeControlParameters: timeControlParamsString,
+            disableAnalysis: seekgraphItem["disable_analysis"] as? Bool ?? false,
+            pauseOnWeekends: false,
+            black: nil,  // Open challenge has no players yet
+            white: nil,
+            started: nil,
+            blackLost: false,  // Seekgraph only shows active challenges
+            whiteLost: false,
+            annulled: false
+        )
+
+        // Build challenge
+        let challenge = OGSChallenge(
+            id: challengeID,
+            challenger: challenger,
+            game: game,
+            challengerColor: seekgraphItem["challenger_color"] as? String ?? "automatic",
+            minRanking: minRanking,
+            maxRanking: maxRanking,
+            created: nil
+        )
+
+        return challenge
     }
 
     private func schedulePing() {

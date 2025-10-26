@@ -10,12 +10,12 @@ struct PreGameOverlay: View {
     // UI state
     @State private var challengeUsername = ""
 
-    // Filter state
-    @State private var filterLive = true  // Real-time games (Blitz + Live)
-    @State private var filterCorrespondence = false  // Turn-based (days/weeks per move)
-    @State private var filter9x9 = true
-    @State private var filter13x13 = true
-    @State private var filter19x19 = true
+    // Filter state (persisted)
+    @AppStorage("filterLive") private var filterLive = true  // Real-time games (Blitz + Live)
+    @AppStorage("filterCorrespondence") private var filterCorrespondence = true  // Turn-based (days/weeks per move)
+    @AppStorage("filter9x9") private var filter9x9 = true
+    @AppStorage("filter13x13") private var filter13x13 = true
+    @AppStorage("filter19x19") private var filter19x19 = true
 
     // Last refresh timestamp for debugging
     @State private var lastRefresh: Date = Date()
@@ -38,9 +38,17 @@ struct PreGameOverlay: View {
             VStack(spacing: 0) {
                 // Header with close button
                 HStack {
-                    Text("Find a Game")
-                        .font(.title.bold())
-                        .foregroundColor(.white)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Find a Game")
+                            .font(.title.bold())
+                            .foregroundColor(.white)
+
+                        if let rank = ogsClient.userRank {
+                            Text("Your rank: \(rankString(rank))")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.7))
+                        }
+                    }
 
                     Spacer()
 
@@ -130,13 +138,21 @@ struct PreGameOverlay: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(filteredGames.count) games")
+                    Text("\(filteredGames.count) games (raw: \(ogsClient.availableGames.count))")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.6))
+
+                    Text("Logged in as: \(ogsClient.username ?? "not logged in")")
+                        .font(.caption2)
+                        .foregroundColor(.cyan.opacity(0.9))
 
                     Text("Updated: \(lastRefresh, formatter: Self.timeFormatter)")
                         .font(.caption2)
                         .foregroundColor(.white.opacity(0.5))
+
+                    Text("Filters: RT=\(filterLive) C=\(filterCorrespondence) 9=\(filter9x9) 13=\(filter13x13) 19=\(filter19x19)")
+                        .font(.caption2)
+                        .foregroundColor(.yellow.opacity(0.8))
                 }
             }
 
@@ -214,24 +230,27 @@ struct PreGameOverlay: View {
                              challenge.game.white == nil &&
                              challenge.game.started == nil
 
-            // Check expired flags (but may not be reliable)
+            // Check expired/abandoned flags
             let blackLost = challenge.game.blackLost
             let whiteLost = challenge.game.whiteLost
             let annulled = challenge.game.annulled
 
+            // A challenge is NOT available if it's expired or abandoned
+            let notExpired = !blackLost && !whiteLost && !annulled
+
             // Debug first game
             if challenge.id == all.first?.id {
-                NSLog("PreGameOverlay: First game - black:\(challenge.game.black?.description ?? "nil") white:\(challenge.game.white?.description ?? "nil") started:\(challenge.game.started ?? "nil") blackLost:\(blackLost) whiteLost:\(whiteLost) annulled:\(annulled)")
+                NSLog("PreGameOverlay: First game - black:\(challenge.game.black?.description ?? "nil") white:\(challenge.game.white?.description ?? "nil") started:\(challenge.game.started ?? "nil") blackLost:\(blackLost) whiteLost:\(whiteLost) annulled:\(annulled) notExpired:\(notExpired)")
             }
 
-            // Only check if accepted for now - ignore lost/annulled flags
-            guard notAccepted else {
-                return false  // Skip accepted/started games
+            // Skip games that are already accepted/started OR expired/abandoned
+            guard notAccepted && notExpired else {
+                return false
             }
 
-            // Speed filter - "Real-time" includes both Blitz and Live
+            // Speed filter - "Real-time" includes Blitz, Live, and Rapid
             let timeControlDisplay = challenge.timeControlDisplay.lowercased()
-            let isRealTime = timeControlDisplay == "blitz" || timeControlDisplay == "live"
+            let isRealTime = timeControlDisplay == "blitz" || timeControlDisplay == "live" || timeControlDisplay == "rapid"
             let isCorr = timeControlDisplay == "correspondence"
 
             let speedMatches = (filterLive && isRealTime) || (filterCorrespondence && isCorr)
@@ -383,6 +402,19 @@ struct PreGameOverlay: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Helper Functions
+
+    private func rankString(_ rank: Double) -> String {
+        // OGS rank: 0-29 = kyu (30k-1k), 30-38 = dan (1d-9d)
+        if rank < 30 {
+            let kyu = 30 - Int(rank)
+            return "\(kyu)k"
+        } else {
+            let dan = Int(rank) - 29
+            return "\(dan)d"
         }
     }
 

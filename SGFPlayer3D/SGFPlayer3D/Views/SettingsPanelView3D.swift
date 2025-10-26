@@ -65,6 +65,17 @@ struct SettingsPanelView3D: View {
         NSLog("OGS: ❌ Failed to parse game ID from input: '\(trimmed)'")
     }
 
+    private func rankString(_ rank: Double) -> String {
+        // OGS rank: 0-29 = kyu (30k-1k), 30-38 = dan (1d-9d)
+        if rank < 30 {
+            let kyu = 30 - Int(rank)
+            return "\(kyu)k"
+        } else {
+            let dan = Int(rank) - 29
+            return "\(dan)d"
+        }
+    }
+
     var body: some View {
         ZStack {
             // Background for entire panel
@@ -196,7 +207,7 @@ struct SettingsPanelView3D: View {
                                         HStack {
                                             Image(systemName: "checkmark.circle.fill")
                                                 .foregroundColor(.green)
-                                            Text("Logged in as \(ogsClient.username ?? "unknown")")
+                                            Text("Logged in as \(ogsClient.username ?? "unknown")\(ogsClient.userRank != nil ? " (\(rankString(ogsClient.userRank!)))" : " (rank unknown)")")
                                                 .font(.caption)
                                                 .foregroundColor(.white.opacity(0.8))
                                             Spacer()
