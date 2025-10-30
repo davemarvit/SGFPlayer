@@ -240,12 +240,20 @@ struct ContentView: View {
             print("🎮 Play interval updated to \(newDelay)s")
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            if randomOnStart, app.selection == nil {
+            // Don't auto-select random games when connected to OGS
+            if randomOnStart, app.selection == nil, !ogsClient.isConnected {
                 app.pickRandomGame(from: activeGamesList)
+            }
+
+            // Resume auto-play if in local mode and a game is loaded
+            if !ogsClient.isConnected, app.selection != nil, autoNext, !player.isPlaying {
+                NSLog("ContentView: ▶️ Resuming auto-play on app activation")
+                player.play()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .gameDidFinish)) { _ in
-            if randomNext {
+            // Don't auto-advance when connected to OGS
+            if randomNext, !ogsClient.isConnected {
                 // Wait 5 seconds, then pick the next random game and restart if auto-play is on
                 DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
                     app.pickRandomGame(from: activeGamesList)
@@ -302,6 +310,11 @@ struct ContentView: View {
             if ogsGame?.blackName != nil && !timeControl.isClockRunning {
                 timeControl.startClock()
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSConnected"))) { _ in
+            NSLog("ContentView: 🔌 OGS connected - clearing local game selection and clearing board")
+            app.selection = nil
+            player.clear()  // Completely clear board including handicap stones
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameDataReceived"))) { notification in
             // Only process if we have an active OGS game ID (allows initial game load)
@@ -590,7 +603,7 @@ struct ContentView: View {
                         ogsGame: app.ogsGame,
                         timeControl: app.timeControl,
                         player: player,
-                        gameSelection: app.selection,
+                        gameSelection: ogsClient.isConnected ? nil : app.selection,  // Hide local game metadata when OGS is connected
                         backgroundOpacity: 0.6  // 2D mode: matches settings panel opacity
                     )
 

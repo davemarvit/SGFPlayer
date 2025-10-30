@@ -159,9 +159,12 @@ struct GameInfoOverlay: View {
                         .foregroundColor(.white.opacity(0.7))
                         .font(.caption2)
                 }
-                Text("Move \(player.currentIndex)/\(player.moves.count)")
-                    .foregroundColor(.white.opacity(0.7))
-                    .font(.caption2)
+                // Only show move counter when in local game mode (not OGS mode)
+                if gameSelection != nil {
+                    Text("Move \(player.currentIndex)/\(player.moves.count)")
+                        .foregroundColor(.white.opacity(0.7))
+                        .font(.caption2)
+                }
             }
         }
         .fixedSize(horizontal: true, vertical: false)  // Don't expand horizontally!

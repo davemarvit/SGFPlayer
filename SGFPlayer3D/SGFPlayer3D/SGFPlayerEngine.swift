@@ -43,6 +43,21 @@ final class SGFPlayer: ObservableObject {
         reset()
     }
 
+    // Clear everything - completely empty board with no game loaded
+    func clear() {
+        pause()
+        _baseSetup = []
+        _moves = []
+        currentIndex = 0
+        blackCaptured = 0
+        whiteCaptured = 0
+        lastCaptureCount = 0
+        // Create completely empty board
+        let grid = Array(repeating: Array(repeating: Stone?.none, count: baseSize), count: baseSize)
+        board = .init(size: baseSize, grid: grid)
+        lastMove = nil
+    }
+
     // Reset to initial position (before first move)
     func reset() {
         pause()

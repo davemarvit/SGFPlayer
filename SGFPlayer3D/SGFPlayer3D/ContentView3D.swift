@@ -128,7 +128,13 @@ struct ContentView3D: View {
                 NSLog("DEBUG3D: 📂 Game has \(gameWrapper.game.setup.count) setup stones: \(gameWrapper.game.setup)")
                 NSLog("DEBUG3D: 📂 Game has \(gameWrapper.game.moves.count) moves")
 
-                // IMPORTANT: Stop OGS polling and clear OGS state when switching to a local game
+                // IMPORTANT: Only allow local game selection when NOT connected to OGS
+                if ogsClient.isConnected {
+                    NSLog("DEBUG3D: 🛑 Cannot select local game - OGS is connected")
+                    return
+                }
+
+                // Stop OGS polling and clear OGS state when switching to a local game
                 // Otherwise OGS polling will continue updating the board with OGS game moves
                 if ogsGame?.blackName != nil {
                     NSLog("DEBUG3D: 🛑 Switching from OGS game to local game - stopping OGS polling")
@@ -231,10 +237,22 @@ struct ContentView3D: View {
             isFullscreen = false
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            if randomOnStart, app.selection == nil {
+            // Don't auto-select random games when connected to OGS
+            if randomOnStart, app.selection == nil, !ogsClient.isConnected {
                 app.pickRandomGame(from: activeGamesList)
                 NSLog("DEBUG3D: 🎲 Random game selected on app activation")
             }
+
+            // Resume auto-play if in local mode and a game is loaded
+            if !ogsClient.isConnected, app.selection != nil, autoNext, !player.isPlaying {
+                NSLog("DEBUG3D: ▶️ Resuming auto-play on app activation")
+                player.play()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSConnected"))) { _ in
+            NSLog("DEBUG3D: 🔌 OGS connected - clearing local game selection and clearing board")
+            app.selection = nil
+            player.clear()  // Completely clear board including handicap stones
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameDataReceived"))) { notification in
             // Only process if we have an active OGS game ID (allows initial game load)
@@ -444,7 +462,7 @@ struct ContentView3D: View {
                             ogsGame: app.ogsGame,
                             timeControl: app.timeControl,
                             player: player,
-                            gameSelection: app.selection,
+                            gameSelection: ogsClient.isConnected ? nil : app.selection,  // Hide local game metadata when OGS is connected
                             backgroundOpacity: 0.3  // 3D mode: 70% transparent
                         )
 
@@ -523,7 +541,8 @@ struct ContentView3D: View {
 
     private func handleGameFinished() {
         // Game has finished - advance to next game if in loop mode
-        if randomNext {
+        // Don't auto-advance when connected to OGS
+        if randomNext, !ogsClient.isConnected {
             // Wait 5 seconds, then pick the next random game and restart if auto-play is on
             DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
                 app.pickRandomGame(from: activeGamesList)
@@ -534,7 +553,7 @@ struct ContentView3D: View {
                     }
                 }
             }
-        } else if loopGames && ogsGame?.blackName == nil {
+        } else if loopGames && !ogsClient.isConnected {
             // Wait 5 seconds, then advance to next game in sequence (or loop back to first)
             // Only for local games, not OGS games (they receive moves continuously)
             DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {

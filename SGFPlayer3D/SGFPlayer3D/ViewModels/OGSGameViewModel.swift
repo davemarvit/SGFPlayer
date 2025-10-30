@@ -236,12 +236,19 @@ class OGSGameViewModel: ObservableObject {
 
         NSLog("OGSGameVM: 👥 Received OGSPlayerInfo notification")
 
+        let wasInOGSMode = blackName != nil
+
         blackName = userInfo["blackName"] as? String
         whiteName = userInfo["whiteName"] as? String
         blackRank = userInfo["blackRank"] as? String
         whiteRank = userInfo["whiteRank"] as? String
 
         NSLog("OGSGameVM: 👥 Updated player info: \(blackName ?? "?") [\(blackRank ?? "?")] vs \(whiteName ?? "?") [\(whiteRank ?? "?")]")
+
+        // When entering OGS game (first time blackName is set), notify
+        if !wasInOGSMode && blackName != nil {
+            NSLog("OGSGameVM: 🎮 Entering OGS game")
+        }
     }
 
     /// Handle throttling notification from OGS

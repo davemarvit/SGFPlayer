@@ -79,6 +79,8 @@ class OGSClient: NSObject, ObservableObject {
 
     override init() {
         super.init()
+        NSLog("OGS: ========== OGSClient v3.51 BUILD MARKER ==========")
+        log("OGS: ========== v3.51 BUILD MARKER ==========")
         log("OGS: 🔧 Initializing OGSClient (self=\(Unmanaged.passUnretained(self).toOpaque()))...")
         // IMPORTANT: Initialize URLSession in init, not lazily
         // SwiftUI @StateObject requires proper initialization here
@@ -1410,6 +1412,8 @@ class OGSClient: NSObject, ObservableObject {
             // Set connected flag on main queue
             DispatchQueue.main.async { [weak self] in
                 self?.isConnected = true
+                // Notify that OGS is now connected
+                NotificationCenter.default.post(name: NSNotification.Name("OGSConnected"), object: nil)
             }
 
             // Send WebSocket authenticate message with JWT token
@@ -2087,7 +2091,18 @@ class OGSClient: NSObject, ObservableObject {
     }
 
     private func handleSeekgraph(_ seekgraphData: [[String: Any]]) {
+        log("OGS: ========== v3.63 handleSeekgraph CALLED with \(seekgraphData.count) items ==========")
         NSLog("OGS: 📊 Processing \(seekgraphData.count) seekgraph update(s)...")
+
+        // If this is a large batch (>10 items), it's likely the initial snapshot - replace the list
+        // Otherwise it's incremental updates - process one by one
+        let isInitialSnapshot = seekgraphData.count > 10
+        if isInitialSnapshot {
+            NSLog("OGS: 📊 Detected initial snapshot with \(seekgraphData.count) items - will replace entire list")
+        }
+
+        // Collect new games for batch update (if snapshot) or process incrementally
+        var newGames: [OGSChallenge] = []
 
         // Save seekgraph data to file for debugging
         if let jsonData = try? JSONSerialization.data(withJSONObject: seekgraphData, options: .prettyPrinted),
@@ -2097,9 +2112,10 @@ class OGSClient: NSObject, ObservableObject {
         }
 
         // Process each update incrementally (add/remove from existing list)
-        for item in seekgraphData {
+        for (index, item) in seekgraphData.enumerated() {
+            log("OGS: 🔍 Processing item \(index+1)/\(seekgraphData.count)")
             guard let challengeID = item["challenge_id"] as? Int else {
-                NSLog("OGS: ⚠️ Seekgraph item missing challenge_id")
+                log("OGS: ⚠️ Seekgraph item missing challenge_id")
                 continue
             }
 
@@ -2124,34 +2140,66 @@ class OGSClient: NSObject, ObservableObject {
             }
 
             // This is an ADD message - add or update the challenge
+            let minRank = item["min_rank"] as? Int ?? -1000
+            let maxRank = item["max_rank"] as? Int ?? 1000
+            let boardWidth = item["width"] as? Int ?? 0
+            let boardHeight = item["height"] as? Int ?? 0
+            let timeControl = item["time_control"] as? String ?? "unknown"
+
+            let isRengo = item["rengo"] as? Bool ?? false
+            let userChallenge = item["user_challenge"] as? Bool ?? false
+            log("OGS: 📊 ➕ RECEIVED challenge #\(challengeID): rank[\(minRank)-\(maxRank)] board[\(boardWidth)x\(boardHeight)] time[\(timeControl)] rengo[\(isRengo)] userChallenge[\(userChallenge)]")
+
+            // Skip challenges created by the current user - OGS web filters these out
+            if userChallenge {
+                log("OGS: 📊 ❌ FILTERED challenge #\(challengeID) - USER'S OWN CHALLENGE")
+                continue
+            }
+
+            // Skip rengo (team) games - OGS web filters these out by default
+            if isRengo {
+                log("OGS: 📊 ❌ FILTERED challenge #\(challengeID) - RENGO (team game)")
+                continue
+            }
+
             // Skip private games (invite-only to specific players)
             if let isPrivate = item["private"] as? Bool, isPrivate {
-                NSLog("OGS: 📊 Skipping private challenge #\(challengeID)")
+                log("OGS: 📊 ❌ FILTERED challenge #\(challengeID) - PRIVATE game")
                 continue
             }
 
             // Filter by rank if user is authenticated and has a rank
+            // OGS web DOES filter by rank - only shows games user is eligible for
             if let userRank = self.userRank {
-                let minRank = item["min_rank"] as? Int ?? -1000
-                let maxRank = item["max_rank"] as? Int ?? 1000
-
                 // Check if user's rank is within the acceptable range
                 // Rank in OGS: higher number = stronger player (opposite of kyu/dan system)
                 if Int(userRank) < minRank || Int(userRank) > maxRank {
-                    NSLog("OGS: 📊 Skipping challenge #\(challengeID) - rank \(Int(userRank)) not in range [\(minRank)-\(maxRank)]")
+                    log("OGS: 📊 ❌ FILTERED challenge #\(challengeID) - RANK MISMATCH: user rank \(Int(userRank)) not in range [\(minRank)-\(maxRank)]")
                     continue
                 }
             }
 
-            NSLog("OGS: 📊 ADD/UPDATE challenge #\(challengeID)")
+            log("OGS: 📊 ✅ ADD/UPDATE challenge #\(challengeID)")
             if let challenge = convertSeekgraphToChallenge(item) {
-                DispatchQueue.main.async {
-                    // Remove existing if present (in case this is an update)
-                    self.availableGames.removeAll { $0.id == challengeID }
-                    // Add the new/updated challenge
-                    self.availableGames.append(challenge)
-                    NSLog("OGS: 📊 Added challenge #\(challengeID), now have \(self.availableGames.count) games")
+                if isInitialSnapshot {
+                    // For snapshot, collect all games
+                    newGames.append(challenge)
+                } else {
+                    // For incremental updates, update immediately
+                    DispatchQueue.main.async {
+                        self.availableGames.removeAll { $0.id == challengeID }
+                        self.availableGames.append(challenge)
+                        NSLog("OGS: 📊 Updated challenge #\(challengeID), now have \(self.availableGames.count) games")
+                    }
                 }
+            }
+        }
+
+        // For snapshots, replace the entire list
+        if isInitialSnapshot {
+            DispatchQueue.main.async {
+                self.availableGames = newGames
+                NSLog("OGS: 📊 Replaced availableGames with \(newGames.count) games from snapshot")
             }
         }
     }

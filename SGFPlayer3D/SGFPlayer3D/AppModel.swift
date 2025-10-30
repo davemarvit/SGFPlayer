@@ -63,6 +63,15 @@ final class AppModel: ObservableObject {
         // Initialize OGS game view model with shared dependencies
         ogsGame = OGSGameViewModel(ogsClient: ogsClient, player: player, timeControl: timeControl)
         NSLog("AppModel: 🎮 Initialized OGSGameViewModel")
+
+        // If connected to OGS on startup, clear local game
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            if let self = self, self.ogsClient.isConnected {
+                NSLog("AppModel: 🏁 Started with OGS connected - clearing local game")
+                self.selection = nil
+                self.player.clear()  // Completely clear board including handicap stones
+            }
+        }
     }
 
     private func setupAudio() {

@@ -17,8 +17,15 @@ struct PreGameOverlay: View {
     @AppStorage("filter13x13") private var filter13x13 = true
     @AppStorage("filter19x19") private var filter19x19 = true
 
+    // Overlay size (persisted)
+    @AppStorage("preGameOverlayWidth") private var overlayWidth: Double = 700
+    @AppStorage("preGameOverlayHeight") private var overlayHeight: Double = 700
+
     // Last refresh timestamp for debugging
     @State private var lastRefresh: Date = Date()
+
+    // Resize drag state
+    @State private var isDragging = false
 
     // Time formatter for display
     private static let timeFormatter: DateFormatter = {
@@ -38,17 +45,9 @@ struct PreGameOverlay: View {
             VStack(spacing: 0) {
                 // Header with close button
                 HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Find a Game")
-                            .font(.title.bold())
-                            .foregroundColor(.white)
-
-                        if let rank = ogsClient.userRank {
-                            Text("Your rank: \(rankString(rank))")
-                                .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
-                        }
-                    }
+                    Text("Find a Game [v3.63]")
+                        .font(.title.bold())
+                        .foregroundColor(.white)
 
                     Spacer()
 
@@ -92,7 +91,7 @@ struct PreGameOverlay: View {
                     .padding()
                 }
             }
-            .frame(maxWidth: 700, maxHeight: 700)
+            .frame(width: overlayWidth, height: overlayHeight)
             .background(Color(white: 0.15))  // Dark gray background instead of thinMaterial
             .cornerRadius(12)
             .shadow(radius: 20)
@@ -100,6 +99,29 @@ struct PreGameOverlay: View {
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(Color.white.opacity(0.1), lineWidth: 1)  // Subtle border, not bright blue
             )
+            .overlay(alignment: .bottomTrailing) {
+                // Resize handle in bottom-right corner
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 16))
+                    .foregroundColor(.white.opacity(isDragging ? 0.9 : 0.5))
+                    .padding(8)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                isDragging = true
+                                // Update size based on drag, with min/max bounds
+                                let newWidth = max(500, min(1200, overlayWidth + value.translation.width))
+                                let newHeight = max(400, min(900, overlayHeight + value.translation.height))
+                                overlayWidth = newWidth
+                                overlayHeight = newHeight
+                            }
+                            .onEnded { _ in
+                                isDragging = false
+                            }
+                    )
+                    .help("Drag to resize")
+            }
         }
         .task {
             // Fetch games immediately when overlay appears
@@ -142,9 +164,21 @@ struct PreGameOverlay: View {
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.6))
 
-                    Text("Logged in as: \(ogsClient.username ?? "not logged in")")
-                        .font(.caption2)
-                        .foregroundColor(.cyan.opacity(0.9))
+                    if let username = ogsClient.username {
+                        if let rank = ogsClient.userRank {
+                            Text("Logged in as: \(username) (\(rankString(rank)))")
+                                .font(.caption2)
+                                .foregroundColor(.cyan.opacity(0.9))
+                        } else {
+                            Text("Logged in as: \(username)")
+                                .font(.caption2)
+                                .foregroundColor(.cyan.opacity(0.9))
+                        }
+                    } else {
+                        Text("Not logged in")
+                            .font(.caption2)
+                            .foregroundColor(.red.opacity(0.9))
+                    }
 
                     Text("Updated: \(lastRefresh, formatter: Self.timeFormatter)")
                         .font(.caption2)
@@ -248,10 +282,11 @@ struct PreGameOverlay: View {
                 return false
             }
 
-            // Speed filter - "Real-time" includes Blitz, Live, and Rapid
+            // Speed filter - "Real-time" includes Blitz, Live, Rapid, Fischer, Byoyomi, Canadian, Simple
+            // Only "Correspondence" is turn-based
             let timeControlDisplay = challenge.timeControlDisplay.lowercased()
-            let isRealTime = timeControlDisplay == "blitz" || timeControlDisplay == "live" || timeControlDisplay == "rapid"
             let isCorr = timeControlDisplay == "correspondence"
+            let isRealTime = !isCorr  // Everything except correspondence is real-time
 
             let speedMatches = (filterLive && isRealTime) || (filterCorrespondence && isCorr)
 
