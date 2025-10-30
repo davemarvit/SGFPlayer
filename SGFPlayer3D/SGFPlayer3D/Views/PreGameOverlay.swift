@@ -45,7 +45,7 @@ struct PreGameOverlay: View {
             VStack(spacing: 0) {
                 // Header with close button
                 HStack {
-                    Text("Find a Game [v3.63]")
+                    Text("Find a Game [v3.69]")
                         .font(.title.bold())
                         .foregroundColor(.white)
 
@@ -334,109 +334,310 @@ struct PreGameOverlay: View {
 
     private var gameSettingsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Game Settings")
+            Text("Custom Game Settings")
                 .font(.headline)
                 .foregroundColor(.white)
 
-            // Board Size
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Board Size")
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.9))
+            // Two-column layout matching OGS
+            HStack(alignment: .top, spacing: 24) {
+                // Left Column
+                VStack(alignment: .leading, spacing: 12) {
+                    // Game Name
+                    settingRow(label: "Game Name") {
+                        TextField("Game Name", text: $gameSettings.gameName)
+                            .textFieldStyle(.plain)
+                            .padding(8)
+                            .background(Color.white.opacity(0.1))
+                            .foregroundColor(.white)
+                            .cornerRadius(6)
+                            .onChange(of: gameSettings.gameName) { _ in gameSettings.save() }
+                    }
 
-                HStack(spacing: 12) {
-                    ForEach([9, 13, 19], id: \.self) { size in
-                        Button(action: {
-                            gameSettings.boardSize = size
-                            gameSettings.save()
-                        }) {
-                            Text("\(size)×\(size)")
-                                .font(.caption)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(gameSettings.boardSize == size ? Color.blue.opacity(0.8) : Color.gray.opacity(0.3))
+                    // Invite-only
+                    settingRow(label: "Invite-only") {
+                        Toggle("", isOn: $gameSettings.inviteOnly)
+                            .labelsHidden()
+                            .onChange(of: gameSettings.inviteOnly) { _ in gameSettings.save() }
+                    }
+
+                    // Rules
+                    settingRow(label: "Rules") {
+                        Picker("", selection: $gameSettings.rules) {
+                            ForEach(GameRules.allCases) { rule in
+                                Text(rule.rawValue).tag(rule)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 150)
+                        .onChange(of: gameSettings.rules) { _ in gameSettings.save() }
+                    }
+
+                    // Time Control System
+                    settingRow(label: "Time Control") {
+                        Picker("", selection: $gameSettings.timeControlSystem) {
+                            ForEach(TimeControlSystem.allCases) { system in
+                                Text(system.rawValue).tag(system)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 150)
+                        .onChange(of: gameSettings.timeControlSystem) { _ in gameSettings.save() }
+                    }
+
+                    // Main Time (always shown)
+                    settingRow(label: "Main Time") {
+                        HStack(spacing: 4) {
+                            TextField("", value: $gameSettings.mainTimeMinutes, format: .number)
+                                .textFieldStyle(.plain)
+                                .multilineTextAlignment(.trailing)
+                                .padding(6)
+                                .background(Color.white.opacity(0.1))
                                 .foregroundColor(.white)
                                 .cornerRadius(6)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-
-            // Rank Range
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Opponent Rank")
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.9))
-
-                HStack(spacing: 12) {
-                    ForEach(RankRange.allCases) { range in
-                        Button(action: {
-                            gameSettings.rankRange = range
-                            gameSettings.save()
-                        }) {
-                            Text(range.displayName)
+                                .frame(width: 60)
+                                .onChange(of: gameSettings.mainTimeMinutes) { _ in gameSettings.save() }
+                            Stepper("", value: $gameSettings.mainTimeMinutes, in: 1...999, step: 1)
+                                .labelsHidden()
+                                .onChange(of: gameSettings.mainTimeMinutes) { _ in gameSettings.save() }
+                            Text("min")
                                 .font(.caption)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(gameSettings.rankRange == range ? Color.blue.opacity(0.8) : Color.gray.opacity(0.3))
-                                .foregroundColor(.white)
-                                .cornerRadius(6)
+                                .foregroundColor(.white.opacity(0.7))
                         }
-                        .buttonStyle(.plain)
+                    }
+
+                    // Fischer-specific fields
+                    if gameSettings.timeControlSystem == .fischer {
+                        settingRow(label: "Time Increment") {
+                            HStack(spacing: 4) {
+                                TextField("", value: $gameSettings.fischerIncrementSeconds, format: .number)
+                                    .textFieldStyle(.plain)
+                                    .multilineTextAlignment(.trailing)
+                                    .padding(6)
+                                    .background(Color.white.opacity(0.1))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(6)
+                                    .frame(width: 60)
+                                    .onChange(of: gameSettings.fischerIncrementSeconds) { _ in gameSettings.save() }
+                                Stepper("", value: $gameSettings.fischerIncrementSeconds, in: 1...999, step: 1)
+                                    .labelsHidden()
+                                    .onChange(of: gameSettings.fischerIncrementSeconds) { _ in gameSettings.save() }
+                                Text("sec")
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
+                        }
+
+                        settingRow(label: "Max Time") {
+                            HStack(spacing: 4) {
+                                TextField("", value: $gameSettings.fischerMaxTimeMinutes, format: .number)
+                                    .textFieldStyle(.plain)
+                                    .multilineTextAlignment(.trailing)
+                                    .padding(6)
+                                    .background(Color.white.opacity(0.1))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(6)
+                                    .frame(width: 60)
+                                    .onChange(of: gameSettings.fischerMaxTimeMinutes) { _ in gameSettings.save() }
+                                Stepper("", value: $gameSettings.fischerMaxTimeMinutes, in: 1...999, step: 1)
+                                    .labelsHidden()
+                                    .onChange(of: gameSettings.fischerMaxTimeMinutes) { _ in gameSettings.save() }
+                                Text("min")
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
+                        }
+                    }
+
+                    // Byo-Yomi/Canadian/Simple-specific fields
+                    if gameSettings.timeControlSystem == .byoyomi ||
+                       gameSettings.timeControlSystem == .canadian ||
+                       gameSettings.timeControlSystem == .simple {
+                        settingRow(label: "Time per Period") {
+                            HStack(spacing: 4) {
+                                TextField("", value: $gameSettings.periodTimeSeconds, format: .number)
+                                    .textFieldStyle(.plain)
+                                    .multilineTextAlignment(.trailing)
+                                    .padding(6)
+                                    .background(Color.white.opacity(0.1))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(6)
+                                    .frame(width: 60)
+                                    .onChange(of: gameSettings.periodTimeSeconds) { _ in gameSettings.save() }
+                                Stepper("", value: $gameSettings.periodTimeSeconds, in: 1...999, step: 1)
+                                    .labelsHidden()
+                                    .onChange(of: gameSettings.periodTimeSeconds) { _ in gameSettings.save() }
+                                Text("sec")
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
+                        }
+
+                        settingRow(label: "Periods") {
+                            HStack(spacing: 4) {
+                                TextField("", value: $gameSettings.periods, format: .number)
+                                    .textFieldStyle(.plain)
+                                    .multilineTextAlignment(.trailing)
+                                    .padding(6)
+                                    .background(Color.white.opacity(0.1))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(6)
+                                    .frame(width: 60)
+                                    .onChange(of: gameSettings.periods) { _ in gameSettings.save() }
+                                Stepper("", value: $gameSettings.periods, in: 1...99, step: 1)
+                                    .labelsHidden()
+                                    .onChange(of: gameSettings.periods) { _ in gameSettings.save() }
+                            }
+                        }
                     }
                 }
-            }
+                .frame(maxWidth: .infinity)
 
-            // Time Control
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Time Control")
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.9))
+                // Right Column
+                VStack(alignment: .leading, spacing: 12) {
+                    // Ranked
+                    settingRow(label: "Ranked") {
+                        Toggle("", isOn: $gameSettings.ranked)
+                            .labelsHidden()
+                            .onChange(of: gameSettings.ranked) { _ in gameSettings.save() }
+                    }
 
-                HStack(spacing: 12) {
-                    ForEach(TimeControlPreset.allCases) { preset in
-                        Button(action: {
-                            gameSettings.timeControl = preset
-                            gameSettings.save()
-                        }) {
-                            Text(preset.displayName)
+                    // Board Size
+                    settingRow(label: "Board Size") {
+                        Picker("", selection: $gameSettings.boardSize) {
+                            Text("9×9").tag(9)
+                            Text("13×13").tag(13)
+                            Text("19×19").tag(19)
+                        }
+                        .labelsHidden()
+                        .frame(width: 150)
+                        .onChange(of: gameSettings.boardSize) { _ in gameSettings.save() }
+                    }
+
+                    // Handicap
+                    settingRow(label: "Handicap") {
+                        Picker("", selection: $gameSettings.handicap) {
+                            ForEach(HandicapOption.allCases) { handicap in
+                                Text(handicap.rawValue).tag(handicap)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 150)
+                        .onChange(of: gameSettings.handicap) { _ in gameSettings.save() }
+                    }
+
+                    // Komi
+                    settingRow(label: "Komi") {
+                        Picker("", selection: $gameSettings.komi) {
+                            ForEach(KomiOption.allCases) { komi in
+                                Text(komi.rawValue).tag(komi)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 150)
+                        .onChange(of: gameSettings.komi) { _ in gameSettings.save() }
+                    }
+
+                    // Custom Komi Value (shown when Custom is selected)
+                    if gameSettings.komi == .custom {
+                        settingRow(label: "Komi Value") {
+                            HStack(spacing: 4) {
+                                TextField("6.5", value: $gameSettings.customKomi, format: .number)
+                                    .textFieldStyle(.plain)
+                                    .multilineTextAlignment(.trailing)
+                                    .padding(6)
+                                    .background(Color.white.opacity(0.1))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(6)
+                                    .frame(width: 60)
+                                    .onChange(of: gameSettings.customKomi) { _ in gameSettings.save() }
+                                Stepper("", value: $gameSettings.customKomi, in: 0.5...99.5, step: 1.0)
+                                    .labelsHidden()
+                                    .onChange(of: gameSettings.customKomi) { _ in gameSettings.save() }
+                            }
+                        }
+                    }
+
+                    // Your Color
+                    settingRow(label: "Your Color") {
+                        Picker("", selection: $gameSettings.colorPreference) {
+                            ForEach(ColorPreference.allCases) { color in
+                                Text(color.rawValue).tag(color)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 150)
+                        .onChange(of: gameSettings.colorPreference) { _ in gameSettings.save() }
+                    }
+
+                    // Disable Analysis
+                    settingRow(label: "Disable Analysis") {
+                        HStack {
+                            Toggle("", isOn: $gameSettings.disableAnalysis)
+                                .labelsHidden()
+                                .onChange(of: gameSettings.disableAnalysis) { _ in gameSettings.save() }
+                            Text("*")
+                                .foregroundColor(.white.opacity(0.7))
                                 .font(.caption)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(gameSettings.timeControl == preset ? Color.blue.opacity(0.8) : Color.gray.opacity(0.3))
-                                .foregroundColor(.white)
-                                .cornerRadius(6)
                         }
-                        .buttonStyle(.plain)
                     }
-                }
-            }
 
-            // Color Preference
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Color")
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.9))
+                    // Restrict Rank
+                    settingRow(label: "Restrict Rank") {
+                        Toggle("", isOn: $gameSettings.restrictRank)
+                            .labelsHidden()
+                            .onChange(of: gameSettings.restrictRank) { _ in gameSettings.save() }
+                    }
 
-                HStack(spacing: 12) {
-                    ForEach(ColorPreference.allCases) { color in
-                        Button(action: {
-                            gameSettings.colorPreference = color
-                            gameSettings.save()
-                        }) {
-                            Text(color.displayName)
-                                .font(.caption)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(gameSettings.colorPreference == color ? Color.blue.opacity(0.8) : Color.gray.opacity(0.3))
-                                .foregroundColor(.white)
-                                .cornerRadius(6)
+                    // Rank Restrictions (shown when Restrict Rank is on)
+                    if gameSettings.restrictRank {
+                        VStack(alignment: .leading, spacing: 8) {
+                            settingRow(label: "  Ranks Above") {
+                                Picker("", selection: Binding(
+                                    get: { rankRestrictionToInt(gameSettings.ranksAbove) },
+                                    set: { gameSettings.ranksAbove = intToRankRestriction($0); gameSettings.save() }
+                                )) {
+                                    Text("Any").tag(-1)
+                                    ForEach([1, 2, 3, 4, 5, 6, 7, 8, 9], id: \.self) { value in
+                                        Text("\(value)").tag(value)
+                                    }
+                                }
+                                .labelsHidden()
+                                .frame(width: 80)
+                            }
+
+                            settingRow(label: "  Ranks Below") {
+                                Picker("", selection: Binding(
+                                    get: { rankRestrictionToInt(gameSettings.ranksBelow) },
+                                    set: { gameSettings.ranksBelow = intToRankRestriction($0); gameSettings.save() }
+                                )) {
+                                    Text("Any").tag(-1)
+                                    ForEach([1, 2, 3, 4, 5, 6, 7, 8, 9], id: \.self) { value in
+                                        Text("\(value)").tag(value)
+                                    }
+                                }
+                                .labelsHidden()
+                                .frame(width: 80)
+                            }
                         }
-                        .buttonStyle(.plain)
                     }
+
+                    Text("* Also disables conditional moves")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.5))
                 }
+                .frame(maxWidth: .infinity)
             }
+        }
+    }
+
+    // Helper to create consistent setting rows
+    private func settingRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.white.opacity(0.9))
+                .frame(width: 120, alignment: .trailing)
+            content()
         }
     }
 
@@ -450,6 +651,25 @@ struct PreGameOverlay: View {
         } else {
             let dan = Int(rank) - 29
             return "\(dan)d"
+        }
+    }
+
+    // Convert RankRestriction to Int for Picker
+    private func rankRestrictionToInt(_ restriction: RankRestriction) -> Int {
+        switch restriction {
+        case .any:
+            return -1
+        case .limit(let value):
+            return value
+        }
+    }
+
+    // Convert Int from Picker to RankRestriction
+    private func intToRankRestriction(_ value: Int) -> RankRestriction {
+        if value == -1 {
+            return .any
+        } else {
+            return .limit(value)
         }
     }
 

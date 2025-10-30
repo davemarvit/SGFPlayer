@@ -167,6 +167,13 @@ struct ContentView: View {
             }
         }
         .onAppear {
+            // Auto-connect to OGS if OGS mode is enabled
+            let ogsMode = UserDefaults.standard.bool(forKey: "ogsMode")
+            if ogsMode && !ogsClient.isConnected {
+                ogsClient.connect()
+                NSLog("ContentView: 🔌 Auto-connecting to OGS on startup (OGS Mode was ON)")
+            }
+
             if !isInitialized {
                 initializeApp()
                 isInitialized = true
@@ -315,6 +322,8 @@ struct ContentView: View {
             NSLog("ContentView: 🔌 OGS connected - clearing local game selection and clearing board")
             app.selection = nil
             player.clear()  // Completely clear board including handicap stones
+            player.pause()  // Stop any playback
+            ogsClient.currentGameID = nil  // Clear any active OGS game
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameDataReceived"))) { notification in
             // Only process if we have an active OGS game ID (allows initial game load)
@@ -704,13 +713,16 @@ struct ContentView: View {
             print("🎮 Auto-play enabled")
         }
 
-        // Auto-start playing on launch if enabled and we have a game selected
-        if autoStartOnLaunch && app.selection != nil {
+        // Auto-start playing on launch if enabled, we have a game selected, and NOT in OGS mode
+        let ogsMode = UserDefaults.standard.bool(forKey: "ogsMode")
+        if autoStartOnLaunch && app.selection != nil && !ogsMode {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 autoNext = true
                 player.play()
                 print("🚀 Auto-started playback on launch")
             }
+        } else if ogsMode {
+            print("⏸️ Skipping auto-play - in OGS mode")
         }
 
         // Set initial window title

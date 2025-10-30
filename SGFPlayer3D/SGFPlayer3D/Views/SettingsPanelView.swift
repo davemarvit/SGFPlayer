@@ -160,37 +160,64 @@ struct SettingsPanelView: View {
                     Divider()
                         .padding(.horizontal, 16)
 
-                    // OGS Mode toggle and controls
+                    // Play Mode selection (Local / OGS)
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Mode")
+                        Text("Play Mode")
                             .font(.headline)
 
-                        Toggle("OGS Mode (Live Games)", isOn: $ogsMode)
-                            .onAppear {
-                                // Auto-connect if OGS mode is already enabled on startup
-                                if ogsMode && !app.ogsClient.isConnected {
+                        Picker("", selection: $ogsMode) {
+                            Text("Local").tag(false)
+                            Text("OGS").tag(true)
+                        }
+                        .pickerStyle(.segmented)
+                        .onAppear {
+                            // Auto-connect if OGS mode is already enabled on startup
+                            if ogsMode && !app.ogsClient.isConnected {
+                                app.ogsClient.connect()
+                                NSLog("OGS: 🔌 Auto-connecting on startup (OGS Mode was already ON)")
+                            }
+                        }
+                        .onChange(of: ogsMode) { _, newValue in
+                            if newValue {
+                                // Auto-connect when OGS mode is turned on
+                                if !app.ogsClient.isConnected {
                                     app.ogsClient.connect()
-                                    NSLog("OGS: 🔌 Auto-connecting on startup (OGS Mode was already ON)")
+                                    NSLog("OGS: 🔌 Auto-connecting when OGS Mode enabled")
                                 }
-                            }
-                            .toggleStyle(SwitchToggleStyle(tint: .blue))
-                            .onChange(of: ogsMode) { _, newValue in
-                                if newValue {
-                                    // Auto-connect when OGS mode is turned on
-                                    if !app.ogsClient.isConnected {
-                                        app.ogsClient.connect()
-                                        NSLog("OGS: 🔌 Auto-connecting when OGS Mode enabled")
-                                    }
-                                } else {
-                                    // Disconnect when OGS mode is turned off
-                                    if app.ogsClient.isConnected {
-                                        app.ogsClient.disconnect()
-                                        NSLog("OGS: 🔌 Disconnecting when OGS Mode disabled")
-                                    }
+                            } else {
+                                // Disconnect when OGS mode is turned off
+                                if app.ogsClient.isConnected {
+                                    app.ogsClient.disconnect()
+                                    NSLog("OGS: 🔌 Disconnecting when OGS Mode disabled")
                                 }
-                            }
 
-                        Text(ogsMode ? "Online Go Server" : "Playing local SGF files")
+                                // Auto-start playing local games if enabled
+                                if autoStartOnLaunch {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                        // If no game is selected, pick one first
+                                        if app.selection == nil && !app.games.isEmpty {
+                                            let randomOnStart = UserDefaults.standard.bool(forKey: "randomOnStart")
+                                            if randomOnStart {
+                                                app.pickRandomGame(from: app.games)
+                                                NSLog("OGS: 🎲 Picked random game after switching to local mode")
+                                            } else {
+                                                app.selectGame(app.games[0])
+                                                NSLog("OGS: 🎮 Picked first game after switching to local mode")
+                                            }
+                                        }
+
+                                        // Start playing
+                                        if app.selection != nil {
+                                            autoNext = true
+                                            player.play()
+                                            NSLog("OGS: ▶️ Auto-started playback after switching to local mode")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Text(ogsMode ? "Play live games on Online Go Server" : "Play local SGF game files")
                             .font(.caption)
                             .foregroundColor(.secondary)
 

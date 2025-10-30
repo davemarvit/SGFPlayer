@@ -558,16 +558,27 @@ class OGSClient: NSObject, ObservableObject {
         // Convert board size to OGS format ("19x19", "13x13", "9x9")
         let sizeString = "\(settings.boardSize)x\(settings.boardSize)"
 
-        // Determine speed based on time control
-        // Blitz/Rapid are both "live", Fischer can also be "live"
-        let speed: String
-        switch settings.timeControl {
-        case .blitz:
-            speed = "blitz"
-        case .rapid:
-            speed = "rapid"
-        case .fischer:
-            speed = "live"
+        // Determine speed based on time settings (computed)
+        let speed = settings.gameSpeed
+
+        // Calculate rank differences
+        var lowerRankDiff = -36  // Default: allow all lower ranks
+        var upperRankDiff = 36   // Default: allow all higher ranks
+
+        if settings.restrictRank, let userRank = self.userRank {
+            switch settings.ranksBelow {
+            case .any:
+                lowerRankDiff = -36
+            case .limit(let delta):
+                lowerRankDiff = -delta
+            }
+
+            switch settings.ranksAbove {
+            case .any:
+                upperRankDiff = 36
+            case .limit(let delta):
+                upperRankDiff = delta
+            }
         }
 
         // Build automatch preferences structure
@@ -577,11 +588,11 @@ class OGSClient: NSObject, ObservableObject {
                 [
                     "size": sizeString,
                     "speed": speed,
-                    "system": settings.timeControl.timeSystem
+                    "system": settings.timeControlSystem.apiValue
                 ]
             ],
-            "lower_rank_diff": -(settings.rankRange.numericValue ?? 36),  // Negative for lower ranks (36 covers full OGS range)
-            "upper_rank_diff": settings.rankRange.numericValue ?? 36,     // Positive for higher ranks (36 covers full OGS range)
+            "lower_rank_diff": lowerRankDiff,
+            "upper_rank_diff": upperRankDiff,
             "rules": [
                 "condition": "required",
                 "value": "japanese"
@@ -811,6 +822,26 @@ class OGSClient: NSObject, ObservableObject {
             NSLog("OGS: ⚠️ No CSRF token found in cookies")
         }
 
+        // Build time control parameters (different for Fischer vs others)
+        var timeControlParams: [String: Any] = [
+            "time_control": settings.timeControlSystem.apiValue,
+            "system": settings.timeControlSystem.apiValue,
+            "main_time": settings.mainTimeMinutes * 60  // Convert to seconds
+        ]
+
+        // Add system-specific parameters
+        switch settings.timeControlSystem {
+        case .fischer:
+            timeControlParams["time_increment"] = settings.fischerIncrementSeconds
+            timeControlParams["max_time"] = settings.fischerMaxTimeMinutes * 60  // Convert to seconds
+        case .byoyomi, .canadian, .simple:
+            timeControlParams["period_time"] = settings.periodTimeSeconds
+            timeControlParams["periods"] = settings.periods
+        case .absolute, .none:
+            // No additional parameters needed
+            break
+        }
+
         // Build challenge request body
         let challengeData: [String: Any] = [
             "challenged_player_id": playerID,
@@ -818,19 +849,13 @@ class OGSClient: NSObject, ObservableObject {
             "game": [
                 "width": settings.boardSize,
                 "height": settings.boardSize,
-                "ranked": true,
-                "handicap": 0,
-                "komi_auto": "automatic",
-                "disable_analysis": false,
-                "rules": "japanese",
-                "time_control": settings.timeControl.timeSystem,
-                "time_control_parameters": [
-                    "time_control": settings.timeControl.timeSystem,
-                    "system": settings.timeControl.timeSystem,
-                    "main_time": settings.timeControl.mainTime,
-                    "period_time": settings.timeControl.periodTime,
-                    "periods": settings.timeControl.periods
-                ]
+                "ranked": settings.ranked,
+                "handicap": settings.handicap.apiValue,
+                "komi_auto": settings.komi == .automatic ? "automatic" : "custom",
+                "disable_analysis": settings.disableAnalysis,
+                "rules": settings.rules.apiValue,
+                "time_control": settings.timeControlSystem.apiValue,
+                "time_control_parameters": timeControlParams
             ]
         ]
 
@@ -1030,28 +1055,77 @@ class OGSClient: NSObject, ObservableObject {
         request.setValue("https://online-go.com", forHTTPHeaderField: "Referer")
         request.setValue("https://online-go.com", forHTTPHeaderField: "Origin")
 
-        // Build request body
-        let timeControl = settings.timeControl
+        // Calculate rank range based on user's rank and restrictions
+        var minRank = 0
+        var maxRank = 36  // Maximum rank (9d professional)
+
+        if settings.restrictRank, let userRank = self.userRank {
+            // Apply rank restrictions based on user's selections
+            switch settings.ranksBelow {
+            case .any:
+                minRank = 0
+            case .limit(let delta):
+                minRank = max(0, Int(userRank) - delta)
+            }
+
+            switch settings.ranksAbove {
+            case .any:
+                maxRank = 36
+            case .limit(let delta):
+                maxRank = min(36, Int(userRank) + delta)
+            }
+
+            NSLog("OGS: 🎮 Setting rank range: \(minRank) to \(maxRank) (user rank: \(Int(userRank)))")
+        } else {
+            // No rank restriction - allow all ranks
+            NSLog("OGS: 🎮 No rank restrictions - allowing all ranks (0 to 36)")
+        }
+
+        // Build time control parameters (different for Fischer vs others)
+        var timeControlParams: [String: Any] = [
+            "time_control": settings.timeControlSystem.apiValue,
+            "main_time": settings.mainTimeMinutes * 60  // Convert minutes to seconds
+        ]
+
+        // Add system-specific parameters
+        switch settings.timeControlSystem {
+        case .fischer:
+            timeControlParams["time_increment"] = settings.fischerIncrementSeconds
+            timeControlParams["max_time"] = settings.fischerMaxTimeMinutes * 60  // Convert to seconds
+        case .byoyomi, .canadian, .simple:
+            timeControlParams["period_time"] = settings.periodTimeSeconds
+            timeControlParams["periods"] = settings.periods
+        case .absolute, .none:
+            // No additional parameters needed
+            break
+        }
+
+        // Build komi value
+        var komiValue: Any = "automatic"
+        if settings.komi == .custom {
+            komiValue = settings.customKomi
+        }
+
+        // Build request body matching OGS API format
         let body: [String: Any] = [
             "game": [
-                "name": "SGFPlayer3D Game",
-                "rules": "japanese",
-                "ranked": true,
+                "name": settings.gameName,
+                "rules": settings.rules.apiValue,
+                "ranked": settings.ranked,
                 "width": settings.boardSize,
                 "height": settings.boardSize,
-                "handicap": 0,
-                "komi_auto": "automatic",
-                "disable_analysis": false,
+                "handicap": settings.handicap.apiValue,
+                "komi_auto": settings.komi == .automatic ? "automatic" : "custom",
+                "komi": komiValue,
+                "disable_analysis": settings.disableAnalysis,
                 "pause_on_weekends": false,
-                "time_control": timeControl.timeSystem,
-                "time_control_parameters": [
-                    "time_control": timeControl.timeSystem,
-                    "main_time": timeControl.mainTime,
-                    "period_time": timeControl.periodTime,
-                    "periods": timeControl.periods
-                ]
+                "time_control": settings.timeControlSystem.apiValue,
+                "time_control_parameters": timeControlParams,
+                "private": settings.inviteOnly
             ],
-            "challenger_color": settings.colorPreference.apiValue
+            "challenger_color": settings.colorPreference.apiValue,
+            "min_ranking": minRank,
+            "max_ranking": maxRank
         ]
 
         do {

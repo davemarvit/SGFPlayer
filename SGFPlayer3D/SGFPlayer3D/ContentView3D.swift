@@ -253,6 +253,8 @@ struct ContentView3D: View {
             NSLog("DEBUG3D: 🔌 OGS connected - clearing local game selection and clearing board")
             app.selection = nil
             player.clear()  // Completely clear board including handicap stones
+            player.pause()  // Stop any playback
+            ogsClient.currentGameID = nil  // Clear any active OGS game
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameDataReceived"))) { notification in
             // Only process if we have an active OGS game ID (allows initial game load)
@@ -316,6 +318,12 @@ struct ContentView3D: View {
         .onAppear {
             // OGSGameViewModel is now initialized in AppModel.init()
             // This ensures it's shared between 2D and 3D views
+
+            // Auto-connect to OGS if OGS mode is enabled
+            if settingsVM.ogsMode && !ogsClient.isConnected {
+                ogsClient.connect()
+                NSLog("DEBUG3D: 🔌 Auto-connecting to OGS on startup (OGS Mode was ON)")
+            }
 
             // Restore camera position on appear
             sceneManager.updateCameraPosition(
@@ -583,13 +591,15 @@ struct ContentView3D: View {
     }
 
     private func handleAppLaunch() {
-        // Auto-start playing on launch if enabled and we have a game selected
-        if autoStartOnLaunch && app.selection != nil {
+        // Auto-start playing on launch if enabled, we have a game selected, and NOT in OGS mode
+        if autoStartOnLaunch && app.selection != nil && !settingsVM.ogsMode {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 autoNext = true
                 player.play()
                 NSLog("DEBUG3D: 🚀 Auto-started playback on launch")
             }
+        } else if settingsVM.ogsMode {
+            NSLog("DEBUG3D: ⏸️ Skipping auto-play - in OGS mode")
         }
     }
 
