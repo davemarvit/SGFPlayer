@@ -152,6 +152,48 @@ struct SettingsPanelView3D: View {
                         Divider()
                             .padding(.horizontal, 16)
 
+                        // Last Move Effects (combinable)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Last Move Effects")
+                                .font(.headline)
+                                .foregroundColor(.white)
+
+                            Text("Select one or more effects to combine")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.6))
+
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(LastMoveEffect.allCases) { effect in
+                                    Toggle(isOn: Binding(
+                                        get: { LastMoveIndicatorSettings.isEffectEnabled(effect) },
+                                        set: { enabled in
+                                            LastMoveIndicatorSettings.setEffect(effect, enabled: enabled)
+                                            // Force scene refresh by updating stones
+                                            // Preserve playback state
+                                            let wasPlaying = player.isPlaying
+                                            player.seek(to: player.currentIndex)
+                                            if wasPlaying {
+                                                player.play()
+                                            }
+                                        }
+                                    )) {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(effect.rawValue)
+                                                .foregroundColor(.white)
+                                            Text(effect.description)
+                                                .font(.caption)
+                                                .foregroundColor(.white.opacity(0.6))
+                                        }
+                                    }
+                                    .toggleStyle(SwitchToggleStyle(tint: .blue))
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+
+                        Divider()
+                            .padding(.horizontal, 16)
+
                         // Play Mode selection (Local / OGS)
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Play Mode")

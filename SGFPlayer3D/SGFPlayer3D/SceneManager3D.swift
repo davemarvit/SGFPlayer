@@ -15,6 +15,7 @@ class SceneManager3D: ObservableObject {
     private var boardNode: SCNNode?
     private var stoneNodes: [SCNNode] = []
     private var currentPlayer: SGFPlayer?
+    private var previousLastMove: (x: Int, y: Int)?  // Track previous last move for fade-out
 
     // Board configuration
     private var boardSize: Int = 19  // Default to 19, will update based on loaded game
@@ -155,6 +156,16 @@ class SceneManager3D: ObservableObject {
             createBoard()  // Recreate the board with new size
         }
 
+        // Fade out previous last move glow before removing stones
+        if let prevMove = previousLastMove {
+            // Find the stone at the previous last move position
+            if let prevStone = board.grid[prevMove.y][prevMove.x],
+               let prevStoneNode = findStoneNode(at: prevMove.x, y: prevMove.y, in: stoneNodes) {
+                // Extract glow nodes and fade them out
+                fadeOutGlowNodes(from: prevStoneNode)
+            }
+        }
+
         // Remove all existing stones
         stoneNodes.forEach { $0.removeFromParentNode() }
         stoneNodes.removeAll()
@@ -208,9 +219,9 @@ class SceneManager3D: ObservableObject {
 
                     let stoneNode = createStone(color: stone, at: finalPosition)
 
-                    // Add halo to the last played stone
+                    // Add last move indicator to the most recently played stone
                     if let lastMove = player.lastMove, lastMove.x == col && lastMove.y == row {
-                        addHaloToStone(stoneNode, color: stone, radius: stoneRadius)
+                        addLastMoveIndicator(to: stoneNode, color: stone, radius: stoneRadius)
                     }
 
                     scene.rootNode.addChildNode(stoneNode)
@@ -221,6 +232,13 @@ class SceneManager3D: ObservableObject {
             }
         }
         NSLog("DEBUG3D: 🎯 Created \(stoneCount) stone nodes")
+
+        // Update previous last move for next iteration
+        if let lastMove = player.lastMove {
+            previousLastMove = (x: lastMove.x, y: lastMove.y)
+        } else {
+            previousLastMove = nil
+        }
     }
 
     private func resolveCollisions(proposedPosition: SCNVector3, radius: CGFloat, existingStones: [(position: SCNVector3, radius: CGFloat)]) -> SCNVector3 {
@@ -311,13 +329,57 @@ class SceneManager3D: ObservableObject {
         return stoneNode
     }
 
-    private func addHaloToStone(_ stoneNode: SCNNode, color: Stone, radius: CGFloat) {
-        NSLog("DEBUG3D: ✨ Adding halo to \(color) stone with radius \(radius)")
+    // MARK: - Last Move Indicator
+
+    /// Add last move indicators to a stone based on enabled effects
+    private func addLastMoveIndicator(to stoneNode: SCNNode, color: Stone, radius: CGFloat) {
+        // Get all enabled effects
+        let effects = LastMoveIndicatorSettings.enabledEffects()
+
+        if effects.isEmpty {
+            NSLog("DEBUG3D: 🎨 No effects enabled for last move indicator")
+            return
+        }
+
+        NSLog("DEBUG3D: 🎨 Adding \(effects.count) effect(s) for \(color == .white ? "white" : "black") stone: \(effects.map { $0.rawValue }.joined(separator: ", "))")
+
+        // Check if Drop In is active (for coordinating timing)
+        let hasDropIn = effects.contains(.dropIn)
+        let dropInDuration = 0.4  // Match the drop-in animation duration
+
+        // Apply each enabled effect
+        for effect in effects {
+            switch effect {
+            case .boardGlow:
+                if hasDropIn {
+                    // Delay board glow until stone lands
+                    DispatchQueue.main.asyncAfter(deadline: .now() + dropInDuration) {
+                        self.addGlowDiscIndicator(to: stoneNode, color: color, radius: radius)
+                    }
+                } else {
+                    addGlowDiscIndicator(to: stoneNode, color: color, radius: radius)
+                }
+            case .enhancedGlow:
+                addGlowDiscEnhancedIndicator(to: stoneNode, color: color, radius: radius)
+            case .dropIn:
+                addDropInIndicator(to: stoneNode, color: color, radius: radius)
+            case .solidCircle:
+                addSolidCircleIndicator(to: stoneNode, color: color, radius: radius)
+            case .hollowCircle:
+                addHollowCircleIndicator(to: stoneNode, color: color, radius: radius)
+            }
+        }
+    }
+
+    /// Board Glow: Just the glow disc on the board (no rings)
+    private func addGlowDiscIndicator(to stoneNode: SCNNode, color: Stone, radius: CGFloat) {
+        NSLog("DEBUG3D: ✨ Adding board glow indicator to \(color) stone with radius \(radius)")
 
         let thicknessRatio: CGFloat = 0.486
         let stoneHalfHeight = radius * thicknessRatio
 
-        // 1. Create permanent glow disc UNDER the stone
+        // Create glow disc UNDER the stone on the board
+        // Using same warm amber color for both stones (matching Enhanced Glow)
         let underGlowRadius = radius * 1.4
         let underGlowHeight: CGFloat = 0.03
 
@@ -325,16 +387,11 @@ class SceneManager3D: ObservableObject {
         let underNode = SCNNode(geometry: underDisc)
 
         let underMaterial = SCNMaterial()
-        // Use complementary colors: amber for black stones, bright cyan/blue for white stones
-        if color == .white {
-            underMaterial.emission.contents = NSColor(red: 0.2, green: 0.7, blue: 1.0, alpha: 0.25)
-            underMaterial.diffuse.contents = NSColor(red: 0.1, green: 0.5, blue: 0.8, alpha: 0.12)
-        } else {
-            underMaterial.emission.contents = NSColor(red: 1.0, green: 0.85, blue: 0.3, alpha: 0.25)
-            underMaterial.diffuse.contents = NSColor(red: 1.0, green: 0.8, blue: 0.2, alpha: 0.12)
-        }
+        // Warm amber glow for both stones (same as Enhanced Glow board glow)
+        underMaterial.emission.contents = NSColor(red: 1.0, green: 0.8, blue: 0.4, alpha: 0.4)
+        underMaterial.diffuse.contents = NSColor(red: 1.0, green: 0.7, blue: 0.3, alpha: 0.2)
         underMaterial.isDoubleSided = true
-        underMaterial.transparency = 0.88
+        underMaterial.transparency = 0.85
         underMaterial.lightingModel = .constant
         underMaterial.blendMode = .add
         underMaterial.writesToDepthBuffer = false
@@ -342,19 +399,28 @@ class SceneManager3D: ObservableObject {
         underDisc.materials = [underMaterial]
 
         underNode.position = SCNVector3(0, -stoneHalfHeight - underGlowHeight/2 + 0.002, 0)
-        underNode.opacity = 0.25
+        underNode.opacity = 0.3
+        underNode.name = "lastMoveGlow"  // Tag for fade-out
 
-        // Add a subtle pulsing animation to the under-glow
+        // Add a subtle pulsing animation
         let pulse = SCNAction.sequence([
-            SCNAction.fadeOpacity(to: 0.35, duration: 0.8),
-            SCNAction.fadeOpacity(to: 0.25, duration: 0.8)
+            SCNAction.fadeOpacity(to: 0.4, duration: 0.8),
+            SCNAction.fadeOpacity(to: 0.3, duration: 0.8)
         ])
         let repeatPulse = SCNAction.repeatForever(pulse)
         underNode.runAction(repeatPulse)
 
         stoneNode.addChildNode(underNode)
+    }
 
-        // 2. Create expanding circle rings that move upward (ripple effect)
+    /// Enhanced Glow: Only peripheral rings (no board glow - that's separate now)
+    private func addGlowDiscEnhancedIndicator(to stoneNode: SCNNode, color: Stone, radius: CGFloat) {
+        NSLog("DEBUG3D: ✨💫 Adding enhanced peripheral rings to \(color) stone with radius \(radius)")
+
+        let thicknessRatio: CGFloat = 0.486
+        let stoneHalfHeight = radius * thicknessRatio
+
+        // Create expanding circle rings that move upward (ripple effect)
         let numRings = 3
         for i in 0..<numRings {
             let delay = Double(i) * 0.15
@@ -367,18 +433,14 @@ class SceneManager3D: ObservableObject {
             torus.pipeSegmentCount = 12
 
             let ringNode = SCNNode(geometry: torus)
+            ringNode.name = "lastMoveGlow"  // Tag for fade-out
 
             let ringMaterial = SCNMaterial()
-            // Use darker blue for white stones, bright amber for black stones
-            if color == .white {
-                ringMaterial.emission.contents = NSColor(red: 0.1, green: 0.3, blue: 0.6, alpha: 0.5)
-                ringMaterial.diffuse.contents = NSColor(red: 0.05, green: 0.2, blue: 0.4, alpha: 0.3)
-            } else {
-                ringMaterial.emission.contents = NSColor(red: 1.0, green: 0.85, blue: 0.3, alpha: 0.5)
-                ringMaterial.diffuse.contents = NSColor(red: 1.0, green: 0.8, blue: 0.2, alpha: 0.3)
-            }
+            // Much more subtle rings - less distracting
+            ringMaterial.emission.contents = NSColor(red: 1.0, green: 0.75, blue: 0.3, alpha: 0.2)  // Reduced from 0.6
+            ringMaterial.diffuse.contents = NSColor(red: 1.0, green: 0.65, blue: 0.2, alpha: 0.1)  // Reduced from 0.4
             ringMaterial.isDoubleSided = true
-            ringMaterial.transparency = 0.7
+            ringMaterial.transparency = 0.9  // More transparent (was 0.7)
             ringMaterial.lightingModel = .constant
             ringMaterial.blendMode = .add
             ringMaterial.writesToDepthBuffer = false
@@ -386,11 +448,11 @@ class SceneManager3D: ObservableObject {
             torus.materials = [ringMaterial]
 
             ringNode.position = SCNVector3(0, stoneHalfHeight * 0.5, 0)
-            ringNode.opacity = 0
-            ringNode.eulerAngles.x = .pi / 2
+            ringNode.opacity = 0  // Will be animated
+            // Don't rotate - torus default orientation is already horizontal (XZ plane)
 
-            // Animation: fade in, expand and rise, fade out
-            let fadeIn = SCNAction.fadeOpacity(to: 0.8, duration: 0.15)
+            // Animation: fade in, expand and rise, fade out - more subtle
+            let fadeIn = SCNAction.fadeOpacity(to: 0.3, duration: 0.15)  // Reduced from 0.8
             let fadeOut = SCNAction.fadeOut(duration: 0.4)
             let opacitySequence = SCNAction.sequence([
                 SCNAction.wait(duration: delay),
@@ -415,6 +477,104 @@ class SceneManager3D: ObservableObject {
 
             stoneNode.addChildNode(ringNode)
         }
+    }
+
+    /// Drop In: Stone drops from above with fade animation (no board glow - that's separate)
+    private func addDropInIndicator(to stoneNode: SCNNode, color: Stone, radius: CGFloat) {
+        NSLog("DEBUG3D: 🪂 Adding DROP IN animation to \(color) stone")
+
+        let thicknessRatio: CGFloat = 0.486
+        let stoneHalfHeight = radius * thicknessRatio
+        let dropHeight = stoneHalfHeight * 3.0  // Drop from 3 stone thicknesses above
+
+        // Store original position
+        let originalY = stoneNode.position.y
+
+        // Start position above
+        stoneNode.position.y = originalY + dropHeight
+        stoneNode.opacity = 0.0
+
+        // Drop animation
+        let dropDuration = 0.4
+        let fadeInDuration = 0.2  // Fade in during first half of drop
+
+        let dropAction = SCNAction.moveBy(x: 0, y: -dropHeight, z: 0, duration: dropDuration)
+        dropAction.timingMode = .easeOut
+
+        let fadeInAction = SCNAction.fadeOpacity(to: 1.0, duration: fadeInDuration)
+
+        // Run both animations
+        stoneNode.runAction(dropAction)
+        stoneNode.runAction(fadeInAction)
+    }
+
+    /// Style 2: Solid circle marker on top of stone
+    private func addSolidCircleIndicator(to stoneNode: SCNNode, color: Stone, radius: CGFloat) {
+        NSLog("DEBUG3D: ⭕ Adding solid circle indicator to \(color) stone with radius \(radius)")
+
+        let thicknessRatio: CGFloat = 0.486
+
+        // Small red sphere on top of stone (spheres work!)
+        let sphere = SCNSphere(radius: radius * 0.15)  // Smaller for actual marker
+        let markerNode = SCNNode(geometry: sphere)
+
+        let material = SCNMaterial()
+        material.diffuse.contents = NSColor.red
+        material.lightingModel = .constant
+        sphere.materials = [material]
+
+        // IMPORTANT: Compensate for stoneNode's Y-scale when positioning
+        // The stoneNode is scaled (1.0, 0.486, 1.0)
+        // So a position of y=1.0 in local space appears at y=0.486 in visual space
+        // We need to divide by the scale to get the correct visual position
+        let visualY = radius * thicknessRatio * 1.1  // Visual height we want
+        let localY = visualY / thicknessRatio  // Compensate for Y-scale
+
+        markerNode.position = SCNVector3(0, localY, 0)
+        markerNode.opacity = 1.0
+
+        NSLog("DEBUG3D: ⭕ Red sphere marker: visualY=\(visualY), localY=\(localY), stoneNode scale: \(stoneNode.scale)")
+
+        stoneNode.addChildNode(markerNode)
+
+        // Verify it was added
+        NSLog("DEBUG3D: ⭕ After adding, stoneNode has \(stoneNode.childNodes.count) children")
+        NSLog("DEBUG3D: ⭕ Marker node hidden: \(markerNode.isHidden), opacity: \(markerNode.opacity), parent: \(markerNode.parent != nil)")
+    }
+
+    /// Style 3: Hollow circle outline on top of stone
+    private func addHollowCircleIndicator(to stoneNode: SCNNode, color: Stone, radius: CGFloat) {
+        NSLog("DEBUG3D: ○ Adding hollow circle indicator to \(color) stone with radius \(radius)")
+
+        let thicknessRatio: CGFloat = 0.486
+
+        // Ring of small spheres to create hollow circle effect (spheres work!)
+        let ringRadius = radius * 0.25
+        let sphereRadius = radius * 0.04
+        let numSpheres = 16
+
+        for i in 0..<numSpheres {
+            let angle = (CGFloat(i) / CGFloat(numSpheres)) * 2.0 * .pi
+            let x = ringRadius * cos(angle)
+            let z = ringRadius * sin(angle)
+
+            let sphere = SCNSphere(radius: sphereRadius)
+            let sphereNode = SCNNode(geometry: sphere)
+
+            let material = SCNMaterial()
+            material.diffuse.contents = NSColor.red
+            material.lightingModel = .constant
+            sphere.materials = [material]
+
+            // Position in stoneNode's LOCAL space (which is scaled by thicknessRatio in Y)
+            sphereNode.position = SCNVector3(x: x, y: radius * 1.1, z: z)  // Slightly above scaled sphere top
+            sphereNode.opacity = 1.0
+
+            stoneNode.addChildNode(sphereNode)
+        }
+
+        NSLog("DEBUG3D: ○ Red sphere ring with \(numSpheres) spheres at height \(radius * 1.1), ringRadius=\(ringRadius)")
+        NSLog("DEBUG3D: ○ After adding ring spheres, stoneNode has \(stoneNode.childNodes.count) children")
     }
 
     private func createBoard() {
@@ -607,5 +767,60 @@ class SceneManager3D: ObservableObject {
 
         // Look at the pan offset point
         cameraNode.look(at: SCNVector3(x: panX, y: panY, z: 0))
+    }
+
+    func setStraightDownView() {
+        // Bypass normal camera system for perfect orthogonal top-down view
+        pivotNode.eulerAngles = SCNVector3(0, 0, 0)  // No pivot rotation
+        cameraNode.position = SCNVector3(0, 20, 0)   // Directly above board
+        cameraNode.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)  // Point straight down
+        NSLog("DEBUG3D: 📷 Set straight-down view: camera at (0, 20, 0) looking down")
+    }
+
+    // MARK: - Glow Fade-out Helpers
+
+    /// Find a stone node at a specific board position
+    private func findStoneNode(at x: Int, y: Int, in nodes: [SCNNode]) -> SCNNode? {
+        // Since we store all stone nodes in order of creation, we need to match by position
+        // The position calculation matches what we do in updateStones
+        let totalWidth = CGFloat(boardSize - 1) * effectiveCellWidth
+        let totalHeight = CGFloat(boardSize - 1) * effectiveCellHeight
+        let offsetX = -totalWidth / 2.0
+        let offsetZ = -totalHeight / 2.0
+
+        let targetX = CGFloat(x) * effectiveCellWidth + offsetX
+        let targetZ = CGFloat(y) * effectiveCellHeight + offsetZ
+
+        // Find node with matching position (within tolerance for jitter)
+        let tolerance: CGFloat = 0.5
+        return nodes.first { node in
+            abs(node.position.x - targetX) < tolerance &&
+            abs(node.position.z - targetZ) < tolerance
+        }
+    }
+
+    /// Extract and fade out glow nodes from a stone
+    private func fadeOutGlowNodes(from stoneNode: SCNNode) {
+        // Find all child nodes with name "lastMoveGlow"
+        let glowNodes = stoneNode.childNodes.filter { $0.name == "lastMoveGlow" }
+
+        for glowNode in glowNodes {
+            // Clone the node so we can animate it independently
+            let glowClone = glowNode.clone()
+
+            // Convert position to world coordinates
+            let worldPosition = stoneNode.convertPosition(glowNode.position, to: scene.rootNode)
+            glowClone.position = worldPosition
+
+            // Add to scene root (not the stone)
+            scene.rootNode.addChildNode(glowClone)
+
+            // Fade out and remove
+            let fadeOut = SCNAction.sequence([
+                SCNAction.fadeOut(duration: 0.2),
+                SCNAction.removeFromParentNode()
+            ])
+            glowClone.runAction(fadeOut)
+        }
     }
 }

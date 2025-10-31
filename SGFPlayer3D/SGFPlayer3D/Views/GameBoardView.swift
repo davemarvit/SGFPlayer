@@ -406,6 +406,35 @@ struct GoGridView: View {
                     }
                 }
             }
+
+            // Last move indicators
+            if let lastMove = player.lastMove {
+                let indicatorStyle = LastMoveIndicatorSettings.loadStyle()
+                let row = lastMove.y
+                let col = lastMove.x
+                let baseX = offsetX + CGFloat(col) * cellWidth
+                let baseY = offsetY + CGFloat(row) * cellHeight
+                let stoneSize = cellWidth * 1.018 // Use black stone size as reference
+
+                // Apply same jitter as the stone
+                let finalPosition = calculateFinalPosition(
+                    baseX: baseX,
+                    baseY: baseY,
+                    baseStoneSize: stoneSize,
+                    cellWidth: cellWidth,
+                    col: col,
+                    row: row,
+                    currentMoveIndex: player.currentIndex
+                )
+
+                LastMoveIndicatorView2D(
+                    style: indicatorStyle,
+                    stoneColor: player.board.grid[row][col],
+                    position: finalPosition,
+                    size: stoneSize
+                )
+                .zIndex(25) // Above stones
+            }
         }
         .onAppear {
             // Initialize StoneJitter when view appears

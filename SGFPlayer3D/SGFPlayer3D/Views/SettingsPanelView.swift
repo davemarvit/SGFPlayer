@@ -90,7 +90,7 @@ struct SettingsPanelView: View {
         ZStack {
             // Background for entire panel
             Rectangle()
-                .fill(.thinMaterial.opacity(0.6))
+                .fill(.regularMaterial.opacity(0.85))
 
             VStack(spacing: 0) {
                 // Header with gear icon
@@ -154,6 +154,48 @@ struct SettingsPanelView: View {
                         Text("Switch between 2D and 3D board views. Game progress is preserved when switching.")
                             .font(.caption)
                             .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 16)
+
+                    Divider()
+                        .padding(.horizontal, 16)
+
+                    // Last Move Effects (combinable)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Last Move Effects")
+                            .font(.headline)
+
+                        Text("Select one or more effects to combine")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(LastMoveEffect.allCases) { effect in
+                                Toggle(isOn: Binding(
+                                    get: { LastMoveIndicatorSettings.isEffectEnabled(effect) },
+                                    set: { enabled in
+                                        LastMoveIndicatorSettings.setEffect(effect, enabled: enabled)
+                                        // Force view refresh
+                                        // Preserve playback state
+                                        let wasPlaying = player.isPlaying
+                                        player.seek(to: player.currentIndex)
+                                        if wasPlaying {
+                                            player.play()
+                                        }
+                                    }
+                                )) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(effect.rawValue)
+                                        Text(effect.description)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                .toggleStyle(SwitchToggleStyle(tint: .blue))
+                                .disabled(effect == .dropIn)  // Grey out Drop In for 2D
+                                .opacity(effect == .dropIn ? 0.5 : 1.0)
+                            }
+                        }
                     }
                     .padding(.horizontal, 16)
 

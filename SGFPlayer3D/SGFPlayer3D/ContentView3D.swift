@@ -75,7 +75,31 @@ struct ContentView3D: View {
             try? log.appendToFile(at: "/tmp/sgfplayer3d_debug.log")
             print(log)
         }()
-        return ZStack {
+        return mainContent
+            .focusable()
+            .focusEffectDisabled()
+            .onKeyPress { keyPress in
+                // Handle keys for navigation and camera debugging
+                handleKeyPress(keyPress)
+                switch keyPress.key {
+                case .leftArrow, .rightArrow, .space, .escape:
+                    return .handled
+                default:
+                    // Also handle 'C' key for camera state logging
+                    if keyPress.characters == "c" || keyPress.characters == "C" {
+                        return .handled
+                    }
+                    return .ignored
+                }
+            }
+    }
+
+    private var mainContent: some View {
+        contentWithEventHandlers
+    }
+
+    private var baseZStack: some View {
+        ZStack {
             sceneView
                 .contentShape(Rectangle())
                 .onContinuousHover { phase in
@@ -108,6 +132,10 @@ struct ContentView3D: View {
 
             overlayUI
         }
+    }
+
+    private var contentWithEventHandlers: some View {
+        baseZStack
         .onReceive(player.$currentIndex) { newIndex in
             // Update 3D board immediately
             updateStonesWithJitter()
@@ -115,7 +143,7 @@ struct ContentView3D: View {
             // Play stone click sound ONLY when moving forward to a NEW move
             // Don't play on polling updates (newIndex == previousMoveIndex)
             if newIndex > previousMoveIndex && newIndex > 0 {
-                soundManager.playStoneClick()
+                playStoneSound()
             }
             previousMoveIndex = newIndex
         }
@@ -316,6 +344,9 @@ struct ContentView3D: View {
             }
         }
         .onAppear {
+            // Migrate from old single-style indicator system to new multi-effect system
+            LastMoveIndicatorSettings.migrateFromLegacyStyle()
+
             // OGSGameViewModel is now initialized in AppModel.init()
             // This ensures it's shared between 2D and 3D views
 
@@ -438,7 +469,8 @@ struct ContentView3D: View {
                         }
                     }
                 }
-            }
+            },
+            onResetCamera: resetCamera
         )
     }
 
@@ -521,6 +553,26 @@ struct ContentView3D: View {
         UserDefaults.standard.set(cameraDistance, forKey: "cameraDistance")
         UserDefaults.standard.set(cameraPanX, forKey: "cameraPanX")
         UserDefaults.standard.set(cameraPanY, forKey: "cameraPanY")
+    }
+
+    private func resetCamera() {
+        // Reset camera to default orientation
+        // Top/bottom edges parallel to window, board centered left/right
+        currentRotationX = -0.7  // Angled view
+        currentRotationY = 0.0   // Edges parallel to window
+        cameraDistance = 25.0
+        cameraPanX = 0.0         // Centered left/right
+        cameraPanY = -4.48       // Centered vertically in window
+
+        sceneManager.updateCameraPosition(
+            distance: cameraDistance,
+            rotationX: currentRotationX,
+            rotationY: currentRotationY,
+            panX: cameraPanX,
+            panY: cameraPanY
+        )
+
+        NSLog("DEBUG3D: 📷 Camera reset to default orientation (rotX: \(currentRotationX), rotY: \(currentRotationY), distance: \(cameraDistance), pan: (\(cameraPanX), \(cameraPanY)))")
     }
 
     private func toggleFullscreen() {
@@ -606,6 +658,82 @@ struct ContentView3D: View {
     private func togglePlayPause() {
         autoNext.toggle()
         // The .onChange(of: autoNext) handler will call player.play() or player.pause()
+    }
+
+    // MARK: - Keyboard Controls
+
+    private func playStoneSound() {
+        let effects = LastMoveIndicatorSettings.enabledEffects()
+        NSLog("DEBUG3D: 🔊 playStoneSound called, effects: \(effects.map { $0.rawValue }.joined(separator: ", "))")
+
+        if effects.contains(.dropIn) {
+            // For drop-in animation, delay sound until stone lands (0.4s to match animation)
+            NSLog("DEBUG3D: 🔊 Scheduling delayed sound for drop-in (0.4s)")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                NSLog("DEBUG3D: 🔊 Playing delayed drop-in sound NOW")
+                self.soundManager.playStoneClick()
+            }
+        } else {
+            // For other effects, play immediately
+            NSLog("DEBUG3D: 🔊 Playing sound immediately")
+            soundManager.playStoneClick()
+        }
+    }
+
+    private func handleKeyPress(_ keyPress: KeyPress) {
+        // Print current camera orientation when 'C' is pressed
+        if keyPress.characters == "c" || keyPress.characters == "C" {
+            NSLog("DEBUG3D: 📷 CURRENT CAMERA STATE: rotX=\(currentRotationX), rotY=\(currentRotationY), distance=\(cameraDistance), panX=\(cameraPanX), panY=\(cameraPanY)")
+            return
+        }
+
+        switch keyPress.key {
+        case .leftArrow:
+            // Arrow keys stop autoplay
+            autoNext = false
+            if keyPress.modifiers.contains(.shift) {
+                // Shift + Left: Jump back 10 moves
+                let newIndex = max(0, player.currentIndex - 10)
+                player.seek(to: newIndex)
+                sceneManager.updateStones(from: player)
+                NSLog("DEBUG3D: 🎮 Keyboard: Jump back 10 moves to \(newIndex)")
+            } else {
+                // Left: Step back 1 move
+                let newIndex = max(0, player.currentIndex - 1)
+                player.seek(to: newIndex)
+                sceneManager.updateStones(from: player)
+                NSLog("DEBUG3D: 🎮 Keyboard: Step back 1 move to \(newIndex)")
+            }
+        case .rightArrow:
+            // Arrow keys stop autoplay
+            autoNext = false
+            if keyPress.modifiers.contains(.shift) {
+                // Shift + Right: Jump forward 10 moves
+                let newIndex = min(player.moves.count, player.currentIndex + 10)
+                player.seek(to: newIndex)
+                sceneManager.updateStones(from: player)
+                NSLog("DEBUG3D: 🎮 Keyboard: Jump forward 10 moves to \(newIndex)")
+            } else {
+                // Right: Step forward 1 move
+                let newIndex = min(player.moves.count, player.currentIndex + 1)
+                player.seek(to: newIndex)
+                sceneManager.updateStones(from: player)
+                NSLog("DEBUG3D: 🎮 Keyboard: Step forward 1 move to \(newIndex)")
+            }
+        case .space:
+            // Space: Toggle auto-play
+            togglePlayPause()
+            NSLog("DEBUG3D: 🎮 Keyboard: Toggled play/pause")
+        case .escape:
+            // Escape: Stop playback
+            if autoNext {
+                autoNext = false
+                player.pause()
+                NSLog("DEBUG3D: 🎮 Keyboard: Stopped playback with Escape")
+            }
+        default:
+            break
+        }
     }
 
     private func updateStonesWithJitter() {

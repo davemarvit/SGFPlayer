@@ -248,6 +248,38 @@ struct GameStones: View {
             let whiteStoneSize = (realWhiteStoneDiameter / realCellWidth) * cellWidth
             let stoneRadius = blackStoneSize / 2 // Use black stone size for jitter calculations
 
+            // Last move glow effects - DRAW FIRST (underneath stones)
+            if let lastMove = player.lastMove {
+                let indicatorStyle = LastMoveIndicatorSettings.loadStyle()
+                let row = lastMove.y
+                let col = lastMove.x
+                let baseX = boardFrame.minX + offsetX + CGFloat(col) * cellWidth
+                let baseY = boardFrame.minY + offsetY + CGFloat(row) * cellHeight
+
+                // Use the same stone size calculation
+                let gridSize = player.board.size
+                let stoneToCell = CGFloat(0.95)  // Stones are 95% of cell size
+                let stoneSize = min(cellWidth, cellHeight) * stoneToCell
+
+                // Get actual stone radius for this position
+                let actualStoneRadius = stoneSize / 2
+
+                // Apply same jitter as stone
+                let currentGrid = player.board.grid
+                let jitterOffset = getJitterOffset(x: col, y: row, radius: actualStoneRadius, currentGrid: currentGrid, currentMove: player.currentIndex, updateTrigger: jitterUpdateTrigger)
+                let indicatorX = baseX + jitterOffset.x
+                let indicatorY = baseY + jitterOffset.y
+
+                // Only render glow effects here (underneath)
+                LastMoveIndicatorView2D(
+                    style: indicatorStyle,
+                    stoneColor: player.board.grid[row][col],
+                    position: CGPoint(x: indicatorX, y: indicatorY),
+                    size: stoneSize,
+                    onlyGlowEffects: true
+                )
+            }
+
             // Render stones from current grid state
             ForEach(0..<gridSize, id: \.self) { row in
                 ForEach(0..<gridSize, id: \.self) { col in
@@ -278,6 +310,38 @@ struct GameStones: View {
                             .position(x: stoneX, y: stoneY)
                     }
                 }
+            }
+
+            // Last move circle markers - DRAW LAST (on top of stones)
+            if let lastMove = player.lastMove {
+                let indicatorStyle = LastMoveIndicatorSettings.loadStyle()
+                let row = lastMove.y
+                let col = lastMove.x
+                let baseX = boardFrame.minX + offsetX + CGFloat(col) * cellWidth
+                let baseY = boardFrame.minY + offsetY + CGFloat(row) * cellHeight
+
+                // Use the same stone size calculation
+                let gridSize = player.board.size
+                let stoneToCell = CGFloat(0.95)  // Stones are 95% of cell size
+                let stoneSize = min(cellWidth, cellHeight) * stoneToCell
+
+                // Get actual stone radius for this position
+                let actualStoneRadius = stoneSize / 2
+
+                // Apply same jitter as stone
+                let currentGrid = player.board.grid
+                let jitterOffset = getJitterOffset(x: col, y: row, radius: actualStoneRadius, currentGrid: currentGrid, currentMove: player.currentIndex, updateTrigger: jitterUpdateTrigger)
+                let indicatorX = baseX + jitterOffset.x
+                let indicatorY = baseY + jitterOffset.y
+
+                // Only render circle markers here (on top)
+                LastMoveIndicatorView2D(
+                    style: indicatorStyle,
+                    stoneColor: player.board.grid[row][col],
+                    position: CGPoint(x: indicatorX, y: indicatorY),
+                    size: stoneSize,
+                    onlyGlowEffects: false
+                )
             }
         }
         .onAppear {

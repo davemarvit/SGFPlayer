@@ -44,6 +44,10 @@ struct ContentView: View {
     // NEW: ViewModels for cleaner architecture (Session 2)
     @StateObject private var uiStateVM = UIStateViewModel()
 
+    // Sound Manager
+    @StateObject private var soundManager = SoundManager.shared
+    @State private var previousMoveIndex: Int = 0
+
     // UI State (transitioning to uiStateVM)
     @State private var isPanelOpen: Bool = false
     // showFullscreen, buttonsVisible now managed by uiStateVM
@@ -173,6 +177,13 @@ struct ContentView: View {
                 ogsClient.connect()
                 NSLog("ContentView: 🔌 Auto-connecting to OGS on startup (OGS Mode was ON)")
             }
+        }
+        .onReceive(player.$currentIndex) { newIndex in
+            // Play stone click sound ONLY when moving forward to a NEW move
+            if newIndex > previousMoveIndex && newIndex > 0 {
+                soundManager.playStoneClick()
+            }
+            previousMoveIndex = newIndex
 
             if !isInitialized {
                 initializeApp()

@@ -23,6 +23,7 @@ struct SettingsPanelContainer: View {
     let onGameSelected: (SGFGameWrapper) -> Void
     let onJitterChanged: () -> Void
     let onSearchResultsChanged: (([SGFGameWrapper]) -> Void)?
+    let onResetCamera: (() -> Void)?
 
     var body: some View {
         HStack {
@@ -40,7 +41,8 @@ struct SettingsPanelContainer: View {
                 playbackSpeed: $playbackSpeed,
                 onGameSelected: onGameSelected,
                 onJitterChanged: onJitterChanged,
-                onSearchResultsChanged: onSearchResultsChanged
+                onSearchResultsChanged: onSearchResultsChanged,
+                onResetCamera: onResetCamera
             )
             .transition(.move(edge: .leading))
 
