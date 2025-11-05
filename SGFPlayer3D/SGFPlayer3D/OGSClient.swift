@@ -798,9 +798,12 @@ class OGSClient: NSObject, ObservableObject {
             NSLog("OGS: ⚠️ No CSRF token found in cookies")
         }
 
-        // Build time control parameters (different for Fischer vs others)
-        // NOTE: Don't include "time_control" or "system" here - time_control goes at the game level only
+        // Build time control parameters matching OGS API format
+        // Must include: system, speed, pause_on_weekends, plus system-specific params
         var timeControlParams: [String: Any] = [
+            "system": settings.timeControlSystem.apiValue,
+            "speed": settings.gameSpeed,
+            "pause_on_weekends": false,
             "main_time": settings.mainTimeMinutes * 60  // Convert to seconds
         ]
 
@@ -1030,9 +1033,12 @@ class OGSClient: NSObject, ObservableObject {
             NSLog("OGS: 🎮 No rank restrictions - allowing all ranks (0 to 36)")
         }
 
-        // Build time control parameters (different for Fischer vs others)
-        // NOTE: Don't include "time_control" here - it goes at the game level only
+        // Build time control parameters matching OGS API format
+        // Must include: system, speed, pause_on_weekends, plus system-specific params
         var timeControlParams: [String: Any] = [
+            "system": settings.timeControlSystem.apiValue,
+            "speed": settings.gameSpeed,
+            "pause_on_weekends": false,
             "main_time": settings.mainTimeMinutes * 60  // Convert minutes to seconds
         ]
 
