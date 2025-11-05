@@ -799,9 +799,10 @@ class OGSClient: NSObject, ObservableObject {
         }
 
         // Build time control parameters matching OGS API format
-        // Must include: system, speed, pause_on_weekends, plus system-specific params
+        // Based on real OGS challenges, must include: system, time_control, speed, pause_on_weekends
         var timeControlParams: [String: Any] = [
             "system": settings.timeControlSystem.apiValue,
+            "time_control": settings.timeControlSystem.apiValue,  // Yes, it's in BOTH places
             "speed": settings.gameSpeed,
             "pause_on_weekends": false,
             "main_time": settings.mainTimeMinutes * 60  // Convert to seconds
@@ -1034,9 +1035,10 @@ class OGSClient: NSObject, ObservableObject {
         }
 
         // Build time control parameters matching OGS API format
-        // Must include: system, speed, pause_on_weekends, plus system-specific params
+        // Based on real OGS challenges, must include: system, time_control, speed, pause_on_weekends
         var timeControlParams: [String: Any] = [
             "system": settings.timeControlSystem.apiValue,
+            "time_control": settings.timeControlSystem.apiValue,  // Yes, it's in BOTH places
             "speed": settings.gameSpeed,
             "pause_on_weekends": false,
             "main_time": settings.mainTimeMinutes * 60  // Convert minutes to seconds
