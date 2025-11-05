@@ -85,8 +85,11 @@ struct ContentView3D: View {
                 case .leftArrow, .rightArrow, .space, .escape:
                     return .handled
                 default:
-                    // Also handle 'C' key for camera state logging
-                    if keyPress.characters == "c" || keyPress.characters == "C" {
+                    // Only handle 'C' key for camera logging when Cmd+Shift is pressed
+                    // This allows normal 'C' typing in text fields
+                    if (keyPress.characters == "c" || keyPress.characters == "C") &&
+                       keyPress.modifiers.contains(.command) &&
+                       keyPress.modifiers.contains(.shift) {
                         return .handled
                     }
                     return .ignored
@@ -681,8 +684,10 @@ struct ContentView3D: View {
     }
 
     private func handleKeyPress(_ keyPress: KeyPress) {
-        // Print current camera orientation when 'C' is pressed
-        if keyPress.characters == "c" || keyPress.characters == "C" {
+        // Print current camera orientation when Cmd+Shift+C is pressed
+        if (keyPress.characters == "c" || keyPress.characters == "C") &&
+           keyPress.modifiers.contains(.command) &&
+           keyPress.modifiers.contains(.shift) {
             NSLog("DEBUG3D: 📷 CURRENT CAMERA STATE: rotX=\(currentRotationX), rotY=\(currentRotationY), distance=\(cameraDistance), panX=\(cameraPanX), panY=\(cameraPanY)")
             return
         }
