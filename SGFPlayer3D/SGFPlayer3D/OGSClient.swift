@@ -77,6 +77,25 @@ class OGSClient: NSObject, ObservableObject {
         }
     }
 
+    /// Helper to write to challenge debug log (creates file if doesn't exist)
+    private func logChallenge(_ message: String) {
+        let logPath = NSHomeDirectory() + "/Desktop/challenge_debug.log"
+        let timestamp = Date()
+        let logLine = "[\(timestamp)] \(message)\n"
+        if let data = logLine.data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: logPath) {
+                if let fileHandle = FileHandle(forWritingAtPath: logPath) {
+                    fileHandle.seekToEndOfFile()
+                    fileHandle.write(data)
+                    fileHandle.closeFile()
+                }
+            } else {
+                // File doesn't exist, create it
+                try? data.write(to: URL(fileURLWithPath: logPath), options: .atomic)
+            }
+        }
+    }
+
     override init() {
         super.init()
         NSLog("OGS: ========== OGSClient v3.51 BUILD MARKER ==========")
@@ -693,30 +712,17 @@ class OGSClient: NSObject, ObservableObject {
     ///   - username: The OGS username to challenge
     ///   - settings: Game settings (board size, time control, etc.)
     func sendChallenge(to username: String, settings: GameSettings) {
-        let logPath = NSHomeDirectory() + "/Desktop/challenge_debug.log"
-        let logMsg = "[\(Date())] sendChallenge called for username: \(username)\n"
-        try? logMsg.data(using: .utf8)?.write(to: URL(fileURLWithPath: logPath), options: .atomic)
-
+        logChallenge("sendChallenge called for username: \(username)")
         NSLog("OGS: ⚔️ Sending challenge to \(username)")
 
         guard isAuthenticated else {
-            let errMsg = "[\(Date())] ERROR: Not authenticated\n"
-            if let handle = FileHandle(forWritingAtPath: logPath) {
-                handle.seekToEndOfFile()
-                handle.write(errMsg.data(using: .utf8)!)
-                handle.closeFile()
-            }
+            logChallenge("ERROR: Not authenticated")
             NSLog("OGS: ❌ Cannot send challenge - not authenticated")
             lastError = "Please log in to send challenges"
             return
         }
 
-        let authMsg = "[\(Date())] Authenticated, sending challenge\n"
-        if let handle = FileHandle(forWritingAtPath: logPath) {
-            handle.seekToEndOfFile()
-            handle.write(authMsg.data(using: .utf8)!)
-            handle.closeFile()
-        }
+        logChallenge("Authenticated, sending challenge")
 
         DispatchQueue.main.async {
             self.isSendingChallenge = true
@@ -738,13 +744,7 @@ class OGSClient: NSObject, ObservableObject {
     }
 
     private func lookupPlayerID(username: String, completion: @escaping (Int?) -> Void) {
-        let logPath = NSHomeDirectory() + "/Desktop/challenge_debug.log"
-        let lookupMsg = "[\(Date())] Looking up player ID for: \(username)\n"
-        if let handle = FileHandle(forWritingAtPath: logPath) {
-            handle.seekToEndOfFile()
-            handle.write(lookupMsg.data(using: .utf8)!)
-            handle.closeFile()
-        }
+        logChallenge("Looking up player ID for: \(username)")
 
         let urlString = "https://online-go.com/api/v1/players?username=\(username)"
         guard let url = URL(string: urlString) else {
@@ -755,16 +755,9 @@ class OGSClient: NSObject, ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            let logPath = NSHomeDirectory() + "/Desktop/challenge_debug.log"
-
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             if let error = error {
-                let errMsg = "[\(Date())] Lookup ERROR: \(error.localizedDescription)\n"
-                if let handle = FileHandle(forWritingAtPath: logPath) {
-                    handle.seekToEndOfFile()
-                    handle.write(errMsg.data(using: .utf8)!)
-                    handle.closeFile()
-                }
+                self?.logChallenge("Lookup ERROR: \(error.localizedDescription)")
             }
 
             guard let data = data,
@@ -772,37 +765,20 @@ class OGSClient: NSObject, ObservableObject {
                   let results = json["results"] as? [[String: Any]],
                   let firstResult = results.first,
                   let id = firstResult["id"] as? Int else {
-                let failMsg = "[\(Date())] Failed to parse player ID for \(username)\n"
-                if let handle = FileHandle(forWritingAtPath: logPath) {
-                    handle.seekToEndOfFile()
-                    handle.write(failMsg.data(using: .utf8)!)
-                    handle.closeFile()
-                }
+                self?.logChallenge("Failed to parse player ID for \(username)")
                 NSLog("OGS: ❌ Failed to lookup player ID for \(username)")
                 completion(nil)
                 return
             }
 
-            let successMsg = "[\(Date())] Found player ID: \(id) for \(username)\n"
-            if let handle = FileHandle(forWritingAtPath: logPath) {
-                handle.seekToEndOfFile()
-                handle.write(successMsg.data(using: .utf8)!)
-                handle.closeFile()
-            }
-
+            self?.logChallenge("Found player ID: \(id) for \(username)")
             NSLog("OGS: ✅ Found player ID \(id) for username \(username)")
             completion(id)
         }.resume()
     }
 
     private func sendChallengeToPlayerID(_ playerID: Int, settings: GameSettings) {
-        let logPath = NSHomeDirectory() + "/Desktop/challenge_debug.log"
-        let startMsg = "[\(Date())] Sending challenge to player ID: \(playerID)\n"
-        if let handle = FileHandle(forWritingAtPath: logPath) {
-            handle.seekToEndOfFile()
-            handle.write(startMsg.data(using: .utf8)!)
-            handle.closeFile()
-        }
+        logChallenge("Sending challenge to player ID: \(playerID)")
 
         // OGS uses cookie-based authentication - session cookies are automatically sent by URLSession
         // Also need CSRF protection headers
@@ -879,32 +855,19 @@ class OGSClient: NSObject, ObservableObject {
         request.httpBody = jsonData
 
         // Log all headers and body to debug file
-        let headersMsg = "[\(Date())] Request headers: \(request.allHTTPHeaderFields ?? [:])\n"
-        let bodyMsg = "[\(Date())] Request body: \(String(data: jsonData, encoding: .utf8) ?? "nil")\n"
-        if let handle = FileHandle(forWritingAtPath: logPath) {
-            handle.seekToEndOfFile()
-            handle.write(headersMsg.data(using: .utf8)!)
-            handle.write(bodyMsg.data(using: .utf8)!)
-            handle.closeFile()
-        }
+        logChallenge("Request headers: \(request.allHTTPHeaderFields ?? [:])")
+        logChallenge("Request body: \(String(data: jsonData, encoding: .utf8) ?? "nil")")
 
         NSLog("OGS: ⚔️ Sending challenge request: \(String(data: jsonData, encoding: .utf8) ?? "")")
         NSLog("OGS: 📋 Request headers: \(request.allHTTPHeaderFields ?? [:])")
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            let logPath = NSHomeDirectory() + "/Desktop/challenge_debug.log"
-
             DispatchQueue.main.async {
                 self?.isSendingChallenge = false
             }
 
             if let error = error {
-                let errMsg = "[\(Date())] HTTP ERROR: \(error.localizedDescription)\n"
-                if let handle = FileHandle(forWritingAtPath: logPath) {
-                    handle.seekToEndOfFile()
-                    handle.write(errMsg.data(using: .utf8)!)
-                    handle.closeFile()
-                }
+                self?.logChallenge("HTTP ERROR: \(error.localizedDescription)")
                 NSLog("OGS: ❌ Challenge request failed: \(error.localizedDescription)")
                 DispatchQueue.main.async {
                     self?.lastError = "Challenge failed: \(error.localizedDescription)"
@@ -913,44 +876,23 @@ class OGSClient: NSObject, ObservableObject {
             }
 
             if let httpResponse = response as? HTTPURLResponse {
-                let statusMsg = "[\(Date())] HTTP Status: \(httpResponse.statusCode)\n"
-                if let handle = FileHandle(forWritingAtPath: logPath) {
-                    handle.seekToEndOfFile()
-                    handle.write(statusMsg.data(using: .utf8)!)
-                    handle.closeFile()
-                }
-
+                self?.logChallenge("HTTP Status: \(httpResponse.statusCode)")
                 NSLog("OGS: ⚔️ Challenge response status: \(httpResponse.statusCode)")
 
                 if let data = data, let responseString = String(data: data, encoding: .utf8) {
-                    let respMsg = "[\(Date())] Response: \(responseString)\n"
-                    if let handle = FileHandle(forWritingAtPath: logPath) {
-                        handle.seekToEndOfFile()
-                        handle.write(respMsg.data(using: .utf8)!)
-                        handle.closeFile()
-                    }
+                    self?.logChallenge("Response: \(responseString)")
                     NSLog("OGS: ⚔️ Challenge response: \(responseString)")
                 }
 
                 if httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
-                    let successMsg = "[\(Date())] SUCCESS! Challenge sent.\n"
-                    if let handle = FileHandle(forWritingAtPath: logPath) {
-                        handle.seekToEndOfFile()
-                        handle.write(successMsg.data(using: .utf8)!)
-                        handle.closeFile()
-                    }
+                    self?.logChallenge("SUCCESS! Challenge sent.")
                     NSLog("OGS: ✅ Challenge sent successfully!")
                     DispatchQueue.main.async {
                         self?.lastError = nil
                     }
                 } else {
                     let errorMsg = "Challenge failed with status \(httpResponse.statusCode)"
-                    let failMsg = "[\(Date())] FAILED: \(errorMsg)\n"
-                    if let handle = FileHandle(forWritingAtPath: logPath) {
-                        handle.seekToEndOfFile()
-                        handle.write(failMsg.data(using: .utf8)!)
-                        handle.closeFile()
-                    }
+                    self?.logChallenge("FAILED: \(errorMsg)")
                     NSLog("OGS: ❌ \(errorMsg)")
                     DispatchQueue.main.async {
                         self?.lastError = errorMsg
