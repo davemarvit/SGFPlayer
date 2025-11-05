@@ -842,16 +842,24 @@ class OGSClient: NSObject, ObservableObject {
             break
         }
 
+        // Build komi value (matching postCustomGame implementation)
+        var komiValue: Any = "automatic"
+        if settings.komi == .custom {
+            komiValue = settings.customKomi
+        }
+
         // Build challenge request body
         let challengeData: [String: Any] = [
             "challenged_player_id": playerID,
             "challenger_color": settings.colorPreference.apiValue,
             "game": [
+                "name": settings.gameName,  // Add missing game name field
                 "width": settings.boardSize,
                 "height": settings.boardSize,
                 "ranked": settings.ranked,
                 "handicap": settings.handicap.apiValue,
                 "komi_auto": settings.komi == .automatic ? "automatic" : "custom",
+                "komi": komiValue,  // Add missing komi field - fixes HTTP 500 error
                 "disable_analysis": settings.disableAnalysis,
                 "rules": settings.rules.apiValue,
                 "time_control": settings.timeControlSystem.apiValue,
