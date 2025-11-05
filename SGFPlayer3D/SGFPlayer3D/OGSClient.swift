@@ -808,9 +808,10 @@ class OGSClient: NSObject, ObservableObject {
         switch settings.timeControlSystem {
         case .fischer:
             // Fischer uses: initial_time, max_time, time_increment
-            timeControlParams["initial_time"] = settings.mainTimeMinutes * 60
-            timeControlParams["max_time"] = settings.fischerMaxTimeMinutes * 60
-            timeControlParams["time_increment"] = settings.fischerIncrementSeconds
+            // TEMPORARY: Using exact values from official docs to test
+            timeControlParams["initial_time"] = 259200  // 3 days (from docs)
+            timeControlParams["max_time"] = 604800      // 7 days (from docs)
+            timeControlParams["time_increment"] = 86400  // 1 day (from docs)
         case .byoyomi, .canadian, .simple:
             // Byoyomi/Canadian use: main_time, period_time, periods
             timeControlParams["main_time"] = settings.mainTimeMinutes * 60
@@ -1043,9 +1044,10 @@ class OGSClient: NSObject, ObservableObject {
         switch settings.timeControlSystem {
         case .fischer:
             // Fischer uses: initial_time, max_time, time_increment
-            timeControlParams["initial_time"] = settings.mainTimeMinutes * 60
-            timeControlParams["max_time"] = settings.fischerMaxTimeMinutes * 60
-            timeControlParams["time_increment"] = settings.fischerIncrementSeconds
+            // TEMPORARY: Using exact values from official docs to test
+            timeControlParams["initial_time"] = 259200  // 3 days (from docs)
+            timeControlParams["max_time"] = 604800      // 7 days (from docs)
+            timeControlParams["time_increment"] = 86400  // 1 day (from docs)
         case .byoyomi, .canadian, .simple:
             // Byoyomi/Canadian use: main_time, period_time, periods
             timeControlParams["main_time"] = settings.mainTimeMinutes * 60
