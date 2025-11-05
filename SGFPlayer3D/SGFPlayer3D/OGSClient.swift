@@ -824,27 +824,20 @@ class OGSClient: NSObject, ObservableObject {
             break
         }
 
-        // Build komi value (matching postCustomGame implementation)
-        var komiValue: Any = "automatic"
-        if settings.komi == .custom {
-            komiValue = settings.customKomi
-        }
-
-        // Build challenge request body matching OGS API documentation
-        // Note: time_control only appears in time_control_parameters, not at game level
+        // Build challenge request body matching OGS API documentation EXACTLY
+        // Only include fields shown in official docs
         let challengeData: [String: Any] = [
             "challenged_player_id": playerID,
             "challenger_color": settings.colorPreference.apiValue,
             "game": [
                 "name": settings.gameName,
+                "rules": settings.rules.apiValue,
+                "ranked": settings.ranked,
                 "width": settings.boardSize,
                 "height": settings.boardSize,
-                "ranked": settings.ranked,
                 "handicap": settings.handicap.apiValue,
-                "komi_auto": settings.komi == .automatic ? "automatic" : "custom",
-                "komi": komiValue,
                 "disable_analysis": settings.disableAnalysis,
-                "rules": settings.rules.apiValue,
+                "pause_on_weekends": false,
                 "time_control_parameters": timeControlParams
             ]
         ]
@@ -1063,14 +1056,8 @@ class OGSClient: NSObject, ObservableObject {
             break
         }
 
-        // Build komi value
-        var komiValue: Any = "automatic"
-        if settings.komi == .custom {
-            komiValue = settings.customKomi
-        }
-
-        // Build request body matching OGS API documentation
-        // Note: time_control only appears in time_control_parameters, not at game level
+        // Build request body matching OGS API documentation EXACTLY
+        // Only include fields shown in official docs
         let body: [String: Any] = [
             "game": [
                 "name": settings.gameName,
@@ -1079,12 +1066,9 @@ class OGSClient: NSObject, ObservableObject {
                 "width": settings.boardSize,
                 "height": settings.boardSize,
                 "handicap": settings.handicap.apiValue,
-                "komi_auto": settings.komi == .automatic ? "automatic" : "custom",
-                "komi": komiValue,
                 "disable_analysis": settings.disableAnalysis,
                 "pause_on_weekends": false,
-                "time_control_parameters": timeControlParams,
-                "private": settings.inviteOnly
+                "time_control_parameters": timeControlParams
             ],
             "challenger_color": settings.colorPreference.apiValue,
             "min_ranking": minRank,
