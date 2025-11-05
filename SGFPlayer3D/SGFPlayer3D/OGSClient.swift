@@ -826,6 +826,9 @@ class OGSClient: NSObject, ObservableObject {
 
         // Build challenge request body matching OGS API documentation EXACTLY
         // Only include fields shown in official docs
+        // Note: Convert automatic handicap (-1) to none (0) to be safe
+        let handicapValue = settings.handicap.apiValue == -1 ? 0 : settings.handicap.apiValue
+
         let challengeData: [String: Any] = [
             "challenged_player_id": playerID,
             "challenger_color": settings.colorPreference.apiValue,
@@ -835,7 +838,7 @@ class OGSClient: NSObject, ObservableObject {
                 "ranked": settings.ranked,
                 "width": settings.boardSize,
                 "height": settings.boardSize,
-                "handicap": settings.handicap.apiValue,
+                "handicap": handicapValue,
                 "disable_analysis": settings.disableAnalysis,
                 "pause_on_weekends": false,
                 "time_control_parameters": timeControlParams
@@ -1058,6 +1061,9 @@ class OGSClient: NSObject, ObservableObject {
 
         // Build request body matching OGS API documentation EXACTLY
         // Only include fields shown in official docs
+        // Note: automatic handicap (-1) doesn't work for open challenges, use 0 instead
+        let handicapValue = settings.handicap.apiValue == -1 ? 0 : settings.handicap.apiValue
+
         let body: [String: Any] = [
             "game": [
                 "name": settings.gameName,
@@ -1065,7 +1071,7 @@ class OGSClient: NSObject, ObservableObject {
                 "ranked": settings.ranked,
                 "width": settings.boardSize,
                 "height": settings.boardSize,
-                "handicap": settings.handicap.apiValue,
+                "handicap": handicapValue,
                 "disable_analysis": settings.disableAnalysis,
                 "pause_on_weekends": false,
                 "time_control_parameters": timeControlParams
