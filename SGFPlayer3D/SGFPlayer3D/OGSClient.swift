@@ -799,9 +799,8 @@ class OGSClient: NSObject, ObservableObject {
         }
 
         // Build time control parameters (different for Fischer vs others)
+        // NOTE: Don't include "time_control" or "system" here - time_control goes at the game level only
         var timeControlParams: [String: Any] = [
-            "time_control": settings.timeControlSystem.apiValue,
-            "system": settings.timeControlSystem.apiValue,
             "main_time": settings.mainTimeMinutes * 60  // Convert to seconds
         ]
 
@@ -1032,8 +1031,8 @@ class OGSClient: NSObject, ObservableObject {
         }
 
         // Build time control parameters (different for Fischer vs others)
+        // NOTE: Don't include "time_control" here - it goes at the game level only
         var timeControlParams: [String: Any] = [
-            "time_control": settings.timeControlSystem.apiValue,
             "main_time": settings.mainTimeMinutes * 60  // Convert minutes to seconds
         ]
 
