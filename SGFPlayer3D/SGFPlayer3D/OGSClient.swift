@@ -798,25 +798,28 @@ class OGSClient: NSObject, ObservableObject {
             NSLog("OGS: ⚠️ No CSRF token found in cookies")
         }
 
-        // Build time control parameters matching OGS API format
-        // Based on real OGS challenges, must include: system, time_control, speed, pause_on_weekends
+        // Build time control parameters matching OGS API documentation
+        // Structure varies by time control system
         var timeControlParams: [String: Any] = [
-            "system": settings.timeControlSystem.apiValue,
-            "time_control": settings.timeControlSystem.apiValue,  // Yes, it's in BOTH places
-            "speed": settings.gameSpeed,
-            "pause_on_weekends": false,
-            "main_time": settings.mainTimeMinutes * 60  // Convert to seconds
+            "time_control": settings.timeControlSystem.apiValue
         ]
 
-        // Add system-specific parameters
+        // Add system-specific parameters (field names differ by system!)
         switch settings.timeControlSystem {
         case .fischer:
+            // Fischer uses: initial_time, max_time, time_increment
+            timeControlParams["initial_time"] = settings.mainTimeMinutes * 60
+            timeControlParams["max_time"] = settings.fischerMaxTimeMinutes * 60
             timeControlParams["time_increment"] = settings.fischerIncrementSeconds
-            timeControlParams["max_time"] = settings.fischerMaxTimeMinutes * 60  // Convert to seconds
         case .byoyomi, .canadian, .simple:
+            // Byoyomi/Canadian use: main_time, period_time, periods
+            timeControlParams["main_time"] = settings.mainTimeMinutes * 60
             timeControlParams["period_time"] = settings.periodTimeSeconds
             timeControlParams["periods"] = settings.periods
-        case .absolute, .none:
+        case .absolute:
+            // Absolute uses: main_time only
+            timeControlParams["main_time"] = settings.mainTimeMinutes * 60
+        case .none:
             // No additional parameters needed
             break
         }
@@ -827,21 +830,21 @@ class OGSClient: NSObject, ObservableObject {
             komiValue = settings.customKomi
         }
 
-        // Build challenge request body
+        // Build challenge request body matching OGS API documentation
+        // Note: time_control only appears in time_control_parameters, not at game level
         let challengeData: [String: Any] = [
             "challenged_player_id": playerID,
             "challenger_color": settings.colorPreference.apiValue,
             "game": [
-                "name": settings.gameName,  // Add missing game name field
+                "name": settings.gameName,
                 "width": settings.boardSize,
                 "height": settings.boardSize,
                 "ranked": settings.ranked,
                 "handicap": settings.handicap.apiValue,
                 "komi_auto": settings.komi == .automatic ? "automatic" : "custom",
-                "komi": komiValue,  // Add missing komi field - fixes HTTP 500 error
+                "komi": komiValue,
                 "disable_analysis": settings.disableAnalysis,
                 "rules": settings.rules.apiValue,
-                "time_control": settings.timeControlSystem.apiValue,
                 "time_control_parameters": timeControlParams
             ]
         ]
@@ -1034,25 +1037,28 @@ class OGSClient: NSObject, ObservableObject {
             NSLog("OGS: 🎮 No rank restrictions - allowing all ranks (0 to 36)")
         }
 
-        // Build time control parameters matching OGS API format
-        // Based on real OGS challenges, must include: system, time_control, speed, pause_on_weekends
+        // Build time control parameters matching OGS API documentation
+        // Structure varies by time control system
         var timeControlParams: [String: Any] = [
-            "system": settings.timeControlSystem.apiValue,
-            "time_control": settings.timeControlSystem.apiValue,  // Yes, it's in BOTH places
-            "speed": settings.gameSpeed,
-            "pause_on_weekends": false,
-            "main_time": settings.mainTimeMinutes * 60  // Convert minutes to seconds
+            "time_control": settings.timeControlSystem.apiValue
         ]
 
-        // Add system-specific parameters
+        // Add system-specific parameters (field names differ by system!)
         switch settings.timeControlSystem {
         case .fischer:
+            // Fischer uses: initial_time, max_time, time_increment
+            timeControlParams["initial_time"] = settings.mainTimeMinutes * 60
+            timeControlParams["max_time"] = settings.fischerMaxTimeMinutes * 60
             timeControlParams["time_increment"] = settings.fischerIncrementSeconds
-            timeControlParams["max_time"] = settings.fischerMaxTimeMinutes * 60  // Convert to seconds
         case .byoyomi, .canadian, .simple:
+            // Byoyomi/Canadian use: main_time, period_time, periods
+            timeControlParams["main_time"] = settings.mainTimeMinutes * 60
             timeControlParams["period_time"] = settings.periodTimeSeconds
             timeControlParams["periods"] = settings.periods
-        case .absolute, .none:
+        case .absolute:
+            // Absolute uses: main_time only
+            timeControlParams["main_time"] = settings.mainTimeMinutes * 60
+        case .none:
             // No additional parameters needed
             break
         }
@@ -1063,7 +1069,8 @@ class OGSClient: NSObject, ObservableObject {
             komiValue = settings.customKomi
         }
 
-        // Build request body matching OGS API format
+        // Build request body matching OGS API documentation
+        // Note: time_control only appears in time_control_parameters, not at game level
         let body: [String: Any] = [
             "game": [
                 "name": settings.gameName,
@@ -1076,7 +1083,6 @@ class OGSClient: NSObject, ObservableObject {
                 "komi": komiValue,
                 "disable_analysis": settings.disableAnalysis,
                 "pause_on_weekends": false,
-                "time_control": settings.timeControlSystem.apiValue,
                 "time_control_parameters": timeControlParams,
                 "private": settings.inviteOnly
             ],
