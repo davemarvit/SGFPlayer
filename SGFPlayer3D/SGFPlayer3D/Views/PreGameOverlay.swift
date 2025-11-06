@@ -241,9 +241,16 @@ struct PreGameOverlay: View {
                         GridItem(.flexible(), spacing: 8)
                     ], spacing: 8) {
                         ForEach(filteredGames) { challenge in
-                            GameChallengeCard(challenge: challenge) {
-                                acceptChallenge(challenge)
-                            }
+                            GameChallengeCard(
+                                challenge: challenge,
+                                isOwnChallenge: challenge.challenger.id == ogsClient.playerID,
+                                onAccept: {
+                                    acceptChallenge(challenge)
+                                },
+                                onCancel: {
+                                    cancelChallenge(challenge)
+                                }
+                            )
                         }
                     }
                 }
@@ -701,6 +708,22 @@ struct PreGameOverlay: View {
         NSLog("PreGameOverlay: ⚠️ Challenge acceptance not yet implemented")
     }
 
+    private func cancelChallenge(_ challenge: OGSChallenge) {
+        NSLog("PreGameOverlay: Canceling challenge \(challenge.id)")
+
+        ogsClient.cancelChallenge(challengeID: challenge.id) { success, error in
+            if success {
+                NSLog("PreGameOverlay: ✅ Challenge canceled successfully")
+                // Refresh the list to remove the canceled challenge
+                DispatchQueue.main.async {
+                    self.refreshAvailableGames()
+                }
+            } else {
+                NSLog("PreGameOverlay: ❌ Failed to cancel challenge: \(error ?? "unknown error")")
+            }
+        }
+    }
+
     private func createCustomGame() {
         NSLog("PreGameOverlay: Creating custom game with settings: \(gameSettings)")
 
@@ -724,25 +747,46 @@ struct PreGameOverlay: View {
 
 struct GameChallengeCard: View {
     let challenge: OGSChallenge
+    let isOwnChallenge: Bool  // Is this the user's own challenge?
     let onAccept: () -> Void
+    let onCancel: (() -> Void)?  // Optional cancel callback
 
     var body: some View {
         HStack(spacing: 12) {
-            // Left: Accept button
-            Button(action: onAccept) {
-                VStack(spacing: 2) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.title3)
-                    Text("Accept")
-                        .font(.caption2)
+            // Left: Accept or Cancel button
+            if isOwnChallenge {
+                // Show Cancel button for user's own challenges
+                Button(action: { onCancel?() }) {
+                    VStack(spacing: 2) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title3)
+                        Text("Cancel")
+                            .font(.caption2)
+                    }
+                    .frame(width: 60)
+                    .padding(.vertical, 8)
+                    .background(Color.red.opacity(0.8))
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
                 }
-                .frame(width: 60)
-                .padding(.vertical, 8)
-                .background(Color.blue.opacity(0.8))
-                .foregroundColor(.white)
-                .cornerRadius(8)
+                .buttonStyle(.plain)
+            } else {
+                // Show Accept button for other players' challenges
+                Button(action: onAccept) {
+                    VStack(spacing: 2) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.title3)
+                        Text("Accept")
+                            .font(.caption2)
+                    }
+                    .frame(width: 60)
+                    .padding(.vertical, 8)
+                    .background(Color.blue.opacity(0.8))
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             // Right: Game info
             VStack(alignment: .leading, spacing: 6) {

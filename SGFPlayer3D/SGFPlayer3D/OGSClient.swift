@@ -1191,6 +1191,61 @@ class OGSClient: NSObject, ObservableObject {
         }.resume()
     }
 
+    /// Cancel a challenge that you created
+    /// - Parameters:
+    ///   - challengeID: The challenge ID to cancel
+    ///   - completion: Callback with success status and error message if any
+    func cancelChallenge(challengeID: Int, completion: @escaping (Bool, String?) -> Void) {
+        NSLog("OGS: 🗑️ Canceling challenge \(challengeID)")
+
+        guard isAuthenticated else {
+            NSLog("OGS: ❌ Cannot cancel challenge - not authenticated")
+            completion(false, "Not authenticated")
+            return
+        }
+
+        guard let url = URL(string: "https://online-go.com/api/v1/challenges/\(challengeID)") else {
+            NSLog("OGS: ❌ Invalid challenge URL")
+            completion(false, "Invalid URL")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        // Add CSRF protection headers
+        if let csrfCookie = HTTPCookieStorage.shared.cookies?.first(where: { $0.name == "csrftoken" }) {
+            request.setValue(csrfCookie.value, forHTTPHeaderField: "X-CSRFToken")
+        }
+        request.setValue("https://online-go.com", forHTTPHeaderField: "Referer")
+        request.setValue("https://online-go.com", forHTTPHeaderField: "Origin")
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                NSLog("OGS: ❌ Cancel challenge request failed: \(error.localizedDescription)")
+                completion(false, error.localizedDescription)
+                return
+            }
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                NSLog("OGS: ❌ Invalid HTTP response")
+                completion(false, "Invalid response")
+                return
+            }
+
+            NSLog("OGS: 🗑️ Cancel challenge response status: \(httpResponse.statusCode)")
+
+            if httpResponse.statusCode == 200 || httpResponse.statusCode == 204 {
+                NSLog("OGS: ✅ Challenge canceled successfully!")
+                completion(true, nil)
+            } else {
+                let errorMsg = "Failed with status \(httpResponse.statusCode)"
+                NSLog("OGS: ❌ \(errorMsg)")
+                completion(false, errorMsg)
+            }
+        }.resume()
+    }
+
     // MARK: - Game Play
 
     /// Send a move to OGS
