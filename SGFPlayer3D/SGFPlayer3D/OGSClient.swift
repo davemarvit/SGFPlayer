@@ -1081,61 +1081,71 @@ class OGSClient: NSObject, ObservableObject {
             NSLog("OGS: 🎮 No rank restrictions - allowing all ranks (0 to 36)")
         }
 
-        // Build time control parameters (different for Fischer vs others)
-        // Note: Do NOT include "time_control" here - it's already in the game object
+        // Build time control parameters - MUST be an object with ALL required fields
+        // Based on actual working OGS browser requests
         var timeControlParams: [String: Any] = [
-            "initial_time": settings.mainTimeMinutes * 60  // Convert minutes to seconds
+            "main_time": settings.mainTimeMinutes * 60,  // Seconds
+            "time_control": settings.timeControlSystem.apiValue,  // Duplicate required!
+            "system": settings.timeControlSystem.apiValue,  // Also required!
+            "pause_on_weekends": false
         ]
+
+        // Add speed classification
+        let totalSeconds = settings.mainTimeMinutes * 60
+        let speed: String
+        if totalSeconds < 10 * 60 {
+            speed = "blitz"
+        } else if totalSeconds < 20 * 60 {
+            speed = "rapid"
+        } else if totalSeconds < 24 * 60 * 60 {
+            speed = "live"
+        } else {
+            speed = "correspondence"
+        }
+        timeControlParams["speed"] = speed
 
         // Add system-specific parameters
         switch settings.timeControlSystem {
         case .fischer:
             timeControlParams["time_increment"] = settings.fischerIncrementSeconds
-            timeControlParams["max_time"] = settings.fischerMaxTimeMinutes * 60  // Convert to seconds
+            timeControlParams["max_time"] = settings.fischerMaxTimeMinutes * 60
         case .byoyomi, .canadian, .simple:
             timeControlParams["period_time"] = settings.periodTimeSeconds
             timeControlParams["periods"] = settings.periods
+            timeControlParams["periods_min"] = 1
+            timeControlParams["periods_max"] = 300
         case .absolute, .none:
-            // No additional parameters needed
+            // Minimal parameters for absolute/none
             break
         }
 
-        // Convert time control parameters to JSON string (OGS expects a string, not an object)
-        var timeControlParamsString = "{}"
-        do {
-            let jsonData = try JSONSerialization.data(withJSONObject: timeControlParams)
-            timeControlParamsString = String(data: jsonData, encoding: .utf8) ?? "{}"
-        } catch {
-            NSLog("OGS: ⚠️ Failed to encode time_control_parameters: \(error)")
-        }
-
-        // Build komi value - must always be a string
-        let komiValue: String
-        if settings.komi == .automatic {
-            komiValue = "automatic"
-        } else {
-            komiValue = String(settings.customKomi)
-        }
-
-        // Build request body matching OGS API format
+        // Build request body matching EXACT OGS browser format
         let body: [String: Any] = [
+            // Top-level fields
+            "initialized": false,
+            "min_ranking": minRank,
+            "max_ranking": maxRank,
+            "challenger_color": settings.colorPreference.apiValue,
+            "rengo_auto_start": 0,
+
+            // Game object
             "game": [
                 "name": settings.gameName,
                 "rules": settings.rules.apiValue,
                 "ranked": settings.ranked,
                 "width": settings.boardSize,
                 "height": settings.boardSize,
-                "handicap": settings.handicap.apiValue,
-                "komi": komiValue,
+                "handicap": settings.handicap.apiValue,  // -1 for automatic
+                "komi_auto": "automatic",  // Always automatic for now
                 "disable_analysis": settings.disableAnalysis,
+                "initial_state": nil as String?,
                 "pause_on_weekends": false,
+                "private": settings.inviteOnly,
+                "rengo": false,
+                "rengo_casual_mode": true,
                 "time_control": settings.timeControlSystem.apiValue,
-                "time_control_parameters": timeControlParamsString,
-                "private": settings.inviteOnly
-            ],
-            "challenger_color": settings.colorPreference.apiValue,
-            "min_ranking": minRank,
-            "max_ranking": maxRank
+                "time_control_parameters": timeControlParams  // Object, not string!
+            ] as [String: Any]
         ]
 
         do {
