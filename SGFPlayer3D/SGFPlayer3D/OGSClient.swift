@@ -1082,9 +1082,9 @@ class OGSClient: NSObject, ObservableObject {
         }
 
         // Build time control parameters (different for Fischer vs others)
+        // Note: Do NOT include "time_control" here - it's already in the game object
         var timeControlParams: [String: Any] = [
-            "time_control": settings.timeControlSystem.apiValue,
-            "main_time": settings.mainTimeMinutes * 60  // Convert minutes to seconds
+            "initial_time": settings.mainTimeMinutes * 60  // Convert minutes to seconds
         ]
 
         // Add system-specific parameters
@@ -1100,10 +1100,21 @@ class OGSClient: NSObject, ObservableObject {
             break
         }
 
-        // Build komi value
-        var komiValue: Any = "automatic"
-        if settings.komi == .custom {
-            komiValue = settings.customKomi
+        // Convert time control parameters to JSON string (OGS expects a string, not an object)
+        var timeControlParamsString = "{}"
+        do {
+            let jsonData = try JSONSerialization.data(withJSONObject: timeControlParams)
+            timeControlParamsString = String(data: jsonData, encoding: .utf8) ?? "{}"
+        } catch {
+            NSLog("OGS: ⚠️ Failed to encode time_control_parameters: \(error)")
+        }
+
+        // Build komi value - must always be a string
+        let komiValue: String
+        if settings.komi == .automatic {
+            komiValue = "automatic"
+        } else {
+            komiValue = String(settings.customKomi)
         }
 
         // Build request body matching OGS API format
@@ -1115,12 +1126,11 @@ class OGSClient: NSObject, ObservableObject {
                 "width": settings.boardSize,
                 "height": settings.boardSize,
                 "handicap": settings.handicap.apiValue,
-                "komi_auto": settings.komi == .automatic ? "automatic" : "custom",
                 "komi": komiValue,
                 "disable_analysis": settings.disableAnalysis,
                 "pause_on_weekends": false,
                 "time_control": settings.timeControlSystem.apiValue,
-                "time_control_parameters": timeControlParams,
+                "time_control_parameters": timeControlParamsString,
                 "private": settings.inviteOnly
             ],
             "challenger_color": settings.colorPreference.apiValue,
