@@ -434,10 +434,22 @@ class OGSClient: NSObject, ObservableObject {
             NSLog("OGS: ✅ Got JWT token: \(jwt.prefix(20))...")
             self?.jwtToken = jwt
 
-            // Also extract user rank from ui/config if available
-            NSLog("OGS: 🔍 Checking for user rank in ui/config response...")
+            // Also extract user rank and ID from ui/config if available
+            NSLog("OGS: 🔍 Checking for user rank and ID in ui/config response...")
             if let user = json["user"] as? [String: Any] {
                 NSLog("OGS: 🔍 Found user object, keys: \(user.keys)")
+
+                // Extract user ID
+                if let userId = user["id"] as? Int {
+                    DispatchQueue.main.async {
+                        self?.playerID = userId
+                        NSLog("OGS: 🆔 Extracted player ID from ui/config: \(userId)")
+                    }
+                } else {
+                    NSLog("OGS: ⚠️ No id field found in user object")
+                }
+
+                // Extract user rank
                 if let ranking = user["ranking"] as? Double {
                     // Skip rank -100 (unranked/provisional players)
                     if ranking >= 0 {
