@@ -1201,20 +1201,14 @@ class OGSClient: NSObject, ObservableObject {
             if httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
                 NSLog("OGS: ✅ Custom game posted successfully!")
 
-                // CRITICAL FIX: Parse response and subscribe to the game via WebSocket
-                // This prevents the challenge from being auto-canceled by OGS server
+                // Extract game_id and challenge_id for debugging
                 if let data = data,
-                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let gameID = json["game"] as? Int {
-                    NSLog("OGS: 🎮 Extracted game_id from response: \(gameID)")
-                    NSLog("OGS: 🎮 Subscribing to game \(gameID) to keep challenge alive...")
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    NSLog("OGS: 🎮 Challenge created - game_id: \(json["game"] ?? "?"), challenge_id: \(json["challenge"] ?? "?")")
 
-                    // Subscribe to the game via WebSocket to prevent auto-cancellation
-                    DispatchQueue.main.async {
-                        self.subscribeToGame(gameID: gameID)
-                    }
-                } else {
-                    NSLog("OGS: ⚠️ Could not extract game_id from response - challenge may be canceled by server")
+                    // NOTE: Do NOT subscribe to the game here - that signals the game has started
+                    // and causes OGS to remove the challenge from seekgraph.
+                    // The challenge should persist via our existing seekgraph subscription.
                 }
 
                 completion(true, nil)
