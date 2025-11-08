@@ -359,7 +359,11 @@ class OGSClient: NSObject, ObservableObject {
                         DispatchQueue.main.async {
                             self.isAuthenticated = true
                             self.username = user
-                            self.playerID = extractedPlayerID
+                            // playerID is now set by fetchJWTToken from ui/config - don't overwrite it
+                            // Only set from login response if not already set
+                            if self.playerID == nil, let extractedID = extractedPlayerID {
+                                self.playerID = extractedID
+                            }
                             self.userRank = extractedRank
 
                             // Fetch user rank from ui/config (more reliable than login response)
