@@ -52,6 +52,8 @@ class OGSClient: NSObject, ObservableObject {
     private var authTimeoutTimer: Timer?
     private var wsAuthPending = false  // Track if WebSocket auth is in progress
     private var isSubscribedToSeekgraph = false  // Track if we're subscribed to seekgraph
+    private var reconnectAttempts = 0  // Track number of reconnection attempts
+    private var maxReconnectAttempts = 5  // Maximum reconnection attempts before giving up
 
     /// Returns true if it's our turn to play
     var isMyTurn: Bool {
@@ -79,8 +81,8 @@ class OGSClient: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        NSLog("OGS: ========== OGSClient v3.51 BUILD MARKER ==========")
-        log("OGS: ========== v3.51 BUILD MARKER ==========")
+        NSLog("OGS: ========== OGSClient v3.73 BUILD MARKER ==========")
+        log("OGS: ========== v3.73 BUILD MARKER ==========")
         log("OGS: 🔧 Initializing OGSClient (self=\(Unmanaged.passUnretained(self).toOpaque()))...")
         // IMPORTANT: Initialize URLSession in init, not lazily
         // SwiftUI @StateObject requires proper initialization here
@@ -1531,14 +1533,38 @@ class OGSClient: NSObject, ObservableObject {
             case .failure(let error):
                 NSLog("OGS: ❌ WebSocket receive error: \(error.localizedDescription)")
                 NSLog("OGS: ❌ Error code: \(error)")
+
+                // Check if socket is disconnected (task state 3 = .completed/disconnected)
+                let taskState = self.webSocketTask?.state.rawValue ?? -1
+                NSLog("OGS: 🔍 WebSocket task state after error: \(taskState)")
+
                 DispatchQueue.main.async {
                     self.lastError = error.localizedDescription
                     self.isConnected = false
                 }
-                // Try to continue receiving even after error
-                NSLog("OGS: 🔄 Attempting to restart receive loop after error")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    self.receiveMessage()
+
+                // If socket is disconnected, attempt full reconnection instead of just restarting receive loop
+                if taskState == 3 || error.localizedDescription.contains("not connected") {
+                    self.reconnectAttempts += 1
+                    if self.reconnectAttempts <= self.maxReconnectAttempts {
+                        let delay = min(Double(self.reconnectAttempts) * 2.0, 10.0) // Exponential backoff, max 10s
+                        NSLog("OGS: 🔄 WebSocket disconnected. Attempting reconnection #\(self.reconnectAttempts) in \(delay)s...")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                            NSLog("OGS: 🔌 Reconnecting to WebSocket...")
+                            self.connect()
+                        }
+                    } else {
+                        NSLog("OGS: ❌ Max reconnection attempts (\(self.maxReconnectAttempts)) reached. Giving up.")
+                        DispatchQueue.main.async {
+                            self.lastError = "Connection lost after \(self.maxReconnectAttempts) reconnection attempts"
+                        }
+                    }
+                } else {
+                    // For other errors, try to continue receiving
+                    NSLog("OGS: 🔄 Attempting to restart receive loop after error")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        self.receiveMessage()
+                    }
                 }
             }
         }
@@ -1577,6 +1603,9 @@ class OGSClient: NSObject, ObservableObject {
             // Set connected flag on main queue
             DispatchQueue.main.async { [weak self] in
                 self?.isConnected = true
+                // Reset reconnection counter on successful connection
+                self?.reconnectAttempts = 0
+                NSLog("OGS: ✅ Successfully connected to WebSocket (reconnect counter reset)")
                 // Notify that OGS is now connected
                 NotificationCenter.default.post(name: NSNotification.Name("OGSConnected"), object: nil)
             }
