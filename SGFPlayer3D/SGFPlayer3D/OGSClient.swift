@@ -81,8 +81,8 @@ class OGSClient: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        NSLog("OGS: ========== OGSClient v3.73 BUILD MARKER ==========")
-        log("OGS: ========== v3.73 BUILD MARKER ==========")
+        NSLog("OGS: ========== OGSClient v3.74 BUILD MARKER ==========")
+        log("OGS: ========== v3.74 BUILD MARKER ==========")
         log("OGS: 🔧 Initializing OGSClient (self=\(Unmanaged.passUnretained(self).toOpaque()))...")
         // IMPORTANT: Initialize URLSession in init, not lazily
         // SwiftUI @StateObject requires proper initialization here
@@ -1200,6 +1200,23 @@ class OGSClient: NSObject, ObservableObject {
 
             if httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
                 NSLog("OGS: ✅ Custom game posted successfully!")
+
+                // CRITICAL FIX: Parse response and subscribe to the game via WebSocket
+                // This prevents the challenge from being auto-canceled by OGS server
+                if let data = data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let gameID = json["game"] as? Int {
+                    NSLog("OGS: 🎮 Extracted game_id from response: \(gameID)")
+                    NSLog("OGS: 🎮 Subscribing to game \(gameID) to keep challenge alive...")
+
+                    // Subscribe to the game via WebSocket to prevent auto-cancellation
+                    DispatchQueue.main.async {
+                        self.subscribeToGame(gameID: gameID)
+                    }
+                } else {
+                    NSLog("OGS: ⚠️ Could not extract game_id from response - challenge may be canceled by server")
+                }
+
                 completion(true, nil)
             } else {
                 let errorMsg = "Failed with status \(httpResponse.statusCode)"
