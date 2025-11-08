@@ -2311,11 +2311,9 @@ class OGSClient: NSObject, ObservableObject {
             let userChallenge = item["user_challenge"] as? Bool ?? false
             log("OGS: 📊 ➕ RECEIVED challenge #\(challengeID): rank[\(minRank)-\(maxRank)] board[\(boardWidth)x\(boardHeight)] time[\(timeControl)] rengo[\(isRengo)] userChallenge[\(userChallenge)]")
 
-            // Skip challenges created by the current user - OGS web filters these out
-            if userChallenge {
-                log("OGS: 📊 ❌ FILTERED challenge #\(challengeID) - USER'S OWN CHALLENGE")
-                continue
-            }
+            // NOTE: We intentionally INCLUDE user's own challenges so they can cancel them
+            // OGS web filters these out, but we want to show them with a "Cancel" button
+            // (The filtering code has been removed)
 
             // Skip rengo (team) games - OGS web filters these out by default
             if isRengo {
