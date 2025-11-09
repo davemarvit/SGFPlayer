@@ -84,8 +84,8 @@ class OGSClient: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        NSLog("OGS: ========== OGSClient v3.79 BUILD MARKER ==========")
-        log("OGS: ========== v3.79 BUILD MARKER ==========")
+        NSLog("OGS: ========== OGSClient v3.80 BUILD MARKER ==========")
+        log("OGS: ========== v3.80 BUILD MARKER ==========")
         log("OGS: 🔧 Initializing OGSClient (self=\(Unmanaged.passUnretained(self).toOpaque()))...")
         // IMPORTANT: Initialize URLSession in init, not lazily
         // SwiftUI @StateObject requires proper initialization here
@@ -1118,6 +1118,14 @@ class OGSClient: NSObject, ObservableObject {
         }
         request.setValue("https://online-go.com", forHTTPHeaderField: "Referer")
         request.setValue("https://online-go.com", forHTTPHeaderField: "Origin")
+
+        // CRITICAL FIX: Manually set Cookie header from HTTPCookieStorage
+        // URLSession doesn't always automatically include cookies, so we build the header ourselves
+        if let cookies = HTTPCookieStorage.shared.cookies?.filter({ $0.domain.contains("online-go.com") }), !cookies.isEmpty {
+            let cookieHeader = cookies.map { "\($0.name)=\($0.value)" }.joined(separator: "; ")
+            request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
+            NSLog("OGS: 🍪 Manually set Cookie header: \(cookieHeader)")
+        }
 
         // DEBUG: Log all cookies and headers being sent
         NSLog("OGS: 🔍 ========== CHALLENGE REQUEST HEADERS DEBUG ==========")
