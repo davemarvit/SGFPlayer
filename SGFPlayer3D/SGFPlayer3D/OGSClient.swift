@@ -84,8 +84,8 @@ class OGSClient: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        NSLog("OGS: ========== OGSClient v3.78 BUILD MARKER ==========")
-        log("OGS: ========== v3.78 BUILD MARKER ==========")
+        NSLog("OGS: ========== OGSClient v3.79 BUILD MARKER ==========")
+        log("OGS: ========== v3.79 BUILD MARKER ==========")
         log("OGS: 🔧 Initializing OGSClient (self=\(Unmanaged.passUnretained(self).toOpaque()))...")
         // IMPORTANT: Initialize URLSession in init, not lazily
         // SwiftUI @StateObject requires proper initialization here
@@ -1118,6 +1118,23 @@ class OGSClient: NSObject, ObservableObject {
         }
         request.setValue("https://online-go.com", forHTTPHeaderField: "Referer")
         request.setValue("https://online-go.com", forHTTPHeaderField: "Origin")
+
+        // DEBUG: Log all cookies and headers being sent
+        NSLog("OGS: 🔍 ========== CHALLENGE REQUEST HEADERS DEBUG ==========")
+        if let allCookies = HTTPCookieStorage.shared.cookies {
+            NSLog("OGS: 🔍 Total cookies in storage: \(allCookies.count)")
+            for cookie in allCookies.filter({ $0.domain.contains("online-go.com") }) {
+                NSLog("OGS: 🔍 Cookie: \(cookie.name) = \(cookie.value) (domain: \(cookie.domain))")
+            }
+        }
+        NSLog("OGS: 🔍 Request URL: \(request.url?.absoluteString ?? "nil")")
+        NSLog("OGS: 🔍 Request Method: \(request.httpMethod ?? "nil")")
+        if let headers = request.allHTTPHeaderFields {
+            for (key, value) in headers {
+                NSLog("OGS: 🔍 Header: \(key) = \(value)")
+            }
+        }
+        NSLog("OGS: 🔍 =================================================")
 
         // Calculate rank range based on user's rank and restrictions
         var minRank = 0
