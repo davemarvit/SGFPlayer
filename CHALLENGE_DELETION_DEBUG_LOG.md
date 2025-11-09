@@ -126,9 +126,62 @@
 
 ---
 
+## NEW HYPOTHESIS: Challenge Keep-Alive Mechanism
+
+**Theory (Nov 9, 2025):**
+Browser clients may send periodic WebSocket messages to keep challenges alive. This would make sense for OGS's design:
+- If someone creates a challenge and closes their browser, the challenge shouldn't persist forever
+- Server likely expects some kind of periodic "I'm still here" message
+- After 6-9 seconds without this message, server deletes the challenge
+
+**Evidence:**
+- v3.74 tried subscribing to the GAME (game/connect, spectate) but this didn't work
+- This is logical because a challenge isn't a game yet - it only becomes a game when accepted
+- Ping/pong exists for WebSocket-level keep-alive, but there might be an application-level keep-alive for challenges specifically
+
+**What We Don't Know:**
+- Does browser send any WebSocket messages after creating a challenge?
+- Is there a "challenge/connect" or similar subscription message?
+- Is there a periodic keep-alive message sent every few seconds?
+
+**How to Test:**
+1. **Browser WebSocket Traffic Capture:**
+   - Create challenge in browser
+   - Use browser dev tools → Network → WS (WebSocket tab)
+   - Watch what messages are sent AFTER the challenge appears
+   - Look for any periodic messages or challenge-specific subscriptions
+
+2. **Message Pattern Analysis:**
+   - Identify if there's a pattern like "every 5 seconds send X message"
+   - Check if there's an acknowledgment when the challenge appears in seekgraph
+   - Look for any "challenge/XXX" type messages
+
+**This could explain:**
+- ✅ Why challenge creates successfully
+- ✅ Why it appears in seekgraph
+- ✅ Why all headers are correct but it still fails
+- ✅ Why it's deleted after exactly 6-9 seconds (a timeout period)
+- ✅ Why no error message is sent (it's not an error, just a timeout)
+
+---
+
 ## Next Steps to Try
 
-### Test Priority 1: Simpler Challenge Settings
+### Test Priority 1: Capture Browser WebSocket Traffic **[HIGHEST PRIORITY]**
+**Rationale:** Test the keep-alive hypothesis
+
+**Method:**
+1. Open browser, go to https://online-go.com/play
+2. Open Dev Tools → Network → WS tab
+3. Create a challenge with same parameters as v3.81 test
+4. Watch WebSocket messages sent AFTER challenge creation
+5. Look for:
+   - Any messages containing the challenge_id
+   - Any periodic messages (sent every N seconds)
+   - Any "challenge/" or "seek" related messages
+   - Any acknowledgment of the seekgraph update
+
+### Test Priority 2: Simpler Challenge Settings
 **Rationale:** Current test uses potentially invalid combination (rank 27 creating ranked game with 9-stone handicap for any rank)
 
 **Test A: Unranked Game**
