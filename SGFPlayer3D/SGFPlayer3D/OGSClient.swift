@@ -84,8 +84,8 @@ class OGSClient: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        NSLog("OGS: ========== OGSClient v3.80 BUILD MARKER ==========")
-        log("OGS: ========== v3.80 BUILD MARKER ==========")
+        NSLog("OGS: ========== OGSClient v3.81 BUILD MARKER ==========")
+        log("OGS: ========== v3.81 BUILD MARKER ==========")
         log("OGS: 🔧 Initializing OGSClient (self=\(Unmanaged.passUnretained(self).toOpaque()))...")
         // IMPORTANT: Initialize URLSession in init, not lazily
         // SwiftUI @StateObject requires proper initialization here
@@ -1116,8 +1116,10 @@ class OGSClient: NSObject, ObservableObject {
         if let csrfCookie = HTTPCookieStorage.shared.cookies?.first(where: { $0.name == "csrftoken" }) {
             request.setValue(csrfCookie.value, forHTTPHeaderField: "X-CSRFToken")
         }
-        request.setValue("https://online-go.com", forHTTPHeaderField: "Referer")
+        request.setValue("https://online-go.com/play", forHTTPHeaderField: "Referer")
         request.setValue("https://online-go.com", forHTTPHeaderField: "Origin")
+        // Add User-Agent to match browser behavior
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
 
         // CRITICAL FIX: Manually set Cookie header from HTTPCookieStorage
         // URLSession doesn't always automatically include cookies, so we build the header ourselves
