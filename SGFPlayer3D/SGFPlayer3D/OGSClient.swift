@@ -54,6 +54,9 @@ class OGSClient: NSObject, ObservableObject {
     private var isSubscribedToSeekgraph = false  // Track if we're subscribed to seekgraph
     private var reconnectAttempts = 0  // Track number of reconnection attempts
     private var maxReconnectAttempts = 5  // Maximum reconnection attempts before giving up
+    private var lastSeekgraphMessageTime: Date?  // Track last seekgraph message for health monitoring
+    private var seekgraphHealthTimer: Timer?  // Timer to check seekgraph health
+    private let seekgraphStaleTimeout: TimeInterval = 60  // Consider seekgraph stale after 60s of no messages
 
     /// Returns true if it's our turn to play
     var isMyTurn: Bool {
@@ -81,8 +84,8 @@ class OGSClient: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        NSLog("OGS: ========== OGSClient v3.74 BUILD MARKER ==========")
-        log("OGS: ========== v3.74 BUILD MARKER ==========")
+        NSLog("OGS: ========== OGSClient v3.75 BUILD MARKER ==========")
+        log("OGS: ========== v3.75 BUILD MARKER ==========")
         log("OGS: 🔧 Initializing OGSClient (self=\(Unmanaged.passUnretained(self).toOpaque()))...")
         // IMPORTANT: Initialize URLSession in init, not lazily
         // SwiftUI @StateObject requires proper initialization here
@@ -974,19 +977,24 @@ class OGSClient: NSObject, ObservableObject {
 
     /// Subscribe to seekgraph to get real-time updates of available challenges
     /// This uses socket.io, not REST API
-    func subscribeToSeekgraph() {
+    /// - Parameter force: If true, resubscribe even if already subscribed (for recovery)
+    func subscribeToSeekgraph(force: Bool = false) {
         guard isConnected else {
             NSLog("OGS: ⚠️ Cannot subscribe to seekgraph - not connected")
             return
         }
 
-        // Don't subscribe if already subscribed
-        if isSubscribedToSeekgraph {
+        // Don't subscribe if already subscribed (unless forcing)
+        if isSubscribedToSeekgraph && !force {
             NSLog("OGS: 📊 Already subscribed to seekgraph, skipping")
             return
         }
 
-        NSLog("OGS: 📊 Subscribing to seekgraph...")
+        if force {
+            NSLog("OGS: 📊 Force re-subscribing to seekgraph...")
+        } else {
+            NSLog("OGS: 📊 Subscribing to seekgraph...")
+        }
 
         let message = """
         42["seek_graph/connect",{"channel":"global"}]
@@ -999,7 +1007,45 @@ class OGSClient: NSObject, ObservableObject {
             } else {
                 NSLog("OGS: ✅ Seekgraph subscription sent")
                 self?.isSubscribedToSeekgraph = true
+                self?.lastSeekgraphMessageTime = Date()  // Reset timer on (re)subscribe
+                self?.startSeekgraphHealthMonitoring()
             }
+        }
+    }
+
+    /// Start monitoring seekgraph health
+    private func startSeekgraphHealthMonitoring() {
+        // Cancel any existing timer
+        seekgraphHealthTimer?.invalidate()
+
+        // Check health every 30 seconds
+        seekgraphHealthTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            self?.checkSeekgraphHealth()
+        }
+
+        NSLog("OGS: 🏥 Seekgraph health monitoring started")
+    }
+
+    /// Check if seekgraph is still receiving messages
+    private func checkSeekgraphHealth() {
+        guard isSubscribedToSeekgraph else { return }
+
+        guard let lastMessageTime = lastSeekgraphMessageTime else {
+            NSLog("OGS: ⚠️ Seekgraph health check: No messages received yet")
+            return
+        }
+
+        let timeSinceLastMessage = Date().timeIntervalSince(lastMessageTime)
+
+        if timeSinceLastMessage > seekgraphStaleTimeout {
+            NSLog("OGS: ❌ Seekgraph STALE! No messages for \(Int(timeSinceLastMessage))s (threshold: \(Int(seekgraphStaleTimeout))s)")
+            NSLog("OGS: 🔄 Auto-recovering: forcing seekgraph resubscribe...")
+
+            // Mark as not subscribed and force resubscribe
+            isSubscribedToSeekgraph = false
+            subscribeToSeekgraph(force: true)
+        } else {
+            NSLog("OGS: ✅ Seekgraph healthy - last message \(Int(timeSinceLastMessage))s ago")
         }
     }
 
@@ -2296,6 +2342,9 @@ class OGSClient: NSObject, ObservableObject {
     }
 
     private func handleSeekgraph(_ seekgraphData: [[String: Any]]) {
+        // Update health check timestamp
+        lastSeekgraphMessageTime = Date()
+
         log("OGS: ========== v3.63 handleSeekgraph CALLED with \(seekgraphData.count) items ==========")
         NSLog("OGS: 📊 Processing \(seekgraphData.count) seekgraph update(s)...")
 
