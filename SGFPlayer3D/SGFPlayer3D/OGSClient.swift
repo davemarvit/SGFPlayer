@@ -84,8 +84,8 @@ class OGSClient: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        NSLog("OGS: ========== OGSClient v3.77 BUILD MARKER ==========")
-        log("OGS: ========== v3.77 BUILD MARKER ==========")
+        NSLog("OGS: ========== OGSClient v3.78 BUILD MARKER ==========")
+        log("OGS: ========== v3.78 BUILD MARKER ==========")
         log("OGS: 🔧 Initializing OGSClient (self=\(Unmanaged.passUnretained(self).toOpaque()))...")
         // IMPORTANT: Initialize URLSession in init, not lazily
         // SwiftUI @StateObject requires proper initialization here
@@ -1206,7 +1206,7 @@ class OGSClient: NSObject, ObservableObject {
                 "pause_on_weekends": false,
                 "private": settings.inviteOnly,
                 "rengo": false,
-                "rengo_casual_mode": false,
+                "rengo_casual_mode": true,  // Browser uses TRUE for non-rengo games
                 "time_control": settings.timeControlSystem.apiValue,
                 "time_control_parameters": timeControlParams  // Object, not string!
             ] as [String: Any]
