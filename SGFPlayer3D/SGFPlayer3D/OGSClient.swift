@@ -84,8 +84,8 @@ class OGSClient: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        NSLog("OGS: ========== OGSClient v3.76 BUILD MARKER ==========")
-        log("OGS: ========== v3.76 BUILD MARKER ==========")
+        NSLog("OGS: ========== OGSClient v3.77 BUILD MARKER ==========")
+        log("OGS: ========== v3.77 BUILD MARKER ==========")
         log("OGS: 🔧 Initializing OGSClient (self=\(Unmanaged.passUnretained(self).toOpaque()))...")
         // IMPORTANT: Initialize URLSession in init, not lazily
         // SwiftUI @StateObject requires proper initialization here
@@ -2375,7 +2375,18 @@ class OGSClient: NSObject, ObservableObject {
 
             // Check if this is a delete message
             if item["delete"] != nil {
-                NSLog("OGS: 📊 DELETE challenge #\(challengeID)")
+                NSLog("OGS: 📊 ❌ DELETE challenge #\(challengeID)")
+                NSLog("OGS: 📊 ❌ DELETE PAYLOAD: \(item)")
+                // Log specific fields that might indicate why
+                if let deleteReason = item["delete"] as? String {
+                    NSLog("OGS: 📊 ❌ DELETE REASON: \(deleteReason)")
+                }
+                if let error = item["error"] as? String {
+                    NSLog("OGS: 📊 ❌ ERROR: \(error)")
+                }
+                if let message = item["message"] as? String {
+                    NSLog("OGS: 📊 ❌ MESSAGE: \(message)")
+                }
                 DispatchQueue.main.async {
                     self.availableGames.removeAll { $0.id == challengeID }
                     NSLog("OGS: 📊 Removed challenge #\(challengeID), now have \(self.availableGames.count) games")
