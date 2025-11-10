@@ -58,6 +58,11 @@ class OGSClient: NSObject, ObservableObject {
     private var seekgraphHealthTimer: Timer?  // Timer to check seekgraph health
     private let seekgraphStaleTimeout: TimeInterval = 60  // Consider seekgraph stale after 60s of no messages
 
+    // v3.84: Challenge keepalive tracking
+    private var activeChallengeID: Int?  // Currently active challenge that needs keepalives
+    private var activeGameID: Int?  // Game ID associated with the active challenge
+    private var challengeKeepaliveTimer: Timer?  // Timer to send periodic challenge/keepalive messages
+
     /// Returns true if it's our turn to play
     var isMyTurn: Bool {
         guard let myColor = playerColor else { return false }
@@ -84,8 +89,8 @@ class OGSClient: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        NSLog("OGS: ========== OGSClient v3.81 BUILD MARKER ==========")
-        log("OGS: ========== v3.81 BUILD MARKER ==========")
+        NSLog("OGS: ========== OGSClient v3.84 BUILD MARKER ==========")
+        log("OGS: ========== v3.84 BUILD MARKER ==========")
         log("OGS: 🔧 Initializing OGSClient (self=\(Unmanaged.passUnretained(self).toOpaque()))...")
         // IMPORTANT: Initialize URLSession in init, not lazily
         // SwiftUI @StateObject requires proper initialization here
@@ -177,9 +182,10 @@ class OGSClient: NSObject, ObservableObject {
 
     /// Connect to OGS WebSocket server
     func connect() {
-        // OGS uses socket.io on the main domain - the path includes /socket.io/
-        // Using EIO=3 (Engine.IO version 3) which is the working version per OGS_INTEGRATION.md line 23
-        guard let url = URL(string: "wss://online-go.com/socket.io/?EIO=3&transport=websocket") else {
+        // v3.84 FIX: Browser uses wsp.online-go.com, not online-go.com/socket.io
+        // This is the CORRECT WebSocket URL that browser clients use
+        // Still uses Socket.io protocol with EIO=3 format
+        guard let url = URL(string: "wss://wsp.online-go.com/socket.io/?EIO=3&transport=websocket") else {
             lastError = "Invalid WebSocket URL"
             return
         }
@@ -1274,14 +1280,18 @@ class OGSClient: NSObject, ObservableObject {
             if httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
                 NSLog("OGS: ✅ Custom game posted successfully!")
 
-                // Extract game_id and challenge_id for debugging
+                // Extract game_id and challenge_id for debugging AND starting keepalives
                 if let data = data,
-                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    NSLog("OGS: 🎮 Challenge created - game_id: \(json["game"] ?? "?"), challenge_id: \(json["challenge"] ?? "?")")
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let gameID = json["game"] as? Int,
+                   let challengeID = json["challenge"] as? Int {
+                    NSLog("OGS: 🎮 Challenge created - game_id: \(gameID), challenge_id: \(challengeID)")
 
-                    // NOTE: Do NOT subscribe to the game here - that signals the game has started
-                    // and causes OGS to remove the challenge from seekgraph.
-                    // The challenge should persist via our existing seekgraph subscription.
+                    // v3.84 FIX: Start sending challenge keepalives immediately
+                    // Browser clients send game/connect + periodic challenge/keepalive to prevent deletion
+                    self?.startChallengeKeepalive(challengeID: challengeID, gameID: gameID)
+                } else {
+                    NSLog("OGS: ⚠️ Could not extract challenge/game IDs from response - keepalives will NOT be sent!")
                 }
 
                 completion(true, nil)
@@ -1291,6 +1301,100 @@ class OGSClient: NSObject, ObservableObject {
                 completion(false, errorMsg)
             }
         }.resume()
+    }
+
+    // MARK: - Challenge Keepalive (v3.84)
+
+    /// Start sending periodic keepalive messages for a challenge
+    /// Browser clients send game/connect immediately, then challenge/keepalive every ~2 seconds
+    private func startChallengeKeepalive(challengeID: Int, gameID: Int) {
+        NSLog("OGS: 💓 Starting challenge keepalive for challenge:\(challengeID) game:\(gameID)")
+
+        // Store IDs
+        activeChallengeID = challengeID
+        activeGameID = gameID
+
+        // Send immediate game/connect message (browser does this right after creating challenge)
+        sendGameConnect(gameID: gameID)
+
+        // Stop any existing timer
+        challengeKeepaliveTimer?.invalidate()
+
+        // Start timer to send keepalive every 2 seconds
+        challengeKeepaliveTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            self?.sendChallengeKeepalive()
+        }
+
+        NSLog("OGS: ✅ Challenge keepalive timer started (every 2 seconds)")
+    }
+
+    /// Stop sending challenge keepalive messages
+    private func stopChallengeKeepalive() {
+        guard activeChallengeID != nil else {
+            return  // No active challenge
+        }
+
+        NSLog("OGS: 💓 Stopping challenge keepalive for challenge:\(activeChallengeID ?? 0)")
+
+        challengeKeepaliveTimer?.invalidate()
+        challengeKeepaliveTimer = nil
+        activeChallengeID = nil
+        activeGameID = nil
+
+        NSLog("OGS: ✅ Challenge keepalive stopped")
+    }
+
+    /// Send game/connect message (browser sends this immediately after challenge creation)
+    private func sendGameConnect(gameID: Int) {
+        guard isConnected else {
+            NSLog("OGS: ⚠️ Cannot send game/connect - not connected")
+            return
+        }
+
+        let message = """
+        42["game/connect",{"game_id":\(gameID)}]
+        """
+
+        NSLog("OGS: 📤 Sending game/connect for game:\(gameID)")
+
+        let wsMessage = URLSessionWebSocketTask.Message.string(message)
+        webSocketTask?.send(wsMessage) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error sending game/connect: \(error.localizedDescription)")
+            } else {
+                NSLog("OGS: ✅ game/connect sent successfully")
+            }
+        }
+    }
+
+    /// Send a single challenge/keepalive message
+    private func sendChallengeKeepalive() {
+        guard let challengeID = activeChallengeID, let gameID = activeGameID else {
+            NSLog("OGS: ⚠️ Cannot send keepalive - no active challenge")
+            stopChallengeKeepalive()
+            return
+        }
+
+        guard isConnected else {
+            NSLog("OGS: ⚠️ Cannot send keepalive - not connected")
+            return
+        }
+
+        let message = """
+        42["challenge/keepalive",{"challenge_id":\(challengeID),"game_id":\(gameID)}]
+        """
+
+        let wsMessage = URLSessionWebSocketTask.Message.string(message)
+        webSocketTask?.send(wsMessage) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error sending challenge/keepalive: \(error.localizedDescription)")
+            } else {
+                // Only log occasionally to avoid spam (every 10th keepalive = every 20 seconds)
+                if Int.random(in: 1...10) == 1 {
+                    NSLog("OGS: 💓 challenge/keepalive sent for challenge:\(challengeID)")
+                }
+            }
+        }
     }
 
     /// Cancel a challenge that you created
@@ -1339,6 +1443,12 @@ class OGSClient: NSObject, ObservableObject {
 
             if httpResponse.statusCode == 200 || httpResponse.statusCode == 204 {
                 NSLog("OGS: ✅ Challenge canceled successfully!")
+
+                // v3.84: Stop keepalives when challenge is cancelled
+                DispatchQueue.main.async {
+                    self?.stopChallengeKeepalive()
+                }
+
                 completion(true, nil)
             } else {
                 let errorMsg = "Failed with status \(httpResponse.statusCode)"
@@ -2417,6 +2527,11 @@ class OGSClient: NSObject, ObservableObject {
                 DispatchQueue.main.async {
                     self.availableGames.removeAll { $0.id == challengeID }
                     NSLog("OGS: 📊 Removed challenge #\(challengeID), now have \(self.availableGames.count) games")
+
+                    // v3.84: Stop keepalives if this was our active challenge
+                    if self.activeChallengeID == challengeID {
+                        self.stopChallengeKeepalive()
+                    }
                 }
                 continue
             }
@@ -2427,6 +2542,11 @@ class OGSClient: NSObject, ObservableObject {
                 DispatchQueue.main.async {
                     self.availableGames.removeAll { $0.id == challengeID }
                     NSLog("OGS: 📊 Removed started game #\(challengeID), now have \(self.availableGames.count) games")
+
+                    // v3.84: Stop keepalives if this was our active challenge (game started = challenge accepted)
+                    if self.activeChallengeID == challengeID {
+                        self.stopChallengeKeepalive()
+                    }
                 }
                 continue
             }
