@@ -96,32 +96,54 @@
 
 ---
 
-### v3.83 - CRITICAL DISCOVERY: Wrong WebSocket URL!
+### v3.83 - CRITICAL DISCOVERY: Wrong WebSocket URL + challenge/keepalive!
 **Hypothesis:** App connecting to wrong WebSocket server
 **Investigation:** Captured browser WebSocket connections in Dev Tools Network tab
 **Result:** 🎯 **ROOT CAUSE IDENTIFIED!**
 
-**Discovery:**
+**Discovery 1: Wrong WebSocket Server**
 Browser uses **completely different WebSocket URL** than app:
-- **Browser:** `wss://wsp.online-go.com/` (plain WebSocket protocol)
+- **Browser:** `wss://wsp.online-go.com/` (still Socket.io format!)
 - **App:** `wss://online-go.com/socket.io/?EIO=3&transport=websocket` (Socket.io/Engine.IO v3)
+
+**Discovery 2: challenge/keepalive Messages Required!**
+After creating a challenge, browser sends:
+1. **Immediate:** `["game/connect", {"game_id": 81105931}]` right after challenge creation
+2. **Every ~2 seconds:** `["challenge/keepalive", {"challenge_id": 3411893, "game_id": 81105931}]`
+
+**Keepalive Pattern Observed:**
+- 12:30:23 - Challenge created
+- 12:30:23 - `game/connect` sent immediately
+- 12:30:24 - First keepalive (1 second after creation)
+- 12:30:25 - Second keepalive (2 seconds)
+- 12:30:27 - Third keepalive (4 seconds)
+- 12:30:29 - Fourth keepalive (6 seconds)
+- Continues every ~2 seconds...
 
 **This explains EVERYTHING:**
 - ✅ Why all HTTP headers are correct but challenges still deleted
 - ✅ Why challenge appears in seekgraph but gets deleted
 - ✅ Why v3.74 game subscription didn't work (wrong WebSocket server!)
 - ✅ Why no error message is sent (server can't find client on correct WebSocket)
-- ✅ The 6-9 second timeout (server waits for client on `wsp.online-go.com`, doesn't see them, deletes challenge)
+- ✅ The 6-9 second timeout (server waits for keepalives on `wsp.online-go.com`, doesn't get them, deletes challenge)
 
 **Evidence:**
 - Browser Network tab shows connection to `wss://wsp.online-go.com/`
 - App code at OGSClient.swift:182 connects to `wss://online-go.com/socket.io/...`
-- Two separate WebSocket infrastructure endpoints!
+- Browser sends `game/connect` + periodic `challenge/keepalive` messages
+- Messages still use Socket.io format: `["event", {data}]`
 
-**Action Required:**
-Change app WebSocket URL from `online-go.com/socket.io` to `wsp.online-go.com`
-- May need to change protocol from Socket.io to plain WebSocket
-- Need to understand message format for `wsp.online-go.com`
+---
+
+### v3.84 - Fix WebSocket URL + Implement challenge/keepalive
+**Hypothesis:** Connecting to correct WebSocket and sending keepalives will prevent deletion
+**Implementation:**
+1. Change WebSocket URL to `wss://wsp.online-go.com/`
+2. Send `["game/connect", {"game_id": <id>}]` immediately after challenge creation
+3. Start timer sending `["challenge/keepalive", {"challenge_id": <id>, "game_id": <id>}]` every 2 seconds
+4. Stop timer when challenge is accepted or cancelled
+
+**Expected Result:** ✅ Challenges should persist until accepted or cancelled by user
 
 ---
 
