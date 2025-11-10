@@ -135,15 +135,103 @@ After creating a challenge, browser sends:
 
 ---
 
-### v3.84 - Fix WebSocket URL + Implement challenge/keepalive
+### v3.84 - Fix WebSocket URL + Implement challenge/keepalive (FAILED - Wrong Protocol)
 **Hypothesis:** Connecting to correct WebSocket and sending keepalives will prevent deletion
 **Implementation:**
-1. Change WebSocket URL to `wss://wsp.online-go.com/`
-2. Send `["game/connect", {"game_id": <id>}]` immediately after challenge creation
-3. Start timer sending `["challenge/keepalive", {"challenge_id": <id>, "game_id": <id>}]` every 2 seconds
-4. Stop timer when challenge is accepted or cancelled
+1. Changed WebSocket URL to `wss://wsp.online-go.com/socket.io/?EIO=3&transport=websocket`
+2. Send `42["game/connect", {"game_id": <id>}]` immediately after challenge creation
+3. Start timer sending `42["challenge/keepalive", {"challenge_id": <id>, "game_id": <id>}]` every 2 seconds
+4. Added WebSocket connection check before allowing challenge creation
+5. Stop timer when challenge is accepted or cancelled
 
-**Expected Result:** ✅ Challenges should persist until accepted or cancelled by user
+**Result:** ❌ FAILED - Challenge still deleted after 8 seconds
+
+**Test Logs:**
+```
+01:09:33.288 - Starting challenge keepalive for challenge:34119147
+01:09:33.288 - game/connect sent successfully
+01:09:33.288 - Challenge keepalive timer started (every 2 seconds)
+...
+01:09:41.692 - DELETE challenge #34119147 (8 seconds later)
+```
+
+**Analysis:**
+- ✅ WebSocket connected successfully
+- ✅ Messages sent with proper timing (every 2 seconds)
+- ❌ Server deleted challenge anyway (no keepalives received by server)
+- **Root Cause:** Messages sent in WRONG FORMAT (Socket.io format with `42` prefix)
+
+---
+
+### v3.85 - CRITICAL DISCOVERY: Plain WebSocket vs Socket.io Protocol
+**Investigation:** Captured actual browser WebSocket messages to `wsp.online-go.com`
+**Result:** 🎯 **PROTOCOL MISMATCH IDENTIFIED!**
+
+**Browser sends PLAIN WebSocket JSON:**
+```
+["challenge/keepalive",{"challenge_id":3411971,"game_id":81106783}]
+["game/connect",{"game_id":81106783}]
+["seekgraph/global",[...]]
+```
+
+**App sends Socket.io format (WRONG):**
+```
+42["challenge/keepalive",{"challenge_id":3411971,"game_id":81106783}]
+42["game/connect",{"game_id":81106783}]
+42["seekgraph/global",[...]]
+```
+
+**Key Findings:**
+1. ❌ **NO Socket.io handshake** - No `0{...}`, `40`, etc. messages
+2. ❌ **NO `42` prefix** - Messages are plain JSON arrays
+3. ✅ **Connection URL**: `wss://wsp.online-go.com/` (no `/socket.io/`, no `?EIO=3`)
+4. ✅ **Message format**: Plain WebSocket with JSON: `["event_name", data]`
+5. ✅ **Keepalive confirmed**: Every 2 seconds exactly
+
+**This explains v3.84 failure:**
+- App sent `42["challenge/keepalive",...]`
+- Server expected `["challenge/keepalive",...]`
+- Server didn't recognize format → no keepalives received → challenge deleted
+
+---
+
+### v3.85 Implementation Options
+
+**Option A: Dual WebSocket (SAFEST)**
+- Keep `online-go.com/socket.io` for game play (existing functionality untouched)
+- Add NEW separate `wsp.online-go.com` connection for challenges/seekgraph
+- Minimal risk to existing game functionality
+
+**Pros:**
+- No risk of breaking existing game play
+- Clear separation of concerns
+- Easy to debug (know which connection each message uses)
+
+**Cons:**
+- 2x network connections (battery/bandwidth)
+- 2x authentication needed
+- Synchronization complexity
+- What if one drops but not the other?
+- Technical debt / harder to maintain
+
+**Option B: Single WebSocket with Dynamic Format (CLEANER)**
+- Use ONE connection to `wss://wsp.online-go.com/` (no `/socket.io/`, no `?EIO=3`)
+- Send messages as PLAIN JSON arrays: `["event", data]`
+- Strip Socket.io framing (`42` prefix, handshakes, etc.)
+- Single connection = simpler architecture
+
+**Pros:**
+- Single connection (less overhead)
+- Cleaner codebase
+- Matches browser behavior exactly
+- Easier to maintain long-term
+
+**Cons:**
+- Risk of breaking existing game play if format detection wrong
+- Need to rewrite message sending/receiving
+- May need to handle both formats during transition
+
+**Decision:** Try Option B first (cleaner), with ability to rollback to Option A if needed
 
 ---
 
