@@ -1289,7 +1289,7 @@ class OGSClient: NSObject, ObservableObject {
 
                     // v3.84 FIX: Start sending challenge keepalives immediately
                     // Browser clients send game/connect + periodic challenge/keepalive to prevent deletion
-                    self?.startChallengeKeepalive(challengeID: challengeID, gameID: gameID)
+                    self.startChallengeKeepalive(challengeID: challengeID, gameID: gameID)
                 } else {
                     NSLog("OGS: ⚠️ Could not extract challenge/game IDs from response - keepalives will NOT be sent!")
                 }
@@ -1446,7 +1446,7 @@ class OGSClient: NSObject, ObservableObject {
 
                 // v3.84: Stop keepalives when challenge is cancelled
                 DispatchQueue.main.async {
-                    self?.stopChallengeKeepalive()
+                    self.stopChallengeKeepalive()
                 }
 
                 completion(true, nil)
