@@ -1108,6 +1108,15 @@ class OGSClient: NSObject, ObservableObject {
             return
         }
 
+        // v3.84 FIX: Ensure WebSocket is connected before creating challenge
+        // Challenge needs immediate game/connect + keepalive messages, which require active WebSocket
+        guard isConnected else {
+            NSLog("OGS: ❌ Cannot post game - WebSocket not connected")
+            NSLog("OGS: 💡 Please wait for WebSocket to connect before creating challenges")
+            completion(false, "WebSocket not connected. Please wait a moment and try again.")
+            return
+        }
+
         guard let url = URL(string: "https://online-go.com/api/v1/challenges") else {
             NSLog("OGS: ❌ Invalid challenges URL")
             completion(false, "Invalid URL")
