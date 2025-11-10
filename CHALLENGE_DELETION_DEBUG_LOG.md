@@ -96,7 +96,36 @@
 
 ---
 
-## Current Understanding (as of v3.81)
+### v3.83 - CRITICAL DISCOVERY: Wrong WebSocket URL!
+**Hypothesis:** App connecting to wrong WebSocket server
+**Investigation:** Captured browser WebSocket connections in Dev Tools Network tab
+**Result:** 🎯 **ROOT CAUSE IDENTIFIED!**
+
+**Discovery:**
+Browser uses **completely different WebSocket URL** than app:
+- **Browser:** `wss://wsp.online-go.com/` (plain WebSocket protocol)
+- **App:** `wss://online-go.com/socket.io/?EIO=3&transport=websocket` (Socket.io/Engine.IO v3)
+
+**This explains EVERYTHING:**
+- ✅ Why all HTTP headers are correct but challenges still deleted
+- ✅ Why challenge appears in seekgraph but gets deleted
+- ✅ Why v3.74 game subscription didn't work (wrong WebSocket server!)
+- ✅ Why no error message is sent (server can't find client on correct WebSocket)
+- ✅ The 6-9 second timeout (server waits for client on `wsp.online-go.com`, doesn't see them, deletes challenge)
+
+**Evidence:**
+- Browser Network tab shows connection to `wss://wsp.online-go.com/`
+- App code at OGSClient.swift:182 connects to `wss://online-go.com/socket.io/...`
+- Two separate WebSocket infrastructure endpoints!
+
+**Action Required:**
+Change app WebSocket URL from `online-go.com/socket.io` to `wsp.online-go.com`
+- May need to change protocol from Socket.io to plain WebSocket
+- Need to understand message format for `wsp.online-go.com`
+
+---
+
+## Current Understanding (as of v3.83)
 
 ### ✅ Confirmed Working / Correct
 1. **Cookie Header**: Both csrftoken and sessionid sent correctly
@@ -167,19 +196,43 @@ Browser clients may send periodic WebSocket messages to keep challenges alive. T
 
 ## Next Steps to Try
 
-### Test Priority 1: Capture Browser WebSocket Traffic **[HIGHEST PRIORITY]**
-**Rationale:** Test the keep-alive hypothesis
+### Test Priority 1: Change WebSocket URL to wsp.online-go.com **[HIGHEST PRIORITY - ROOT CAUSE]**
+**Rationale:** Browser uses `wss://wsp.online-go.com/`, app uses wrong URL
+
+**What to Change:**
+Location: `OGSClient.swift:182`
+```swift
+// OLD (WRONG):
+guard let url = URL(string: "wss://online-go.com/socket.io/?EIO=3&transport=websocket") else {
+
+// NEW (CORRECT):
+guard let url = URL(string: "wss://wsp.online-go.com/") else {
+```
+
+**CRITICAL CONSIDERATIONS:**
+1. **Protocol Change:** `wsp.online-go.com` appears to use **plain WebSocket**, NOT Socket.io
+   - Socket.io messages like `42["seekgraph/subscribe",...]` may not work
+   - May need to use plain WebSocket JSON messages instead
+2. **Message Format:** Need to understand what `wsp.online-go.com` expects
+3. **Backwards Compatibility:** Will this break existing game functionality?
+
+**Before Making Changes:**
+- First, capture messages from browser's `wsp.online-go.com` connection to understand protocol
+- Look at initial handshake, message format, seekgraph subscription format
+- See if it's plain WebSocket or still some variant of Socket.io
+
+### Test Priority 2: Investigate wsp.online-go.com Protocol **[DO THIS FIRST]**
+**Rationale:** Need to understand message format before changing code
 
 **Method:**
-1. Open browser, go to https://online-go.com/play
-2. Open Dev Tools → Network → WS tab
-3. Create a challenge with same parameters as v3.81 test
-4. Watch WebSocket messages sent AFTER challenge creation
-5. Look for:
-   - Any messages containing the challenge_id
-   - Any periodic messages (sent every N seconds)
-   - Any "challenge/" or "seek" related messages
-   - Any acknowledgment of the seekgraph update
+1. Browser Dev Tools → Network → WS tab → Click on `wsp.online-go.com` connection
+2. Look at "Messages" tab
+3. Capture:
+   - Initial handshake/connection messages
+   - What gets sent when subscribing to seekgraph
+   - What format messages use (JSON? Socket.io protocol?)
+   - Any challenge-related messages
+4. This will tell us if we need major refactoring or just URL change
 
 ### Test Priority 2: Simpler Challenge Settings
 **Rationale:** Current test uses potentially invalid combination (rank 27 creating ranked game with 9-stone handicap for any rank)
