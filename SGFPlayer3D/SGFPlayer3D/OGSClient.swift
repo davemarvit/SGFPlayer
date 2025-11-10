@@ -182,10 +182,9 @@ class OGSClient: NSObject, ObservableObject {
 
     /// Connect to OGS WebSocket server
     func connect() {
-        // v3.84 FIX: Browser uses wsp.online-go.com, not online-go.com/socket.io
-        // This is the CORRECT WebSocket URL that browser clients use
-        // Still uses Socket.io protocol with EIO=3 format
-        guard let url = URL(string: "wss://wsp.online-go.com/socket.io/?EIO=3&transport=websocket") else {
+        // v3.86 FIX: Browser uses PLAIN WebSocket (not Socket.io) on wsp.online-go.com
+        // Messages are plain JSON arrays: ["event", data] - NO Socket.io framing (no 42 prefix, no EIO handshake)
+        guard let url = URL(string: "wss://wsp.online-go.com/") else {
             lastError = "Invalid WebSocket URL"
             return
         }
@@ -383,8 +382,9 @@ class OGSClient: NSObject, ObservableObject {
                             // If WebSocket is already connected, send authenticate message with new JWT
                             if self.isConnected, let jwt = self.jwtToken {
                                 NSLog("OGS: 🔑 Sending WebSocket authenticate with new JWT token")
+                                // v3.86: Plain JSON format (NO Socket.io prefix)
                                 let authMessage = """
-                                42["authenticate",{"jwt":"\(jwt)"}]
+                                ["authenticate",{"jwt":"\(jwt)"}]
                                 """
                                 let wsMessage = URLSessionWebSocketTask.Message.string(authMessage)
                                 self.webSocketTask?.send(wsMessage) { error in
@@ -1002,8 +1002,9 @@ class OGSClient: NSObject, ObservableObject {
             NSLog("OGS: 📊 Subscribing to seekgraph...")
         }
 
+        // v3.86: Plain JSON format (NO Socket.io prefix)
         let message = """
-        42["seek_graph/connect",{"channel":"global"}]
+        ["seek_graph/connect",{"channel":"global"}]
         """
 
         let wsMessage = URLSessionWebSocketTask.Message.string(message)
@@ -1066,8 +1067,9 @@ class OGSClient: NSObject, ObservableObject {
 
         NSLog("OGS: 📊 Unsubscribing from seekgraph...")
 
+        // v3.86: Plain JSON format (NO Socket.io prefix)
         let message = """
-        42["seek_graph/disconnect",{"channel":"global"}]
+        ["seek_graph/disconnect",{"channel":"global"}]
         """
 
         let wsMessage = URLSessionWebSocketTask.Message.string(message)
@@ -1360,8 +1362,9 @@ class OGSClient: NSObject, ObservableObject {
             return
         }
 
+        // v3.86: Plain JSON format (NO Socket.io prefix)
         let message = """
-        42["game/connect",{"game_id":\(gameID)}]
+        ["game/connect",{"game_id":\(gameID)}]
         """
 
         NSLog("OGS: 📤 Sending game/connect for game:\(gameID)")
@@ -1389,8 +1392,9 @@ class OGSClient: NSObject, ObservableObject {
             return
         }
 
+        // v3.86: Plain JSON format (NO Socket.io prefix)
         let message = """
-        42["challenge/keepalive",{"challenge_id":\(challengeID),"game_id":\(gameID)}]
+        ["challenge/keepalive",{"challenge_id":\(challengeID),"game_id":\(gameID)}]
         """
 
         let wsMessage = URLSessionWebSocketTask.Message.string(message)
@@ -1479,8 +1483,9 @@ class OGSClient: NSObject, ObservableObject {
             return
         }
 
+        // v3.86: Plain JSON format (NO Socket.io prefix)
         let moveMessage = """
-        42["game/move",{"game_id":\(gameID),"move":"\(move)"}]
+        ["game/move",{"game_id":\(gameID),"move":"\(move)"}]
         """
 
         let message = URLSessionWebSocketTask.Message.string(moveMessage)
@@ -1636,18 +1641,19 @@ class OGSClient: NSObject, ObservableObject {
     private func subscribeToGame(gameID: Int) {
         NSLog("OGS: 📡 Subscribing to WebSocket updates for game \(gameID)")
 
+        // v3.86: Plain JSON format (NO Socket.io prefix)
         // Build game/connect message with player_id if available
         // player_id is required to receive clock events and other game updates
         let connectMessage: String
         if let playerID = playerID {
             NSLog("OGS: 🆔 Using player_id \(playerID) for subscription")
             connectMessage = """
-            42["game/connect",{"game_id":\(gameID),"player_id":\(playerID),"chat":true}]
+            ["game/connect",{"game_id":\(gameID),"player_id":\(playerID),"chat":true}]
             """
         } else {
             NSLog("OGS: ⚠️ No player_id available - subscribing as spectator (may not receive all events)")
             connectMessage = """
-            42["game/connect",{"game_id":\(gameID),"chat":false}]
+            ["game/connect",{"game_id":\(gameID),"chat":false}]
             """
         }
 
@@ -1660,9 +1666,10 @@ class OGSClient: NSObject, ObservableObject {
             }
         }
 
+        // v3.86: Plain JSON format (NO Socket.io prefix)
         // Format 2: Spectate the game (backup subscription)
         let spectateMessage = """
-        42["spectate",{"game_id":\(gameID)}]
+        ["spectate",{"game_id":\(gameID)}]
         """
 
         let message2 = URLSessionWebSocketTask.Message.string(spectateMessage)
@@ -1792,16 +1799,14 @@ class OGSClient: NSObject, ObservableObject {
             }
         }
 
-        // Socket.io protocol handling
-        log("OGS: 🔍 Message starts with: \(message.prefix(3))")
-        if message.hasPrefix("0") {
-            // Server connection established (message starts with "0" and contains connection details)
-            log("OGS: ✅ Handshake received - waiting for namespace connection from server")
-            // DON'T send "40" - the server sends it automatically
-        } else if message.hasPrefix("40") {
-            // Connected to namespace
-            log("OGS: ✅ Namespace connected - ready for authentication")
-            NSLog("OGS: ✅ Namespace connected - ready for authentication")
+        // v3.86: Plain WebSocket JSON format (NOT Socket.io)
+        // Messages are plain JSON arrays: ["event_name", data]
+        // No Socket.io protocol prefixes (0, 40, 42, etc.)
+
+        // On first message, set connected and authenticate
+        if !isConnected {
+            log("OGS: ✅ Plain WebSocket connected - ready for authentication")
+            NSLog("OGS: ✅ Plain WebSocket connected - ready for authentication")
 
             // Set connected flag on main queue
             DispatchQueue.main.async { [weak self] in
@@ -1813,11 +1818,11 @@ class OGSClient: NSObject, ObservableObject {
                 NotificationCenter.default.post(name: NSNotification.Name("OGSConnected"), object: nil)
             }
 
-            // Send WebSocket authenticate message with JWT token
+            // Send WebSocket authenticate message with JWT token (PLAIN JSON format)
             if let jwt = self.jwtToken {
                 NSLog("OGS: 🔑 Sending WebSocket authenticate with JWT")
                 let authMessage = """
-                42["authenticate",{"jwt":"\(jwt)"}]
+                ["authenticate",{"jwt":"\(jwt)"}]
                 """
                 let wsMessage = URLSessionWebSocketTask.Message.string(authMessage)
                 self.webSocketTask?.send(wsMessage) { error in
@@ -1858,40 +1863,15 @@ class OGSClient: NSObject, ObservableObject {
                 NSLog("OGS: ℹ️ No stored credentials - connected as guest. Can spectate games.")
                 log("OGS: ℹ️ No stored credentials - connected as guest. Can spectate games.")
             }
-        } else if message.hasPrefix("41") {
-            // Disconnect from namespace
-            NSLog("OGS: ⚠️ Namespace disconnected: \(message)")
-            DispatchQueue.main.async {
-                self.isConnected = false
-                self.lastError = "Namespace disconnected by server"
-            }
-        } else if message.hasPrefix("44") {
-            // Error message
-            NSLog("OGS: ❌ Error from server: \(message)")
-            DispatchQueue.main.async {
-                self.lastError = "Server error: \(message)"
-            }
-        } else if message.hasPrefix("42") {
-            // Event message - parse JSON
-            parseEventMessage(message)
-        } else if message.hasPrefix("3") {
-            // Pong
-            NSLog("OGS: 🏓 Pong received")
-        } else {
-            NSLog("OGS: ❓ Unknown message type: \(message)")
         }
 
-        // Send periodic ping to keep connection alive
-        if message.hasPrefix("0") {
-            schedulePing()
-        }
+        // Parse all messages as plain JSON event arrays
+        parseEventMessage(message)
     }
 
     private func parseEventMessage(_ message: String) {
-        // Remove the "42" prefix
-        let jsonString = String(message.dropFirst(2))
-
-        guard let data = jsonString.data(using: .utf8),
+        // v3.86: Parse plain JSON array (NO Socket.io prefix to strip)
+        guard let data = message.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [Any],
               json.count >= 2,
               let eventName = json[0] as? String else {

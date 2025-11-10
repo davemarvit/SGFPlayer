@@ -235,6 +235,39 @@ After creating a challenge, browser sends:
 
 ---
 
+### v3.86 - Implement Plain WebSocket Protocol (Option B)
+**Hypothesis:** Using plain WebSocket JSON format instead of Socket.io will allow server to recognize keepalives
+**Implementation:**
+1. Changed WebSocket URL from `wss://wsp.online-go.com/socket.io/?EIO=3&transport=websocket` to `wss://wsp.online-go.com/`
+2. Modified `handleMessage()` to handle plain JSON without Socket.io protocol parsing (no `0`, `40`, `42` prefixes)
+3. Modified `parseEventMessage()` to parse plain JSON arrays without stripping Socket.io prefix
+4. Updated ALL message sending functions to use plain JSON format `["event", data]` instead of Socket.io `42["event", data]`:
+   - `sendGameConnect()` - for challenge keepalive
+   - `sendChallengeKeepalive()` - periodic keepalive messages
+   - `subscribeToSeekgraph()` - seekgraph subscription
+   - `unsubscribeFromSeekgraph()` - seekgraph unsubscribe
+   - `sendMove()` - game moves
+   - `subscribeToGame()` - game subscription (both game/connect and spectate)
+   - WebSocket authentication messages (2 locations)
+5. Removed Socket.io ping scheduling (rely on URLSessionWebSocketTask's built-in WebSocket ping/pong)
+6. Updated version to v3.86
+
+**Test Plan:**
+1. Build and run in Xcode
+2. Create a challenge
+3. Verify messages sent in plain JSON format: `["challenge/keepalive",{...}]` NOT `42["challenge/keepalive",{...}]`
+4. Confirm challenge persists beyond 10 seconds
+5. Test seekgraph still works
+6. Test game play still works
+
+**Rollback Plan:**
+If this breaks game functionality, implement Option A (dual WebSocket connections):
+- Revert these changes
+- Keep original Socket.io connection for games
+- Add separate plain WebSocket connection for challenges/seekgraph only
+
+---
+
 ## Current Understanding (as of v3.83)
 
 ### ✅ Confirmed Working / Correct
