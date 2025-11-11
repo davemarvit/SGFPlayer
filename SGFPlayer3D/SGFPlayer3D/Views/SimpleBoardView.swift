@@ -8,6 +8,7 @@ struct SimpleBoardView: View {
     let physicsIntegration: PhysicsIntegration  // Only for bowl rendering, NOT board stones
     let boardStoneDiameter: CGFloat
     @ObservedObject var gameCacheManager: GameCacheManager
+    @ObservedObject var ogsClient: OGSClient  // For sending moves
 
     // Explicit positioning from parent (ContentView)
     let boardFrame: CGRect
@@ -23,7 +24,7 @@ struct SimpleBoardView: View {
         }()
 
         ZStack {
-            // Board rendering at explicit position
+            // Board rendering at explicit position (no hit testing)
             BoardContent(
                 player: player,
                 boardStoneDiameter: boardStoneDiameter,
@@ -31,7 +32,7 @@ struct SimpleBoardView: View {
                 boardFrame: boardFrame
             )
 
-            // Bowl rendering at explicit positions
+            // Bowl rendering at explicit positions (no hit testing)
             BowlContent(
                 physicsIntegration: physicsIntegration,
                 ulCenter: ulBowlCenter,
@@ -40,8 +41,15 @@ struct SimpleBoardView: View {
                 boardFrame: boardFrame,
                 gridSize: player.board.size
             )
+
+            // Board interaction overlay (handles mouse events and phantom stones)
+            BoardInteractionOverlay(
+                boardFrame: boardFrame,
+                gridSize: player.board.size,
+                player: player,
+                ogsClient: ogsClient
+            )
         }
-        .allowsHitTesting(false)
     }
 }
 
