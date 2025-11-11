@@ -593,19 +593,9 @@ class OGSClient: NSObject, ObservableObject {
         var upperRankDiff = 36   // Default: allow all higher ranks
 
         if settings.restrictRank, let userRank = self.userRank {
-            switch settings.ranksBelow {
-            case .any:
-                lowerRankDiff = -36
-            case .limit(let delta):
-                lowerRankDiff = -delta
-            }
-
-            switch settings.ranksAbove {
-            case .any:
-                upperRankDiff = 36
-            case .limit(let delta):
-                upperRankDiff = delta
-            }
+            // Calculate rank differences from absolute ranks
+            lowerRankDiff = settings.minRank - Int(userRank)
+            upperRankDiff = settings.maxRank - Int(userRank)
         }
 
         // Build automatch preferences structure
@@ -1167,23 +1157,16 @@ class OGSClient: NSObject, ObservableObject {
         var minRank = 0
         var maxRank = 36  // Maximum rank (9d professional)
 
-        if settings.restrictRank, let userRank = self.userRank {
-            // Apply rank restrictions based on user's selections
-            switch settings.ranksBelow {
-            case .any:
-                minRank = 0
-            case .limit(let delta):
-                minRank = max(0, Int(userRank) - delta)
-            }
+        if settings.restrictRank {
+            // Use absolute rank values from settings
+            minRank = settings.minRank
+            maxRank = settings.maxRank
 
-            switch settings.ranksAbove {
-            case .any:
-                maxRank = 36
-            case .limit(let delta):
-                maxRank = min(36, Int(userRank) + delta)
+            if let userRank = self.userRank {
+                NSLog("OGS: 🎮 Setting rank range: \(minRank) to \(maxRank) (user rank: \(Int(userRank)))")
+            } else {
+                NSLog("OGS: 🎮 Setting rank range: \(minRank) to \(maxRank)")
             }
-
-            NSLog("OGS: 🎮 Setting rank range: \(minRank) to \(maxRank) (user rank: \(Int(userRank)))")
         } else {
             // No rank restriction - allow all ranks
             NSLog("OGS: 🎮 No rank restrictions - allowing all ranks (0 to 36)")
