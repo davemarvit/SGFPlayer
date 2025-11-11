@@ -959,6 +959,20 @@ class OGSClient: NSObject, ObservableObject {
                         handle.closeFile()
                     }
                     NSLog("OGS: ✅ Challenge sent successfully!")
+
+                    // Extract game_id and challenge_id for keepalives
+                    if let data = data,
+                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let gameID = json["game"] as? Int,
+                       let challengeID = json["challenge"] as? Int {
+                        NSLog("OGS: 🎮 Direct challenge created - game_id: \(gameID), challenge_id: \(challengeID)")
+
+                        // Start sending challenge keepalives to prevent challenge expiration
+                        self?.startChallengeKeepalive(challengeID: challengeID, gameID: gameID)
+                    } else {
+                        NSLog("OGS: ⚠️ Could not extract challenge/game IDs from response - keepalives will NOT be sent!")
+                    }
+
                     DispatchQueue.main.async {
                         self?.lastError = nil
                     }
