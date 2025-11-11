@@ -430,6 +430,7 @@ struct ContentView: View {
                     physicsIntegration: physicsIntegration,
                     boardStoneDiameter: uiStateVM.boardStoneDiameter,
                     gameCacheManager: app.gameCacheManager,
+                    ogsClient: ogsClient,
                     boardFrame: layout.boardFrame,
                     ulBowlCenter: layout.ulBowlCenter,
                     lrBowlCenter: layout.lrBowlCenter,

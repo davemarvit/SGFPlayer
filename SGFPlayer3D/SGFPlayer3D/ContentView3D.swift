@@ -64,6 +64,10 @@ struct ContentView3D: View {
     @State private var showControls: Bool = true
     @State private var hideControlsTimer: Timer? = nil
 
+    // Phantom stone state for move preview
+    @State private var phantomStonePosition: (x: Int, y: Int)?
+    @State private var isMouseDown: Bool = false
+
     // Computed property for active games list (filtered or all)
     private var activeGamesList: [SGFGameWrapper] {
         return isSearchActive && !filteredGames.isEmpty ? filteredGames : app.games
@@ -393,22 +397,50 @@ struct ContentView3D: View {
     }
 
     var sceneView: some View {
-        ZStack {
-            SceneView(
-                scene: sceneManager.scene,
-                pointOfView: sceneManager.cameraNode,
-                options: []  // Use our custom lighting only
-            )
+        GeometryReader { geometry in
+            ZStack {
+                SceneView(
+                    scene: sceneManager.scene,
+                    pointOfView: sceneManager.cameraNode,
+                    options: []  // Use our custom lighting only
+                )
 
-            // Overlay to capture all camera control events
-            CameraControlHandler(
-                rotationX: $currentRotationX,
-                rotationY: $currentRotationY,
-                distance: $cameraDistance,
-                panX: $cameraPanX,
-                panY: $cameraPanY,
-                sceneManager: sceneManager
-            )
+                // Overlay to capture all camera control events
+                CameraControlHandler(
+                    rotationX: $currentRotationX,
+                    rotationY: $currentRotationY,
+                    distance: $cameraDistance,
+                    panX: $cameraPanX,
+                    panY: $cameraPanY,
+                    sceneManager: sceneManager
+                )
+
+                // Board interaction overlay for phantom stones and move placement
+                Color.clear
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                handle3DMouseMove(at: value.location, viewSize: geometry.size, isDown: true)
+                            }
+                            .onEnded { value in
+                                handle3DMouseUp(at: value.location, viewSize: geometry.size)
+                            }
+                    )
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(let location):
+                            if !isMouseDown {
+                                handle3DMouseMove(at: location, viewSize: geometry.size, isDown: false)
+                            }
+                        case .ended:
+                            if !isMouseDown {
+                                sceneManager.hidePhantomStone()
+                                phantomStonePosition = nil
+                            }
+                        }
+                    }
+            }
         }
         .ignoresSafeArea()
     }
@@ -762,6 +794,72 @@ struct ContentView3D: View {
         }
 
         sceneManager.updateStones(from: player, jitterMultiplier: jitterMultiplier, jitterOffsets: jitterOffsets)
+    }
+
+    // MARK: - 3D Board Interaction
+
+    private func handle3DMouseMove(at location: CGPoint, viewSize: CGSize, isDown: Bool) {
+        isMouseDown = isDown
+
+        // Only show phantom stone if it's our turn and game is in progress
+        guard ogsClient.isMyTurn, ogsClient.gamePhase == .playing else {
+            sceneManager.hidePhantomStone()
+            phantomStonePosition = nil
+            return
+        }
+
+        // Convert screen coordinates to board position
+        if let boardPos = sceneManager.hitTestBoard(screenPoint: location, viewSize: viewSize) {
+            // Check if position is empty
+            if player.board.grid[boardPos.y][boardPos.x] == nil {
+                // Show phantom stone at this position
+                if phantomStonePosition?.x != boardPos.x || phantomStonePosition?.y != boardPos.y {
+                    let stoneColor = ogsClient.playerColor ?? .black
+                    let opacity: CGFloat = isDown ? 0.3 : 0.5  // More transparent when pressed
+                    sceneManager.showPhantomStone(at: boardPos, color: stoneColor, opacity: opacity)
+                    phantomStonePosition = boardPos
+                }
+            } else {
+                sceneManager.hidePhantomStone()
+                phantomStonePosition = nil
+            }
+        } else {
+            sceneManager.hidePhantomStone()
+            phantomStonePosition = nil
+        }
+    }
+
+    private func handle3DMouseUp(at location: CGPoint, viewSize: CGSize) {
+        isMouseDown = false
+
+        // Only send move if it's our turn and game is in progress
+        guard ogsClient.isMyTurn,
+              ogsClient.gamePhase == .playing,
+              let position = phantomStonePosition,
+              let gameID = ogsClient.currentGameID else {
+            sceneManager.hidePhantomStone()
+            phantomStonePosition = nil
+            return
+        }
+
+        // Convert board position to SGF notation
+        let sgfMove = boardPositionToSGF(x: position.x, y: position.y)
+
+        // Send move to OGS
+        NSLog("DEBUG3D: 🎯 Sending move: \(sgfMove) at (\(position.x), \(position.y))")
+        ogsClient.sendMove(gameID: gameID, move: sgfMove)
+
+        // Clear phantom stone
+        sceneManager.hidePhantomStone()
+        phantomStonePosition = nil
+    }
+
+    private func boardPositionToSGF(x: Int, y: Int) -> String {
+        // Convert board coordinates to SGF notation (e.g., (3,3) -> "dd")
+        let letters = "abcdefghijklmnopqrs"
+        let xChar = letters[letters.index(letters.startIndex, offsetBy: x)]
+        let yChar = letters[letters.index(letters.startIndex, offsetBy: y)]
+        return "\(xChar)\(yChar)"
     }
 }
 

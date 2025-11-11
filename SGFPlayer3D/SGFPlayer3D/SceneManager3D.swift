@@ -14,6 +14,7 @@ class SceneManager3D: ObservableObject {
     let pivotNode = SCNNode()  // Pivot for camera rotation around board center
     private var boardNode: SCNNode?
     private var stoneNodes: [SCNNode] = []
+    private var phantomStoneNode: SCNNode?  // Phantom stone for move preview
     private var currentPlayer: SGFPlayer?
     private var previousLastMove: (x: Int, y: Int)?  // Track previous last move for fade-out
 
@@ -822,5 +823,152 @@ class SceneManager3D: ObservableObject {
             ])
             glowClone.runAction(fadeOut)
         }
+    }
+
+    // MARK: - Phantom Stone (Move Preview)
+
+    /// Show a phantom stone at the given board position
+    /// - Parameters:
+    ///   - x: Column on the board (0-based)
+    ///   - y: Row on the board (0-based)
+    ///   - color: Color of the stone to show
+    ///   - opacity: Opacity of the phantom stone (0.0-1.0)
+    func showPhantomStone(at position: (x: Int, y: Int), color: Stone, opacity: CGFloat = 0.5) {
+        // Remove existing phantom stone if any
+        hidePhantomStone()
+
+        // Calculate stone position in 3D space
+        let totalWidth = CGFloat(boardSize - 1) * effectiveCellWidth
+        let totalHeight = CGFloat(boardSize - 1) * effectiveCellHeight
+        let offsetX = -totalWidth / 2.0
+        let offsetZ = -totalHeight / 2.0
+        let boardTopY = boardThickness / 2.0
+
+        let x = CGFloat(position.x) * effectiveCellWidth + offsetX
+        let z = CGFloat(position.y) * effectiveCellHeight + offsetZ
+
+        // Position stone so bottom just touches board
+        let stoneRadius = color == .black ? effectiveBlackStoneRadius : effectiveWhiteStoneRadius
+        let thicknessRatio: CGFloat = 0.486
+        let stoneScaledHalfHeight = stoneRadius * thicknessRatio
+        let y = boardTopY + stoneScaledHalfHeight
+
+        let stonePosition = SCNVector3(x: x, y: y, z: z)
+
+        // Create phantom stone
+        let phantomNode = createStone(color: color, at: stonePosition)
+        phantomNode.opacity = opacity
+        phantomNode.name = "phantomStone"
+
+        // Add to scene
+        scene.rootNode.addChildNode(phantomNode)
+        phantomStoneNode = phantomNode
+
+        NSLog("DEBUG3D: 👻 Showing phantom \(color) stone at (\(position.x), \(position.y)) with opacity \(opacity)")
+    }
+
+    /// Hide the phantom stone if it exists
+    func hidePhantomStone() {
+        if let phantom = phantomStoneNode {
+            phantom.removeFromParentNode()
+            phantomStoneNode = nil
+            NSLog("DEBUG3D: 👻 Hiding phantom stone")
+        }
+    }
+
+    /// Convert screen point to board coordinates
+    /// - Parameters:
+    ///   - screenPoint: Point in view coordinates
+    ///   - viewSize: Size of the view
+    /// - Returns: Board coordinates (x, y) if hit, nil otherwise
+    func hitTestBoard(screenPoint: CGPoint, viewSize: CGSize) -> (x: Int, y: Int)? {
+        // Create a hit test from the camera through the screen point
+        // SceneKit uses (0,0) at bottom-left, but AppKit uses top-left
+        // Convert to SceneKit coordinates
+        let sceneKitY = viewSize.height - screenPoint.y
+
+        // Normalize to [-1, 1] range
+        let normalizedX = (screenPoint.x / viewSize.width) * 2.0 - 1.0
+        let normalizedY = (sceneKitY / viewSize.height) * 2.0 - 1.0
+
+        // Get camera's projection and view transform
+        guard let camera = cameraNode.camera else {
+            NSLog("DEBUG3D: ❌ No camera found for hit test")
+            return nil
+        }
+
+        // Create ray from camera through screen point
+        let cameraPos = cameraNode.presentationNode.worldPosition
+        let cameraTransform = cameraNode.presentationNode.worldTransform
+
+        // Calculate ray direction in world space
+        // This is a simplified approach - we'll use the board's Y plane
+        let boardY = boardThickness / 2.0  // Board top surface
+
+        // Use SceneKit's hit test
+        // Find all nodes under the tap point
+        let totalWidth = CGFloat(boardSize - 1) * effectiveCellWidth
+        let totalHeight = CGFloat(boardSize - 1) * effectiveCellHeight
+
+        // Create a large plane for hit testing at board level
+        let hitPlane = SCNPlane(width: totalWidth * 2, height: totalHeight * 2)
+        let hitPlaneNode = SCNNode(geometry: hitPlane)
+        hitPlaneNode.position = SCNVector3(0, boardY, 0)
+        hitPlaneNode.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)  // Rotate to horizontal
+        hitPlaneNode.opacity = 0.0  // Invisible
+        scene.rootNode.addChildNode(hitPlaneNode)
+
+        // Perform hit test using unproject
+        let unprojectedNear = cameraNode.unprojectPoint(SCNVector3(screenPoint.x, sceneKitY, 0))
+        let unprojectedFar = cameraNode.unprojectPoint(SCNVector3(screenPoint.x, sceneKitY, 1))
+
+        // Calculate intersection with board plane (y = boardY)
+        let rayOrigin = unprojectedNear
+        let rayDirection = SCNVector3(
+            unprojectedFar.x - unprojectedNear.x,
+            unprojectedFar.y - unprojectedNear.y,
+            unprojectedFar.z - unprojectedNear.z
+        )
+
+        // Normalize ray direction
+        let rayLength = sqrt(rayDirection.x * rayDirection.x +
+                            rayDirection.y * rayDirection.y +
+                            rayDirection.z * rayDirection.z)
+        let normalizedRay = SCNVector3(
+            rayDirection.x / rayLength,
+            rayDirection.y / rayLength,
+            rayDirection.z / rayLength
+        )
+
+        // Calculate t where ray intersects board plane (y = boardY)
+        if abs(normalizedRay.y) > 0.001 {  // Avoid division by zero
+            let t = (boardY - rayOrigin.y) / normalizedRay.y
+            let hitX = rayOrigin.x + normalizedRay.x * t
+            let hitZ = rayOrigin.z + normalizedRay.z * t
+
+            // Convert world coordinates to board coordinates
+            let offsetX = -totalWidth / 2.0
+            let offsetZ = -totalHeight / 2.0
+
+            let boardX = (hitX - offsetX) / effectiveCellWidth
+            let boardY = (hitZ - offsetZ) / effectiveCellHeight
+
+            // Round to nearest intersection
+            let x = Int(round(boardX))
+            let y = Int(round(boardY))
+
+            // Remove temporary hit plane
+            hitPlaneNode.removeFromParentNode()
+
+            // Check bounds
+            if x >= 0 && x < boardSize && y >= 0 && y < boardSize {
+                NSLog("DEBUG3D: 🎯 Hit test: screen(\(screenPoint.x), \(screenPoint.y)) -> board(\(x), \(y))")
+                return (x, y)
+            } else {
+                NSLog("DEBUG3D: 🎯 Hit test out of bounds: (\(x), \(y))")
+            }
+        }
+
+        return nil
     }
 }
