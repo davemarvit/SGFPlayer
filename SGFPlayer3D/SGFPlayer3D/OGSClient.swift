@@ -839,41 +839,79 @@ class OGSClient: NSObject, ObservableObject {
             NSLog("OGS: ⚠️ No CSRF token found in cookies")
         }
 
-        // Build time control parameters (different for Fischer vs others)
+        // Calculate rank range based on user's rank and restrictions
+        var minRank = 0
+        var maxRank = 36  // Maximum rank (9d professional)
+
+        if settings.restrictRank {
+            minRank = settings.minRank
+            maxRank = settings.maxRank
+            NSLog("OGS: ⚔️ Setting rank range: \(minRank) to \(maxRank)")
+        } else {
+            NSLog("OGS: ⚔️ No rank restrictions - allowing all ranks (0 to 36)")
+        }
+
+        // Build time control parameters - MUST match postCustomGame format
         var timeControlParams: [String: Any] = [
+            "main_time": settings.mainTimeMinutes * 60,  // Seconds
             "time_control": settings.timeControlSystem.apiValue,
             "system": settings.timeControlSystem.apiValue,
-            "main_time": settings.mainTimeMinutes * 60  // Convert to seconds
+            "pause_on_weekends": false
         ]
+
+        // Add speed classification
+        let totalSeconds = settings.mainTimeMinutes * 60
+        let speed: String
+        if totalSeconds < 10 * 60 {
+            speed = "blitz"
+        } else if totalSeconds < 20 * 60 {
+            speed = "rapid"
+        } else if totalSeconds < 24 * 60 * 60 {
+            speed = "live"
+        } else {
+            speed = "correspondence"
+        }
+        timeControlParams["speed"] = speed
 
         // Add system-specific parameters
         switch settings.timeControlSystem {
         case .fischer:
             timeControlParams["time_increment"] = settings.fischerIncrementSeconds
-            timeControlParams["max_time"] = settings.fischerMaxTimeMinutes * 60  // Convert to seconds
+            timeControlParams["max_time"] = settings.fischerMaxTimeMinutes * 60
         case .byoyomi, .canadian, .simple:
             timeControlParams["period_time"] = settings.periodTimeSeconds
             timeControlParams["periods"] = settings.periods
+            timeControlParams["periods_min"] = 1
+            timeControlParams["periods_max"] = 300
         case .absolute, .none:
-            // No additional parameters needed
             break
         }
 
-        // Build challenge request body
+        // Build challenge request body matching postCustomGame format
         let challengeData: [String: Any] = [
             "challenged_player_id": playerID,
+            "initialized": false,
+            "min_ranking": minRank,
+            "max_ranking": maxRank,
             "challenger_color": settings.colorPreference.apiValue,
+            "rengo_auto_start": 0,
             "game": [
+                "name": settings.gameName,
                 "width": settings.boardSize,
                 "height": settings.boardSize,
                 "ranked": settings.ranked,
                 "handicap": settings.handicap.apiValue,
-                "komi_auto": settings.komi == .automatic ? "automatic" : "custom",
+                "komi_auto": "automatic",
                 "disable_analysis": settings.disableAnalysis,
                 "rules": settings.rules.apiValue,
+                "initial_state": nil as String?,
+                "pause_on_weekends": false,
+                "private": false,
+                "rengo": false,
+                "rengo_casual_mode": true,
                 "time_control": settings.timeControlSystem.apiValue,
                 "time_control_parameters": timeControlParams
-            ]
+            ] as [String: Any]
         ]
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: challengeData) else {
@@ -949,6 +987,20 @@ class OGSClient: NSObject, ObservableObject {
                         handle.closeFile()
                     }
                     NSLog("OGS: ✅ Challenge sent successfully!")
+
+                    // Extract game_id and challenge_id for keepalives
+                    if let data = data,
+                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let gameID = json["game"] as? Int,
+                       let challengeID = json["challenge"] as? Int {
+                        NSLog("OGS: 🎮 Direct challenge created - game_id: \(gameID), challenge_id: \(challengeID)")
+
+                        // Start sending challenge keepalives to prevent challenge expiration
+                        self?.startChallengeKeepalive(challengeID: challengeID, gameID: gameID)
+                    } else {
+                        NSLog("OGS: ⚠️ Could not extract challenge/game IDs from response - keepalives will NOT be sent!")
+                    }
+
                     DispatchQueue.main.async {
                         self?.lastError = nil
                     }

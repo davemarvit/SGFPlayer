@@ -79,6 +79,11 @@ struct ContentView3D: View {
             .focusable()
             .focusEffectDisabled()
             .onKeyPress { keyPress in
+                // When settings panel or pre-game overlay is open, let all keys pass through to text fields
+                if showSettings || app.showPreGameOverlay {
+                    return .ignored
+                }
+
                 // Handle keys for navigation and camera debugging
                 handleKeyPress(keyPress)
                 switch keyPress.key {

@@ -45,7 +45,7 @@ struct PreGameOverlay: View {
             VStack(spacing: 0) {
                 // Header with close button
                 HStack {
-                    Text("Find a Game [v3.86]")
+                    Text("Find a Game [v3.87]")
                         .font(.title.bold())
                         .foregroundColor(.white)
 
@@ -265,11 +265,14 @@ struct PreGameOverlay: View {
         NSLog("PreGameOverlay: Filtering \(all.count) total games")
 
         let filtered = all.filter { challenge in
-            // MOST IMPORTANT: Only show games that are truly available
-            // Skip if already accepted (black/white/started are populated)
-            let notAccepted = challenge.game.black == nil &&
-                             challenge.game.white == nil &&
-                             challenge.game.started == nil
+            // Check if this is your own challenge
+            let isOwnChallenge = challenge.challenger.id == ogsClient.playerID
+
+            // Check if game has started
+            let hasStarted = challenge.game.started != nil
+
+            // Check if both players have accepted (game is fully matched)
+            let bothPlayersAccepted = challenge.game.black != nil && challenge.game.white != nil
 
             // Check expired/abandoned flags
             let blackLost = challenge.game.blackLost
@@ -281,11 +284,22 @@ struct PreGameOverlay: View {
 
             // Debug first game
             if challenge.id == all.first?.id {
-                NSLog("PreGameOverlay: First game - black:\(challenge.game.black?.description ?? "nil") white:\(challenge.game.white?.description ?? "nil") started:\(challenge.game.started ?? "nil") blackLost:\(blackLost) whiteLost:\(whiteLost) annulled:\(annulled) notExpired:\(notExpired)")
+                NSLog("PreGameOverlay: First game - black:\(challenge.game.black?.description ?? "nil") white:\(challenge.game.white?.description ?? "nil") started:\(challenge.game.started ?? "nil") blackLost:\(blackLost) whiteLost:\(whiteLost) annulled:\(annulled) isOwn:\(isOwnChallenge)")
             }
 
-            // Skip games that are already accepted/started OR expired/abandoned
-            guard notAccepted && notExpired else {
+            // Skip games that are expired/abandoned
+            guard notExpired else {
+                return false
+            }
+
+            // Skip games that have already started
+            guard !hasStarted else {
+                return false
+            }
+
+            // For your own challenges: show them even if you're one of the players
+            // For other challenges: only show if not fully matched (at least one slot open)
+            guard isOwnChallenge || !bothPlayersAccepted else {
                 return false
             }
 
