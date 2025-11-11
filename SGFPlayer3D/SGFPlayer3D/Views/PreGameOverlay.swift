@@ -45,7 +45,7 @@ struct PreGameOverlay: View {
             VStack(spacing: 0) {
                 // Header with close button
                 HStack {
-                    Text("Find a Game [v3.91]")
+                    Text("Find a Game [v3.92]")
                         .font(.title.bold())
                         .foregroundColor(.white)
 

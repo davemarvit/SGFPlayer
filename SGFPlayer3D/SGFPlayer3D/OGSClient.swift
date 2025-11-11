@@ -914,7 +914,7 @@ class OGSClient: NSObject, ObservableObject {
                 "rules": settings.rules.apiValue,
                 "initial_state": nil as String?,
                 "pause_on_weekends": false,
-                "private": false,
+                "private": true,  // Direct challenges must be private to send as notification
                 "rengo": false,
                 "rengo_casual_mode": true,
                 "time_control": settings.timeControlSystem.apiValue,
