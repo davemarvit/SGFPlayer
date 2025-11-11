@@ -1391,15 +1391,18 @@ class OGSClient: NSObject, ObservableObject {
         // Send immediate game/connect message (browser does this right after creating challenge)
         sendGameConnect(gameID: gameID)
 
-        // Stop any existing timer
-        challengeKeepaliveTimer?.invalidate()
+        // Timer must be created on main thread to work properly
+        DispatchQueue.main.async { [weak self] in
+            // Stop any existing timer
+            self?.challengeKeepaliveTimer?.invalidate()
 
-        // Start timer to send keepalive every 2 seconds
-        challengeKeepaliveTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.sendChallengeKeepalive()
+            // Start timer to send keepalive every 2 seconds
+            self?.challengeKeepaliveTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+                self?.sendChallengeKeepalive()
+            }
+
+            NSLog("OGS: ✅ Challenge keepalive timer started (every 2 seconds)")
         }
-
-        NSLog("OGS: ✅ Challenge keepalive timer started (every 2 seconds)")
     }
 
     /// Stop sending challenge keepalive messages
@@ -1410,12 +1413,15 @@ class OGSClient: NSObject, ObservableObject {
 
         NSLog("OGS: 💓 Stopping challenge keepalive for challenge:\(activeChallengeID ?? 0)")
 
-        challengeKeepaliveTimer?.invalidate()
-        challengeKeepaliveTimer = nil
-        activeChallengeID = nil
-        activeGameID = nil
+        // Timer cleanup must also be on main thread for consistency
+        DispatchQueue.main.async { [weak self] in
+            self?.challengeKeepaliveTimer?.invalidate()
+            self?.challengeKeepaliveTimer = nil
+            self?.activeChallengeID = nil
+            self?.activeGameID = nil
 
-        NSLog("OGS: ✅ Challenge keepalive stopped")
+            NSLog("OGS: ✅ Challenge keepalive stopped")
+        }
     }
 
     /// Send game/connect message (browser sends this immediately after challenge creation)
