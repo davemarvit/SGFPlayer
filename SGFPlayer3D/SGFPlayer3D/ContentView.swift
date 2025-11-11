@@ -430,17 +430,31 @@ struct ContentView: View {
                     .aspectRatio(contentMode: .fill)
                     .ignoresSafeArea()
 
-                // Simple Board View with explicit positioning
-                SimpleBoardView(
-                    player: player,
-                    physicsIntegration: physicsIntegration,
-                    boardStoneDiameter: uiStateVM.boardStoneDiameter,
-                    gameCacheManager: app.gameCacheManager,
-                    boardFrame: layout.boardFrame,
-                    ulBowlCenter: layout.ulBowlCenter,
-                    lrBowlCenter: layout.lrBowlCenter,
-                    bowlRadius: layout.bowlRadius
-                )
+                // Board View - use Interactive2DBoardView for live games, SimpleBoardView for replay
+                if ogsClient.currentGameID != nil {
+                    Interactive2DBoardView(
+                        player: player,
+                        ogsClient: ogsClient,
+                        physicsIntegration: physicsIntegration,
+                        boardStoneDiameter: uiStateVM.boardStoneDiameter,
+                        gameCacheManager: app.gameCacheManager,
+                        boardFrame: layout.boardFrame,
+                        ulBowlCenter: layout.ulBowlCenter,
+                        lrBowlCenter: layout.lrBowlCenter,
+                        bowlRadius: layout.bowlRadius
+                    )
+                } else {
+                    SimpleBoardView(
+                        player: player,
+                        physicsIntegration: physicsIntegration,
+                        boardStoneDiameter: uiStateVM.boardStoneDiameter,
+                        gameCacheManager: app.gameCacheManager,
+                        boardFrame: layout.boardFrame,
+                        ulBowlCenter: layout.ulBowlCenter,
+                        lrBowlCenter: layout.lrBowlCenter,
+                        bowlRadius: layout.bowlRadius
+                    )
+                }
             }
             .onChange(of: geometry.size) { oldSize, newSize in
                 // Handle window resizing
@@ -653,6 +667,14 @@ struct ContentView: View {
             }
 
             Spacer()
+
+            // Game controls (Pass and Resign) for live games
+            if ogsClient.currentGameID != nil {
+                GameControlsView(ogsClient: ogsClient)
+                    .padding(.bottom, 20)
+                    .opacity(uiStateVM.buttonsVisible ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: uiStateVM.buttonsVisible ? 0.2 : 0.5), value: uiStateVM.buttonsVisible)
+            }
 
             // Playback controls at bottom center (using same component as 3D view)
             PlaybackControls(

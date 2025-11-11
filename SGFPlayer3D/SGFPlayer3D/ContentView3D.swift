@@ -542,6 +542,14 @@ struct ContentView3D: View {
                         .padding(.bottom, 8)
                 }
 
+                // Game controls (Pass and Resign) for live games
+                if ogsClient.currentGameID != nil {
+                    GameControlsView(ogsClient: ogsClient)
+                        .padding(.bottom, 20)
+                        .opacity(showControls ? 1.0 : 0.0)
+                        .animation(.easeInOut(duration: 0.2), value: showControls)
+                }
+
                 // Bottom controls - extracted to PlaybackControls
                 PlaybackControls(
                     player: player,

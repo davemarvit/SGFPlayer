@@ -1519,6 +1519,30 @@ class OGSClient: NSObject, ObservableObject {
         }
     }
 
+    /// Resign the current game
+    /// - Parameter gameID: The game ID to resign
+    func resignGame(gameID: Int) {
+        guard isConnected else {
+            NSLog("OGS: ❌ Cannot resign - not connected")
+            return
+        }
+
+        // Send resign message via WebSocket
+        let resignMessage = """
+        ["game/resign",{"game_id":\(gameID)}]
+        """
+
+        let message = URLSessionWebSocketTask.Message.string(resignMessage)
+        webSocketTask?.send(message) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error resigning game: \(error.localizedDescription)")
+                self.lastError = error.localizedDescription
+            } else {
+                NSLog("OGS: ✅ Resignation sent for game \(gameID)")
+            }
+        }
+    }
+
     /// Join a game to start receiving updates
     /// - Parameter gameID: The game ID to join
     func joinGame(gameID: Int) {
