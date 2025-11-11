@@ -658,11 +658,11 @@ struct PreGameOverlay: View {
                                 )) {
                                     Text("Any").tag(-1)
                                     ForEach([1, 2, 3, 4, 5, 6, 7, 8, 9], id: \.self) { value in
-                                        Text("\(value)").tag(value)
+                                        Text("±\(value) rank\(value == 1 ? "" : "s")").tag(value)
                                     }
                                 }
                                 .labelsHidden()
-                                .frame(width: 80)
+                                .frame(width: 100)
                             }
 
                             settingRow(label: "  Ranks Below") {
@@ -672,11 +672,20 @@ struct PreGameOverlay: View {
                                 )) {
                                     Text("Any").tag(-1)
                                     ForEach([1, 2, 3, 4, 5, 6, 7, 8, 9], id: \.self) { value in
-                                        Text("\(value)").tag(value)
+                                        Text("±\(value) rank\(value == 1 ? "" : "s")").tag(value)
                                     }
                                 }
                                 .labelsHidden()
-                                .frame(width: 80)
+                                .frame(width: 100)
+                            }
+
+                            // Show actual rank range if user rank is known
+                            if let userRank = ogsClient.userRank {
+                                Text(rankRangeDescription(userRank: userRank))
+                                    .font(.caption2)
+                                    .foregroundColor(.cyan.opacity(0.8))
+                                    .padding(.leading, 16)
+                                    .padding(.top, 4)
                             }
                         }
                     }
@@ -711,6 +720,38 @@ struct PreGameOverlay: View {
         } else {
             let dan = Int(rank) - 29
             return "\(dan)d"
+        }
+    }
+
+    // Show the actual rank range based on user's rank and restrictions
+    private func rankRangeDescription(userRank: Double) -> String {
+        // Calculate min and max ranks
+        var minRank = 0
+        var maxRank = 36 // 9d professional
+
+        switch gameSettings.ranksBelow {
+        case .any:
+            minRank = 0
+        case .limit(let delta):
+            minRank = max(0, Int(userRank) - delta)
+        }
+
+        switch gameSettings.ranksAbove {
+        case .any:
+            maxRank = 36
+        case .limit(let delta):
+            maxRank = min(36, Int(userRank) + delta)
+        }
+
+        // Format the range
+        let minRankStr = rankString(Double(minRank))
+        let maxRankStr = rankString(Double(maxRank))
+        let userRankStr = rankString(userRank)
+
+        if minRank == 0 && maxRank == 36 {
+            return "→ Accepting all ranks"
+        } else {
+            return "→ Range: \(minRankStr) to \(maxRankStr) (you: \(userRankStr))"
         }
     }
 
