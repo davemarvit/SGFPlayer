@@ -995,6 +995,20 @@ class OGSClient: NSObject, ObservableObject {
                        let challengeID = json["challenge"] as? Int {
                         NSLog("OGS: 🎮 Direct challenge created - game_id: \(gameID), challenge_id: \(challengeID)")
 
+                        // v3.87: Manually convert response to OGSChallenge and add to list
+                        // Direct challenges also need to be manually added (seekgraph might not include them)
+                        if let challenge = self?.convertAPIResponseToChallenge(json) {
+                            NSLog("OGS: 🎮 Adding direct challenge #\(challengeID) to availableGames manually")
+                            DispatchQueue.main.async {
+                                // Remove any existing challenge with same ID, then add
+                                self?.availableGames.removeAll { $0.id == challengeID }
+                                self?.availableGames.append(challenge)
+                                NSLog("OGS: 🎮 Direct challenge added! Now have \(self?.availableGames.count ?? 0) available games")
+                            }
+                        } else {
+                            NSLog("OGS: ⚠️ Could not convert API response to OGSChallenge")
+                        }
+
                         // Start sending challenge keepalives to prevent challenge expiration
                         self?.startChallengeKeepalive(challengeID: challengeID, gameID: gameID)
                     } else {
@@ -1332,6 +1346,20 @@ class OGSClient: NSObject, ObservableObject {
                    let gameID = json["game"] as? Int,
                    let challengeID = json["challenge"] as? Int {
                     NSLog("OGS: 🎮 Challenge created - game_id: \(gameID), challenge_id: \(challengeID)")
+
+                    // v3.87: Manually convert response to OGSChallenge and add to list
+                    // The seekgraph might not include our own challenges
+                    if let challenge = self.convertAPIResponseToChallenge(json) {
+                        NSLog("OGS: 🎮 Adding challenge #\(challengeID) to availableGames manually")
+                        DispatchQueue.main.async {
+                            // Remove any existing challenge with same ID, then add
+                            self.availableGames.removeAll { $0.id == challengeID }
+                            self.availableGames.append(challenge)
+                            NSLog("OGS: 🎮 Challenge added! Now have \(self.availableGames.count) available games")
+                        }
+                    } else {
+                        NSLog("OGS: ⚠️ Could not convert API response to OGSChallenge")
+                    }
 
                     // v3.84 FIX: Start sending challenge keepalives immediately
                     // Browser clients send game/connect + periodic challenge/keepalive to prevent deletion
@@ -2548,6 +2576,14 @@ class OGSClient: NSObject, ObservableObject {
                 if let message = item["message"] as? String {
                     NSLog("OGS: 📊 ❌ MESSAGE: \(message)")
                 }
+
+                // v3.87: DON'T delete challenges we're actively keeping alive
+                // The server may send delete messages for our own challenges, but we want to keep them
+                if self.activeChallengeID == challengeID {
+                    NSLog("OGS: 📊 ⚠️ Ignoring delete for active challenge #\(challengeID) (we're keeping it alive)")
+                    continue
+                }
+
                 DispatchQueue.main.async {
                     self.availableGames.removeAll { $0.id == challengeID }
                     NSLog("OGS: 📊 Removed challenge #\(challengeID), now have \(self.availableGames.count) games")
@@ -2714,6 +2750,95 @@ class OGSClient: NSObject, ObservableObject {
             created: nil
         )
 
+        return challenge
+    }
+
+    /// Convert API challenge response (from POST /api/v1/challenges) to OGSChallenge
+    private func convertAPIResponseToChallenge(_ response: [String: Any]) -> OGSChallenge? {
+        NSLog("OGS: 🔍 Converting API response to OGSChallenge")
+
+        // Extract challenge ID and game data
+        guard let challengeID = response["challenge"] as? Int,
+              let gameData = response["game"] as? [String: Any],
+              let gameID = response["game"] as? Int else {
+            NSLog("OGS: ⚠️ Missing challenge/game ID in API response")
+            return nil
+        }
+
+        // Get challenger info (current user)
+        guard let username = self.username,
+              let playerID = self.playerID,
+              let userRank = self.userRank else {
+            NSLog("OGS: ⚠️ Missing user info for challenge creation")
+            return nil
+        }
+
+        let challenger = ChallengerInfo(
+            id: playerID,
+            username: username,
+            ranking: userRank,
+            professional: false
+        )
+
+        // Extract game info from response
+        let width = gameData["width"] as? Int ?? 19
+        let height = gameData["height"] as? Int ?? 19
+        let ranked = gameData["ranked"] as? Bool ?? false
+        let handicap = gameData["handicap"] as? Int ?? 0
+        let rules = gameData["rules"] as? String ?? "japanese"
+        let disableAnalysis = gameData["disable_analysis"] as? Bool ?? false
+        let pauseOnWeekends = gameData["pause_on_weekends"] as? Bool ?? false
+        let gameName = gameData["name"] as? String
+        let timeControl = gameData["time_control"] as? String
+
+        // Convert time_control_parameters to JSON string
+        var timeControlParamsString: String? = nil
+        if let timeControlParams = gameData["time_control_parameters"] as? [String: Any],
+           let jsonData = try? JSONSerialization.data(withJSONObject: timeControlParams),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            timeControlParamsString = jsonString
+        }
+
+        // Convert komi
+        var komiString: String? = nil
+        if let komiNum = gameData["komi"] as? Double {
+            komiString = String(komiNum)
+        } else if let komiNum = gameData["komi"] as? Int {
+            komiString = String(komiNum)
+        }
+
+        let game = GameInfo(
+            id: gameID,
+            name: gameName,
+            width: width,
+            height: height,
+            rules: rules,
+            ranked: ranked,
+            handicap: handicap,
+            komi: komiString,
+            timeControl: timeControl,
+            timeControlParameters: timeControlParamsString,
+            disableAnalysis: disableAnalysis,
+            pauseOnWeekends: pauseOnWeekends,
+            black: gameData["black"] as? Int,
+            white: gameData["white"] as? Int,
+            started: gameData["started"] as? String,
+            blackLost: false,
+            whiteLost: false,
+            annulled: false
+        )
+
+        let challenge = OGSChallenge(
+            id: challengeID,
+            challenger: challenger,
+            game: game,
+            challengerColor: response["challenger_color"] as? String ?? "automatic",
+            minRanking: response["min_ranking"] as? Int ?? 0,
+            maxRanking: response["max_ranking"] as? Int ?? 36,
+            created: response["created"] as? String
+        )
+
+        NSLog("OGS: ✅ Converted API response to challenge #\(challengeID)")
         return challenge
     }
 
