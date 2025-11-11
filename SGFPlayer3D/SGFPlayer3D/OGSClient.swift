@@ -827,16 +827,24 @@ class OGSClient: NSObject, ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("https://online-go.com", forHTTPHeaderField: "Referer")
+        request.setValue("https://online-go.com/play", forHTTPHeaderField: "Referer")
         request.setValue("https://online-go.com", forHTTPHeaderField: "Origin")
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
 
-        // Get CSRF token from cookies
-        if let cookies = HTTPCookieStorage.shared.cookies(for: url),
-           let csrfCookie = cookies.first(where: { $0.name == "csrftoken" }) {
+        // Add CSRF token
+        if let csrfCookie = HTTPCookieStorage.shared.cookies?.first(where: { $0.name == "csrftoken" }) {
             request.setValue(csrfCookie.value, forHTTPHeaderField: "X-CSRFToken")
             NSLog("OGS: ✅ Added CSRF token to challenge request: \(csrfCookie.value)")
         } else {
             NSLog("OGS: ⚠️ No CSRF token found in cookies")
+        }
+
+        // CRITICAL FIX: Manually set Cookie header from HTTPCookieStorage
+        // URLSession doesn't always automatically include cookies, so we build the header ourselves
+        if let cookies = HTTPCookieStorage.shared.cookies?.filter({ $0.domain.contains("online-go.com") }), !cookies.isEmpty {
+            let cookieHeader = cookies.map { "\($0.name)=\($0.value)" }.joined(separator: "; ")
+            request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
+            NSLog("OGS: 🍪 Manually set Cookie header for direct challenge")
         }
 
         // Calculate rank range based on user's rank and restrictions
