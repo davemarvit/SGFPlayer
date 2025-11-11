@@ -45,7 +45,7 @@ struct PreGameOverlay: View {
             VStack(spacing: 0) {
                 // Header with close button
                 HStack {
-                    Text("Find a Game [v3.86]")
+                    Text("Find a Game [v3.97]")
                         .font(.title.bold())
                         .foregroundColor(.white)
 
@@ -265,11 +265,14 @@ struct PreGameOverlay: View {
         NSLog("PreGameOverlay: Filtering \(all.count) total games")
 
         let filtered = all.filter { challenge in
-            // MOST IMPORTANT: Only show games that are truly available
-            // Skip if already accepted (black/white/started are populated)
-            let notAccepted = challenge.game.black == nil &&
-                             challenge.game.white == nil &&
-                             challenge.game.started == nil
+            // Check if this is your own challenge
+            let isOwnChallenge = challenge.challenger.id == ogsClient.playerID
+
+            // Check if game has started
+            let hasStarted = challenge.game.started != nil
+
+            // Check if both players have accepted (game is fully matched)
+            let bothPlayersAccepted = challenge.game.black != nil && challenge.game.white != nil
 
             // Check expired/abandoned flags
             let blackLost = challenge.game.blackLost
@@ -281,11 +284,22 @@ struct PreGameOverlay: View {
 
             // Debug first game
             if challenge.id == all.first?.id {
-                NSLog("PreGameOverlay: First game - black:\(challenge.game.black?.description ?? "nil") white:\(challenge.game.white?.description ?? "nil") started:\(challenge.game.started ?? "nil") blackLost:\(blackLost) whiteLost:\(whiteLost) annulled:\(annulled) notExpired:\(notExpired)")
+                NSLog("PreGameOverlay: First game - black:\(challenge.game.black?.description ?? "nil") white:\(challenge.game.white?.description ?? "nil") started:\(challenge.game.started ?? "nil") blackLost:\(blackLost) whiteLost:\(whiteLost) annulled:\(annulled) isOwn:\(isOwnChallenge)")
             }
 
-            // Skip games that are already accepted/started OR expired/abandoned
-            guard notAccepted && notExpired else {
+            // Skip games that are expired/abandoned
+            guard notExpired else {
+                return false
+            }
+
+            // Skip games that have already started
+            guard !hasStarted else {
+                return false
+            }
+
+            // For your own challenges: show them even if you're one of the players
+            // For other challenges: only show if not fully matched (at least one slot open)
+            guard isOwnChallenge || !bothPlayersAccepted else {
                 return false
             }
 
@@ -325,7 +339,7 @@ struct PreGameOverlay: View {
             Button(action: createCustomGame) {
                 HStack {
                     Image(systemName: "plus.circle.fill")
-                    Text("Create Game")
+                    Text("Create Public Game")
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
@@ -334,6 +348,59 @@ struct PreGameOverlay: View {
                 .cornerRadius(8)
             }
             .buttonStyle(.plain)
+
+            // Divider between public and direct challenge
+            Divider()
+                .background(Color.white.opacity(0.3))
+                .padding(.vertical, 4)
+
+            Text("Challenge a Specific Player")
+                .font(.subheadline.bold())
+                .foregroundColor(.white)
+
+            Text("Send a direct challenge to a player by username")
+                .font(.caption)
+                .foregroundColor(.white.opacity(0.7))
+
+            HStack(spacing: 8) {
+                TextField("Player username", text: $challengeUsername)
+                    .textFieldStyle(.plain)
+                    .padding(8)
+                    .background(Color.white.opacity(0.1))
+                    .foregroundColor(.white)
+                    .cornerRadius(6)
+                    .disabled(ogsClient.isSendingChallenge)
+
+                Button(action: challengePlayer) {
+                    HStack {
+                        Image(systemName: "person.crop.circle.badge.plus")
+                        Text("Challenge")
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(challengeUsername.isEmpty ? Color.gray.opacity(0.5) : Color.blue.opacity(0.8))
+                    .foregroundColor(.white)
+                    .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+                .disabled(challengeUsername.isEmpty || ogsClient.isSendingChallenge)
+            }
+
+            if ogsClient.isSendingChallenge {
+                HStack {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                    Text("Sending challenge...")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+            }
+
+            if let error = ogsClient.lastError {
+                Text("Error: \(error)")
+                    .font(.caption)
+                    .foregroundColor(.red.opacity(0.9))
+            }
         }
     }
 
@@ -598,32 +665,35 @@ struct PreGameOverlay: View {
                     // Rank Restrictions (shown when Restrict Rank is on)
                     if gameSettings.restrictRank {
                         VStack(alignment: .leading, spacing: 8) {
-                            settingRow(label: "  Ranks Above") {
-                                Picker("", selection: Binding(
-                                    get: { rankRestrictionToInt(gameSettings.ranksAbove) },
-                                    set: { gameSettings.ranksAbove = intToRankRestriction($0); gameSettings.save() }
-                                )) {
-                                    Text("Any").tag(-1)
-                                    ForEach([1, 2, 3, 4, 5, 6, 7, 8, 9], id: \.self) { value in
-                                        Text("\(value)").tag(value)
+                            settingRow(label: "  Lowest Rank") {
+                                Picker("", selection: $gameSettings.minRank) {
+                                    ForEach(0...38, id: \.self) { rank in
+                                        Text(rankString(Double(rank))).tag(rank)
                                     }
                                 }
                                 .labelsHidden()
                                 .frame(width: 80)
+                                .onChange(of: gameSettings.minRank) { _ in gameSettings.save() }
                             }
 
-                            settingRow(label: "  Ranks Below") {
-                                Picker("", selection: Binding(
-                                    get: { rankRestrictionToInt(gameSettings.ranksBelow) },
-                                    set: { gameSettings.ranksBelow = intToRankRestriction($0); gameSettings.save() }
-                                )) {
-                                    Text("Any").tag(-1)
-                                    ForEach([1, 2, 3, 4, 5, 6, 7, 8, 9], id: \.self) { value in
-                                        Text("\(value)").tag(value)
+                            settingRow(label: "  Highest Rank") {
+                                Picker("", selection: $gameSettings.maxRank) {
+                                    ForEach(0...38, id: \.self) { rank in
+                                        Text(rankString(Double(rank))).tag(rank)
                                     }
                                 }
                                 .labelsHidden()
                                 .frame(width: 80)
+                                .onChange(of: gameSettings.maxRank) { _ in gameSettings.save() }
+                            }
+
+                            // Show current selection for clarity
+                            if let userRank = ogsClient.userRank {
+                                Text("→ Your rank: \(rankString(userRank))")
+                                    .font(.caption2)
+                                    .foregroundColor(.cyan.opacity(0.8))
+                                    .padding(.leading, 16)
+                                    .padding(.top, 4)
                             }
                         }
                     }
@@ -658,25 +728,6 @@ struct PreGameOverlay: View {
         } else {
             let dan = Int(rank) - 29
             return "\(dan)d"
-        }
-    }
-
-    // Convert RankRestriction to Int for Picker
-    private func rankRestrictionToInt(_ restriction: RankRestriction) -> Int {
-        switch restriction {
-        case .any:
-            return -1
-        case .limit(let value):
-            return value
-        }
-    }
-
-    // Convert Int from Picker to RankRestriction
-    private func intToRankRestriction(_ value: Int) -> RankRestriction {
-        if value == -1 {
-            return .any
-        } else {
-            return .limit(value)
         }
     }
 
@@ -740,6 +791,25 @@ struct PreGameOverlay: View {
                 NSLog("PreGameOverlay: ❌ Failed to post game: \(error ?? "unknown error")")
             }
         }
+    }
+
+    private func challengePlayer() {
+        let username = challengeUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !username.isEmpty else {
+            NSLog("PreGameOverlay: ⚠️ Challenge username is empty")
+            return
+        }
+
+        NSLog("PreGameOverlay: Challenging player '\(username)' with settings: \(gameSettings)")
+
+        // Save settings
+        gameSettings.save()
+
+        // Send challenge to specific player
+        ogsClient.sendChallenge(to: username, settings: gameSettings)
+
+        // Clear the username field on success (will be handled by OGSClient state)
+        // The UI will show loading state via ogsClient.isSendingChallenge
     }
 }
 

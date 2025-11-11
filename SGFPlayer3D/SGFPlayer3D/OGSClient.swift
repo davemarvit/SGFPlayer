@@ -588,24 +588,16 @@ class OGSClient: NSObject, ObservableObject {
         // Determine speed based on time settings (computed)
         let speed = settings.gameSpeed
 
-        // Calculate rank differences
+        // Calculate rank differences (automatch API uses relative differences, not absolute ranks)
         var lowerRankDiff = -36  // Default: allow all lower ranks
         var upperRankDiff = 36   // Default: allow all higher ranks
 
         if settings.restrictRank, let userRank = self.userRank {
-            switch settings.ranksBelow {
-            case .any:
-                lowerRankDiff = -36
-            case .limit(let delta):
-                lowerRankDiff = -delta
-            }
+            // Convert absolute min/max ranks to relative differences
+            lowerRankDiff = settings.minRank - Int(userRank)  // Can be negative
+            upperRankDiff = settings.maxRank - Int(userRank)  // Can be positive or negative
 
-            switch settings.ranksAbove {
-            case .any:
-                upperRankDiff = 36
-            case .limit(let delta):
-                upperRankDiff = delta
-            }
+            NSLog("OGS: 🎮 Automatch rank restrictions: user rank \(Int(userRank)), accepting \(settings.minRank) to \(settings.maxRank) (diffs: \(lowerRankDiff) to \(upperRankDiff))")
         }
 
         // Build automatch preferences structure
@@ -823,8 +815,9 @@ class OGSClient: NSObject, ObservableObject {
     }
 
     private func sendChallengeToPlayerID(_ playerID: Int, settings: GameSettings) {
+        NSLog("OGS: 🚀🚀🚀 v3.97 TOP-LEVEL OGSClient.swift IS BEING USED 🚀🚀🚀")
         let logPath = NSHomeDirectory() + "/Desktop/challenge_debug.log"
-        let startMsg = "[\(Date())] Sending challenge to player ID: \(playerID)\n"
+        let startMsg = "[\(Date())] v3.97 TOP-LEVEL - Sending challenge to player ID: \(playerID)\n"
         if let handle = FileHandle(forWritingAtPath: logPath) {
             handle.seekToEndOfFile()
             handle.write(startMsg.data(using: .utf8)!)
@@ -833,7 +826,8 @@ class OGSClient: NSObject, ObservableObject {
 
         // OGS uses cookie-based authentication - session cookies are automatically sent by URLSession
         // Also need CSRF protection headers
-        let url = URL(string: "https://online-go.com/api/v1/challenges")!
+        // Use player-specific endpoint for direct challenges (matches browser behavior)
+        let url = URL(string: "https://online-go.com/api/v1/players/\(playerID)/challenge")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -869,21 +863,40 @@ class OGSClient: NSObject, ObservableObject {
             break
         }
 
-        // Build challenge request body
+        // Calculate rank range
+        var minRank = -1000
+        var maxRank = 1000
+
+        if settings.restrictRank {
+            minRank = settings.minRank
+            maxRank = settings.maxRank
+        }
+
+        // Build challenge request body matching browser format for player-specific endpoint
+        // NOTE: Player ID is in URL path, not in body!
         let challengeData: [String: Any] = [
-            "challenged_player_id": playerID,
+            "initialized": false,
+            "min_ranking": minRank,
+            "max_ranking": maxRank,
             "challenger_color": settings.colorPreference.apiValue,
+            "rengo_auto_start": 0,
             "game": [
+                "name": settings.gameName,
                 "width": settings.boardSize,
                 "height": settings.boardSize,
                 "ranked": settings.ranked,
                 "handicap": settings.handicap.apiValue,
-                "komi_auto": settings.komi == .automatic ? "automatic" : "custom",
+                "komi_auto": "automatic",
                 "disable_analysis": settings.disableAnalysis,
                 "rules": settings.rules.apiValue,
+                "initial_state": nil as String?,
+                "pause_on_weekends": false,
+                "private": false,  // Browser uses false for player-specific endpoint
+                "rengo": false,
+                "rengo_casual_mode": true,
                 "time_control": settings.timeControlSystem.apiValue,
                 "time_control_parameters": timeControlParams
-            ]
+            ] as [String: Any]
         ]
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: challengeData) else {
@@ -959,6 +972,20 @@ class OGSClient: NSObject, ObservableObject {
                         handle.closeFile()
                     }
                     NSLog("OGS: ✅ Challenge sent successfully!")
+
+                    // Extract game_id and challenge_id for keepalives
+                    if let data = data,
+                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let gameID = json["game"] as? Int,
+                       let challengeID = json["challenge"] as? Int {
+                        NSLog("OGS: 🎮 Direct challenge created - game_id: \(gameID), challenge_id: \(challengeID)")
+
+                        // Start sending challenge keepalives to prevent challenge expiration
+                        self?.startChallengeKeepalive(challengeID: challengeID, gameID: gameID)
+                    } else {
+                        NSLog("OGS: ⚠️ Could not extract challenge/game IDs from response - keepalives will NOT be sent!")
+                    }
+
                     DispatchQueue.main.async {
                         self?.lastError = nil
                     }
@@ -1163,30 +1190,17 @@ class OGSClient: NSObject, ObservableObject {
         }
         NSLog("OGS: 🔍 =================================================")
 
-        // Calculate rank range based on user's rank and restrictions
+        // Use absolute rank range from settings
         var minRank = 0
-        var maxRank = 36  // Maximum rank (9d professional)
+        var maxRank = 38  // Maximum rank (9d = 38)
 
-        if settings.restrictRank, let userRank = self.userRank {
-            // Apply rank restrictions based on user's selections
-            switch settings.ranksBelow {
-            case .any:
-                minRank = 0
-            case .limit(let delta):
-                minRank = max(0, Int(userRank) - delta)
-            }
-
-            switch settings.ranksAbove {
-            case .any:
-                maxRank = 36
-            case .limit(let delta):
-                maxRank = min(36, Int(userRank) + delta)
-            }
-
-            NSLog("OGS: 🎮 Setting rank range: \(minRank) to \(maxRank) (user rank: \(Int(userRank)))")
+        if settings.restrictRank {
+            minRank = settings.minRank
+            maxRank = settings.maxRank
+            NSLog("OGS: 🎮 Rank restrictions enabled: \(minRank) to \(maxRank)")
         } else {
             // No rank restriction - allow all ranks
-            NSLog("OGS: 🎮 No rank restrictions - allowing all ranks (0 to 36)")
+            NSLog("OGS: 🎮 No rank restrictions - allowing all ranks (0 to 38)")
         }
 
         // Build time control parameters - MUST be an object with ALL required fields
@@ -1328,15 +1342,18 @@ class OGSClient: NSObject, ObservableObject {
         // Send immediate game/connect message (browser does this right after creating challenge)
         sendGameConnect(gameID: gameID)
 
-        // Stop any existing timer
-        challengeKeepaliveTimer?.invalidate()
+        // Timer must be created on main thread to work properly
+        DispatchQueue.main.async { [weak self] in
+            // Stop any existing timer
+            self?.challengeKeepaliveTimer?.invalidate()
 
-        // Start timer to send keepalive every 2 seconds
-        challengeKeepaliveTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.sendChallengeKeepalive()
+            // Start timer to send keepalive every 2 seconds
+            self?.challengeKeepaliveTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+                self?.sendChallengeKeepalive()
+            }
+
+            NSLog("OGS: ✅ Challenge keepalive timer started (every 2 seconds)")
         }
-
-        NSLog("OGS: ✅ Challenge keepalive timer started (every 2 seconds)")
     }
 
     /// Stop sending challenge keepalive messages
@@ -1347,12 +1364,15 @@ class OGSClient: NSObject, ObservableObject {
 
         NSLog("OGS: 💓 Stopping challenge keepalive for challenge:\(activeChallengeID ?? 0)")
 
-        challengeKeepaliveTimer?.invalidate()
-        challengeKeepaliveTimer = nil
-        activeChallengeID = nil
-        activeGameID = nil
+        // Timer operations must be on main thread
+        DispatchQueue.main.async { [weak self] in
+            self?.challengeKeepaliveTimer?.invalidate()
+            self?.challengeKeepaliveTimer = nil
+            self?.activeChallengeID = nil
+            self?.activeGameID = nil
 
-        NSLog("OGS: ✅ Challenge keepalive stopped")
+            NSLog("OGS: ✅ Challenge keepalive stopped")
+        }
     }
 
     /// Send game/connect message (browser sends this immediately after challenge creation)

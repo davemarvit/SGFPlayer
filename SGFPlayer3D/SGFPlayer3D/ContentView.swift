@@ -401,6 +401,12 @@ struct ContentView: View {
         .onKeyPress { keyPress in
             // Only intercept keys we actually handle (arrow keys, space, escape)
             // Let everything else (letters, numbers, etc.) pass through to TextFields
+
+            // When settings panel is open, let space pass through to text fields
+            if isPanelOpen && keyPress.key == .space {
+                return .ignored
+            }
+
             switch keyPress.key {
             case .leftArrow, .rightArrow, .space, .escape:
                 handleKeyPress(keyPress)

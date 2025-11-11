@@ -21,6 +21,22 @@
 		559657B02E6BB99100314B78 /* SGFPlayer3D.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SGFPlayer3D.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		559657EF2E6BB99100314B79 /* Exceptions for "SGFPlayer3D" */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				old_resources,
+				Info.plist,
+				Integration/INTEGRATION_SUMMARY.md,
+				ViewModels/PhysicsViewModel.swift.backup,
+				SGFPlayerScreensaver,
+				Sources,
+				SGFPlayer3DTests,
+			);
+			target = 559657AF2E6BB99100314B78 /* SGFPlayer3D */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		556F62C42EA195E20072262C /* SGFPlayer3DTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -29,6 +45,9 @@
 		};
 		559657B22E6BB99100314B78 /* SGFPlayer3D */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				559657EF2E6BB99100314B79 /* Exceptions for "SGFPlayer3D" */,
+			);
 			path = SGFPlayer3D;
 			sourceTree = "<group>";
 		};
