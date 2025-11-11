@@ -896,9 +896,9 @@ class OGSClient: NSObject, ObservableObject {
             break
         }
 
-        // Build challenge request body matching postCustomGame format
+        // Build challenge request body matching browser format for player-specific endpoint
+        // NOTE: Player ID is in URL path, not in body!
         let challengeData: [String: Any] = [
-            "challenged_player_id": playerID,
             "initialized": false,
             "min_ranking": minRank,
             "max_ranking": maxRank,
@@ -915,7 +915,7 @@ class OGSClient: NSObject, ObservableObject {
                 "rules": settings.rules.apiValue,
                 "initial_state": nil as String?,
                 "pause_on_weekends": false,
-                "private": true,  // Direct challenges must be private to send as notification
+                "private": false,  // Browser uses false for player-specific endpoint
                 "rengo": false,
                 "rengo_casual_mode": true,
                 "time_control": settings.timeControlSystem.apiValue,
