@@ -103,19 +103,6 @@ let fischerIncrementOptions = [5, 10, 15, 20, 30, 45, 60]
 /// Fischer max time options (in minutes)
 let fischerMaxTimeOptions = [5, 10, 15, 20, 30, 45, 60, 90, 120]
 
-/// Rank restriction for above/below
-enum RankRestriction: Codable, Equatable {
-    case any
-    case limit(Int)
-
-    var displayValue: String {
-        switch self {
-        case .any: return "Any"
-        case .limit(let value): return "\(value)"
-        }
-    }
-}
-
 /// Game settings for live play on OGS
 struct GameSettings: Codable {
     // Basic settings
@@ -146,10 +133,10 @@ struct GameSettings: Codable {
     var colorPreference: ColorPreference
     var disableAnalysis: Bool
 
-    // Rank restrictions
+    // Rank restrictions (absolute ranks: 0=30k, 29=1k, 30=1d, 38=9d)
     var restrictRank: Bool
-    var ranksAbove: RankRestriction
-    var ranksBelow: RankRestriction
+    var minRank: Int  // Lowest rank to accept
+    var maxRank: Int  // Highest rank to accept
 
     /// Computed: derive game speed from time settings
     var gameSpeed: String {
@@ -184,8 +171,8 @@ struct GameSettings: Codable {
         colorPreference: .automatic,
         disableAnalysis: false,
         restrictRank: false,
-        ranksAbove: .any,
-        ranksBelow: .any
+        minRank: 0,   // 30k (lowest)
+        maxRank: 38   // 9d (highest)
     )
 
     // MARK: - UserDefaults Keys
@@ -206,6 +193,8 @@ struct GameSettings: Codable {
     private static let colorPreferenceKey = "gameSettings.colorPreference"
     private static let disableAnalysisKey = "gameSettings.disableAnalysis"
     private static let restrictRankKey = "gameSettings.restrictRank"
+    private static let minRankKey = "gameSettings.minRank"
+    private static let maxRankKey = "gameSettings.maxRank"
 
     /// Load settings from UserDefaults
     static func load() -> GameSettings {
@@ -239,6 +228,8 @@ struct GameSettings: Codable {
 
         let disableAnalysis = UserDefaults.standard.bool(forKey: disableAnalysisKey)
         let restrictRank = UserDefaults.standard.bool(forKey: restrictRankKey)
+        let minRank = UserDefaults.standard.object(forKey: minRankKey) as? Int ?? 0  // Default: 30k
+        let maxRank = UserDefaults.standard.object(forKey: maxRankKey) as? Int ?? 38 // Default: 9d
 
         return GameSettings(
             gameName: gameName,
@@ -258,8 +249,8 @@ struct GameSettings: Codable {
             colorPreference: colorPreference,
             disableAnalysis: disableAnalysis,
             restrictRank: restrictRank,
-            ranksAbove: .any,
-            ranksBelow: .any
+            minRank: minRank,
+            maxRank: maxRank
         )
     }
 
@@ -282,5 +273,7 @@ struct GameSettings: Codable {
         UserDefaults.standard.set(colorPreference.rawValue, forKey: Self.colorPreferenceKey)
         UserDefaults.standard.set(disableAnalysis, forKey: Self.disableAnalysisKey)
         UserDefaults.standard.set(restrictRank, forKey: Self.restrictRankKey)
+        UserDefaults.standard.set(minRank, forKey: Self.minRankKey)
+        UserDefaults.standard.set(maxRank, forKey: Self.maxRankKey)
     }
 }

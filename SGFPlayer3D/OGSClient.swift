@@ -588,24 +588,16 @@ class OGSClient: NSObject, ObservableObject {
         // Determine speed based on time settings (computed)
         let speed = settings.gameSpeed
 
-        // Calculate rank differences
+        // Calculate rank differences (automatch API uses relative differences, not absolute ranks)
         var lowerRankDiff = -36  // Default: allow all lower ranks
         var upperRankDiff = 36   // Default: allow all higher ranks
 
         if settings.restrictRank, let userRank = self.userRank {
-            switch settings.ranksBelow {
-            case .any:
-                lowerRankDiff = -36
-            case .limit(let delta):
-                lowerRankDiff = -delta
-            }
+            // Convert absolute min/max ranks to relative differences
+            lowerRankDiff = settings.minRank - Int(userRank)  // Can be negative
+            upperRankDiff = settings.maxRank - Int(userRank)  // Can be positive or negative
 
-            switch settings.ranksAbove {
-            case .any:
-                upperRankDiff = 36
-            case .limit(let delta):
-                upperRankDiff = delta
-            }
+            NSLog("OGS: 🎮 Automatch rank restrictions: user rank \(Int(userRank)), accepting \(settings.minRank) to \(settings.maxRank) (diffs: \(lowerRankDiff) to \(upperRankDiff))")
         }
 
         // Build automatch preferences structure
@@ -1177,30 +1169,17 @@ class OGSClient: NSObject, ObservableObject {
         }
         NSLog("OGS: 🔍 =================================================")
 
-        // Calculate rank range based on user's rank and restrictions
+        // Use absolute rank range from settings
         var minRank = 0
-        var maxRank = 36  // Maximum rank (9d professional)
+        var maxRank = 38  // Maximum rank (9d = 38)
 
-        if settings.restrictRank, let userRank = self.userRank {
-            // Apply rank restrictions based on user's selections
-            switch settings.ranksBelow {
-            case .any:
-                minRank = 0
-            case .limit(let delta):
-                minRank = max(0, Int(userRank) - delta)
-            }
-
-            switch settings.ranksAbove {
-            case .any:
-                maxRank = 36
-            case .limit(let delta):
-                maxRank = min(36, Int(userRank) + delta)
-            }
-
-            NSLog("OGS: 🎮 Setting rank range: \(minRank) to \(maxRank) (user rank: \(Int(userRank)))")
+        if settings.restrictRank {
+            minRank = settings.minRank
+            maxRank = settings.maxRank
+            NSLog("OGS: 🎮 Rank restrictions enabled: \(minRank) to \(maxRank)")
         } else {
             // No rank restriction - allow all ranks
-            NSLog("OGS: 🎮 No rank restrictions - allowing all ranks (0 to 36)")
+            NSLog("OGS: 🎮 No rank restrictions - allowing all ranks (0 to 38)")
         }
 
         // Build time control parameters - MUST be an object with ALL required fields

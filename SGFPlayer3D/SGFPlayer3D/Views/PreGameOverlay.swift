@@ -651,37 +651,31 @@ struct PreGameOverlay: View {
                     // Rank Restrictions (shown when Restrict Rank is on)
                     if gameSettings.restrictRank {
                         VStack(alignment: .leading, spacing: 8) {
-                            settingRow(label: "  Ranks Above") {
-                                Picker("", selection: Binding(
-                                    get: { rankRestrictionToInt(gameSettings.ranksAbove) },
-                                    set: { gameSettings.ranksAbove = intToRankRestriction($0); gameSettings.save() }
-                                )) {
-                                    Text("Any").tag(-1)
-                                    ForEach([1, 2, 3, 4, 5, 6, 7, 8, 9], id: \.self) { value in
-                                        Text("±\(value) rank\(value == 1 ? "" : "s")").tag(value)
+                            settingRow(label: "  Lowest Rank") {
+                                Picker("", selection: $gameSettings.minRank) {
+                                    ForEach(0...38, id: \.self) { rank in
+                                        Text(rankString(Double(rank))).tag(rank)
                                     }
                                 }
                                 .labelsHidden()
-                                .frame(width: 100)
+                                .frame(width: 80)
+                                .onChange(of: gameSettings.minRank) { _ in gameSettings.save() }
                             }
 
-                            settingRow(label: "  Ranks Below") {
-                                Picker("", selection: Binding(
-                                    get: { rankRestrictionToInt(gameSettings.ranksBelow) },
-                                    set: { gameSettings.ranksBelow = intToRankRestriction($0); gameSettings.save() }
-                                )) {
-                                    Text("Any").tag(-1)
-                                    ForEach([1, 2, 3, 4, 5, 6, 7, 8, 9], id: \.self) { value in
-                                        Text("±\(value) rank\(value == 1 ? "" : "s")").tag(value)
+                            settingRow(label: "  Highest Rank") {
+                                Picker("", selection: $gameSettings.maxRank) {
+                                    ForEach(0...38, id: \.self) { rank in
+                                        Text(rankString(Double(rank))).tag(rank)
                                     }
                                 }
                                 .labelsHidden()
-                                .frame(width: 100)
+                                .frame(width: 80)
+                                .onChange(of: gameSettings.maxRank) { _ in gameSettings.save() }
                             }
 
-                            // Show actual rank range if user rank is known
+                            // Show current selection for clarity
                             if let userRank = ogsClient.userRank {
-                                Text(rankRangeDescription(userRank: userRank))
+                                Text("→ Your rank: \(rankString(userRank))")
                                     .font(.caption2)
                                     .foregroundColor(.cyan.opacity(0.8))
                                     .padding(.leading, 16)
@@ -720,57 +714,6 @@ struct PreGameOverlay: View {
         } else {
             let dan = Int(rank) - 29
             return "\(dan)d"
-        }
-    }
-
-    // Show the actual rank range based on user's rank and restrictions
-    private func rankRangeDescription(userRank: Double) -> String {
-        // Calculate min and max ranks
-        var minRank = 0
-        var maxRank = 36 // 9d professional
-
-        switch gameSettings.ranksBelow {
-        case .any:
-            minRank = 0
-        case .limit(let delta):
-            minRank = max(0, Int(userRank) - delta)
-        }
-
-        switch gameSettings.ranksAbove {
-        case .any:
-            maxRank = 36
-        case .limit(let delta):
-            maxRank = min(36, Int(userRank) + delta)
-        }
-
-        // Format the range
-        let minRankStr = rankString(Double(minRank))
-        let maxRankStr = rankString(Double(maxRank))
-        let userRankStr = rankString(userRank)
-
-        if minRank == 0 && maxRank == 36 {
-            return "→ Accepting all ranks"
-        } else {
-            return "→ Range: \(minRankStr) to \(maxRankStr) (you: \(userRankStr))"
-        }
-    }
-
-    // Convert RankRestriction to Int for Picker
-    private func rankRestrictionToInt(_ restriction: RankRestriction) -> Int {
-        switch restriction {
-        case .any:
-            return -1
-        case .limit(let value):
-            return value
-        }
-    }
-
-    // Convert Int from Picker to RankRestriction
-    private func intToRankRestriction(_ value: Int) -> RankRestriction {
-        if value == -1 {
-            return .any
-        } else {
-            return .limit(value)
         }
     }
 
