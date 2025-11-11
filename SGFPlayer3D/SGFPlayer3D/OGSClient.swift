@@ -1526,8 +1526,13 @@ class OGSClient: NSObject, ObservableObject {
             if httpResponse.statusCode == 200 || httpResponse.statusCode == 204 {
                 NSLog("OGS: ✅ Challenge canceled successfully!")
 
-                // v3.84: Stop keepalives when challenge is cancelled
+                // v3.89: Immediately remove challenge from list and stop keepalives
                 DispatchQueue.main.async {
+                    // Remove challenge from list before stopping keepalive
+                    // This prevents race condition where seekgraph delete arrives before activeChallengeID is cleared
+                    self.availableGames.removeAll { $0.id == challengeID }
+                    NSLog("OGS: 🗑️ Removed canceled challenge #\(challengeID) from list, now have \(self.availableGames.count) games")
+
                     self.stopChallengeKeepalive()
                 }
 
