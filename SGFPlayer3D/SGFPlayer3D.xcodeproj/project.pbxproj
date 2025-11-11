@@ -29,6 +29,9 @@
 				Info.plist,
 				Integration/INTEGRATION_SUMMARY.md,
 				ViewModels/PhysicsViewModel.swift.backup,
+				SGFPlayerScreensaver,
+				Sources,
+				SGFPlayer3DTests,
 			);
 			target = 559657AF2E6BB99100314B78 /* SGFPlayer3D */;
 		};
