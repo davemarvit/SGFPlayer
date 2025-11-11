@@ -825,7 +825,8 @@ class OGSClient: NSObject, ObservableObject {
 
         // OGS uses cookie-based authentication - session cookies are automatically sent by URLSession
         // Also need CSRF protection headers
-        let url = URL(string: "https://online-go.com/api/v1/challenges")!
+        // Use player-specific endpoint for direct challenges (matches browser behavior)
+        let url = URL(string: "https://online-go.com/api/v1/players/\(playerID)/challenge")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -861,21 +862,40 @@ class OGSClient: NSObject, ObservableObject {
             break
         }
 
-        // Build challenge request body
+        // Calculate rank range
+        var minRank = -1000
+        var maxRank = 1000
+
+        if settings.restrictRank {
+            minRank = settings.minRank
+            maxRank = settings.maxRank
+        }
+
+        // Build challenge request body matching browser format for player-specific endpoint
+        // NOTE: Player ID is in URL path, not in body!
         let challengeData: [String: Any] = [
-            "challenged_player_id": playerID,
+            "initialized": false,
+            "min_ranking": minRank,
+            "max_ranking": maxRank,
             "challenger_color": settings.colorPreference.apiValue,
+            "rengo_auto_start": 0,
             "game": [
+                "name": settings.gameName,
                 "width": settings.boardSize,
                 "height": settings.boardSize,
                 "ranked": settings.ranked,
                 "handicap": settings.handicap.apiValue,
-                "komi_auto": settings.komi == .automatic ? "automatic" : "custom",
+                "komi_auto": "automatic",
                 "disable_analysis": settings.disableAnalysis,
                 "rules": settings.rules.apiValue,
+                "initial_state": nil as String?,
+                "pause_on_weekends": false,
+                "private": false,  // Browser uses false for player-specific endpoint
+                "rengo": false,
+                "rengo_casual_mode": true,
                 "time_control": settings.timeControlSystem.apiValue,
                 "time_control_parameters": timeControlParams
-            ]
+            ] as [String: Any]
         ]
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: challengeData) else {
