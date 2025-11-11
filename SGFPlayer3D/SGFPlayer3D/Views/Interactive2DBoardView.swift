@@ -90,11 +90,22 @@ struct Interactive2DBoardView: View {
     private func handleHover(at location: CGPoint) {
         hoverPosition = location
         hoverBoardCoords = screenToBoardCoords(location)
+
+        if let coords = hoverBoardCoords {
+            let valid = isValidPlacement(row: coords.row, col: coords.col)
+            NSLog("Interactive2DBoard: 👁️ HOVER at (\(coords.row), \(coords.col)), valid=\(valid), isMyTurn=\(isMyTurn)")
+        }
     }
 
     private func handleTap(at location: CGPoint) {
+        // Detailed diagnostics
+        NSLog("Interactive2DBoard: 🎯 TAP DETECTED at \(location)")
+        NSLog("Interactive2DBoard: 🎮 isLiveGame=\(isLiveGame), gameID=\(ogsClient.currentGameID ?? -1)")
+        NSLog("Interactive2DBoard: 🎮 isMyTurn=\(isMyTurn)")
+        NSLog("Interactive2DBoard: 🎨 playerColor=\(String(describing: ogsClient.playerColor)), currentPlayerColor=\(ogsClient.currentPlayerColor)")
+
         guard isLiveGame, isMyTurn else {
-            NSLog("Interactive2DBoard: ❌ Not a live game or not player's turn")
+            NSLog("Interactive2DBoard: ❌ Not a live game or not player's turn (isLiveGame=\(isLiveGame), isMyTurn=\(isMyTurn))")
             return
         }
 
@@ -103,8 +114,11 @@ struct Interactive2DBoardView: View {
             return
         }
 
+        NSLog("Interactive2DBoard: 📍 Tap converted to board coords: row=\(coords.row), col=\(coords.col)")
+
         guard isValidPlacement(row: coords.row, col: coords.col) else {
-            NSLog("Interactive2DBoard: ❌ Invalid move at (\(coords.row), \(coords.col))")
+            let occupied = player.board.grid[coords.row][coords.col] != nil
+            NSLog("Interactive2DBoard: ❌ Invalid move at (\(coords.row), \(coords.col)), occupied=\(occupied)")
             return
         }
 

@@ -70,6 +70,11 @@ struct GameControlsView: View {
     // MARK: - Helper Methods
 
     private func handlePass() {
+        NSLog("GameControls: 🤚 PASS BUTTON PRESSED")
+        NSLog("GameControls: 🎮 currentGameID=\(ogsClient.currentGameID ?? -1)")
+        NSLog("GameControls: 🎮 isMyTurn=\(ogsClient.isMyTurn)")
+        NSLog("GameControls: 🎨 playerColor=\(String(describing: ogsClient.playerColor)), currentPlayerColor=\(ogsClient.currentPlayerColor)")
+
         guard let gameID = ogsClient.currentGameID else {
             NSLog("GameControls: ❌ No active game ID")
             return
