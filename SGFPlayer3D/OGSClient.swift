@@ -815,8 +815,9 @@ class OGSClient: NSObject, ObservableObject {
     }
 
     private func sendChallengeToPlayerID(_ playerID: Int, settings: GameSettings) {
+        NSLog("OGS: 🚀🚀🚀 v3.97 TOP-LEVEL OGSClient.swift IS BEING USED 🚀🚀🚀")
         let logPath = NSHomeDirectory() + "/Desktop/challenge_debug.log"
-        let startMsg = "[\(Date())] Sending challenge to player ID: \(playerID)\n"
+        let startMsg = "[\(Date())] v3.97 TOP-LEVEL - Sending challenge to player ID: \(playerID)\n"
         if let handle = FileHandle(forWritingAtPath: logPath) {
             handle.seekToEndOfFile()
             handle.write(startMsg.data(using: .utf8)!)
