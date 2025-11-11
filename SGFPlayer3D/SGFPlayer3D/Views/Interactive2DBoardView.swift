@@ -72,8 +72,9 @@ struct Interactive2DBoardView: View {
 
     // MARK: - Helper Methods
 
-    private var currentPlayerColor: StoneColor {
-        player.currentNode.blackToPlay ? .black : .white
+    private var currentPlayerColor: Stone {
+        // In live games, use OGSClient as source of truth for whose turn it is
+        return ogsClient.currentPlayerColor
     }
 
     private var isLiveGame: Bool {
@@ -144,12 +145,13 @@ struct Interactive2DBoardView: View {
 
     private func isValidPlacement(row: Int, col: Int) -> Bool {
         // Check if position is already occupied
-        let stones = player.currentNode.board
-        guard row < stones.count, col < stones[row].count else {
+        let grid = player.board.grid
+        guard row < grid.count, col < grid[row].count else {
             return false
         }
 
-        return stones[row][col] == .empty
+        // Position must be empty (nil means empty, .black/.white means occupied)
+        return grid[row][col] == nil
         // TODO: Add ko rule, suicide rule, and other validation
     }
 
@@ -167,10 +169,9 @@ struct Interactive2DBoardView: View {
 
         NSLog("Interactive2DBoard: 🎯 Sending move: \(moveString) (row:\(row), col:\(col)) to game \(gameID)")
 
-        // Optimistically apply move locally
-        player.playMove(at: Position(row: row, col: col))
-
         // Send move to OGS server
+        // Note: We don't apply the move locally - we wait for server confirmation
+        // The server will send back the move via WebSocket, which will trigger a board update
         ogsClient.sendMove(gameID: gameID, move: moveString)
     }
 }
@@ -181,7 +182,7 @@ struct PhantomStone: View {
     let gridSize: Int
     let row: Int
     let col: Int
-    let color: StoneColor
+    let color: Stone
     let stoneDiameter: CGFloat
 
     var body: some View {
