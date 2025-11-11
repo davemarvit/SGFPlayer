@@ -997,7 +997,7 @@ class OGSClient: NSObject, ObservableObject {
 
                         // v3.87: Manually convert response to OGSChallenge and add to list
                         // Direct challenges also need to be manually added (seekgraph might not include them)
-                        if let challenge = self?.convertAPIResponseToChallenge(json) {
+                        if let challenge = self?.convertAPIResponseToChallenge(json, settings: settings) {
                             NSLog("OGS: 🎮 Adding direct challenge #\(challengeID) to availableGames manually")
                             DispatchQueue.main.async {
                                 // Remove any existing challenge with same ID, then add
@@ -1349,7 +1349,7 @@ class OGSClient: NSObject, ObservableObject {
 
                     // v3.87: Manually convert response to OGSChallenge and add to list
                     // The seekgraph might not include our own challenges
-                    if let challenge = self.convertAPIResponseToChallenge(json) {
+                    if let challenge = self.convertAPIResponseToChallenge(json, settings: settings) {
                         NSLog("OGS: 🎮 Adding challenge #\(challengeID) to availableGames manually")
                         DispatchQueue.main.async {
                             // Remove any existing challenge with same ID, then add
@@ -2754,12 +2754,13 @@ class OGSClient: NSObject, ObservableObject {
     }
 
     /// Convert API challenge response (from POST /api/v1/challenges) to OGSChallenge
-    private func convertAPIResponseToChallenge(_ response: [String: Any]) -> OGSChallenge? {
-        NSLog("OGS: 🔍 Converting API response to OGSChallenge")
+    /// NOTE: API response only contains IDs: {"game": <int>, "challenge": <int>}
+    /// We must build the full challenge from the settings parameter
+    private func convertAPIResponseToChallenge(_ response: [String: Any], settings: GameSettings) -> OGSChallenge? {
+        NSLog("OGS: 🔍 Converting API response to OGSChallenge using settings")
 
-        // Extract challenge ID and game data
+        // Extract challenge ID and game ID (both are integers, not objects!)
         guard let challengeID = response["challenge"] as? Int,
-              let gameData = response["game"] as? [String: Any],
               let gameID = response["game"] as? Int else {
             NSLog("OGS: ⚠️ Missing challenge/game ID in API response")
             return nil
@@ -2780,65 +2781,78 @@ class OGSClient: NSObject, ObservableObject {
             professional: false
         )
 
-        // Extract game info from response
-        let width = gameData["width"] as? Int ?? 19
-        let height = gameData["height"] as? Int ?? 19
-        let ranked = gameData["ranked"] as? Bool ?? false
-        let handicap = gameData["handicap"] as? Int ?? 0
-        let rules = gameData["rules"] as? String ?? "japanese"
-        let disableAnalysis = gameData["disable_analysis"] as? Bool ?? false
-        let pauseOnWeekends = gameData["pause_on_weekends"] as? Bool ?? false
-        let gameName = gameData["name"] as? String
-        let timeControl = gameData["time_control"] as? String
+        // Build time control parameters from settings
+        var timeControlParams: [String: Any] = [
+            "main_time": settings.mainTimeMinutes * 60,
+            "time_control": settings.timeControlSystem.apiValue,
+            "system": settings.timeControlSystem.apiValue,
+            "pause_on_weekends": false
+        ]
 
-        // Convert time_control_parameters to JSON string
+        // Add speed classification
+        timeControlParams["speed"] = settings.gameSpeed
+
+        // Add system-specific parameters
+        switch settings.timeControlSystem {
+        case .fischer:
+            timeControlParams["time_increment"] = settings.fischerIncrementSeconds
+            timeControlParams["max_time"] = settings.fischerMaxTimeMinutes * 60
+        case .byoyomi, .canadian, .simple:
+            timeControlParams["period_time"] = settings.periodTimeSeconds
+            timeControlParams["periods"] = settings.periods
+            timeControlParams["periods_min"] = 1
+            timeControlParams["periods_max"] = 300
+        case .absolute, .none:
+            break
+        }
+
+        // Convert time control params to JSON string
         var timeControlParamsString: String? = nil
-        if let timeControlParams = gameData["time_control_parameters"] as? [String: Any],
-           let jsonData = try? JSONSerialization.data(withJSONObject: timeControlParams),
+        if let jsonData = try? JSONSerialization.data(withJSONObject: timeControlParams),
            let jsonString = String(data: jsonData, encoding: .utf8) {
             timeControlParamsString = jsonString
         }
 
-        // Convert komi
-        var komiString: String? = nil
-        if let komiNum = gameData["komi"] as? Double {
-            komiString = String(komiNum)
-        } else if let komiNum = gameData["komi"] as? Int {
-            komiString = String(komiNum)
-        }
+        // Calculate komi
+        let komiString = settings.komi == .automatic ? nil : String(settings.customKomi)
 
+        // Build GameInfo from settings
         let game = GameInfo(
             id: gameID,
-            name: gameName,
-            width: width,
-            height: height,
-            rules: rules,
-            ranked: ranked,
-            handicap: handicap,
+            name: settings.gameName,
+            width: settings.boardSize,
+            height: settings.boardSize,
+            rules: settings.rules.apiValue,
+            ranked: settings.ranked,
+            handicap: settings.handicap.apiValue,
             komi: komiString,
-            timeControl: timeControl,
+            timeControl: settings.timeControlSystem.apiValue,
             timeControlParameters: timeControlParamsString,
-            disableAnalysis: disableAnalysis,
-            pauseOnWeekends: pauseOnWeekends,
-            black: gameData["black"] as? Int,
-            white: gameData["white"] as? Int,
-            started: gameData["started"] as? String,
+            disableAnalysis: settings.disableAnalysis,
+            pauseOnWeekends: false,
+            black: nil,  // Open challenge has no players yet
+            white: nil,
+            started: nil,
             blackLost: false,
             whiteLost: false,
             annulled: false
         )
 
+        // Extract rank range from response
+        let minRanking = response["min_ranking"] as? Int ?? (settings.restrictRank ? settings.minRank : 0)
+        let maxRanking = response["max_ranking"] as? Int ?? (settings.restrictRank ? settings.maxRank : 36)
+
         let challenge = OGSChallenge(
             id: challengeID,
             challenger: challenger,
             game: game,
-            challengerColor: response["challenger_color"] as? String ?? "automatic",
-            minRanking: response["min_ranking"] as? Int ?? 0,
-            maxRanking: response["max_ranking"] as? Int ?? 36,
+            challengerColor: response["challenger_color"] as? String ?? settings.colorPreference.apiValue,
+            minRanking: minRanking,
+            maxRanking: maxRanking,
             created: response["created"] as? String
         )
 
-        NSLog("OGS: ✅ Converted API response to challenge #\(challengeID)")
+        NSLog("OGS: ✅ Converted API response to challenge #\(challengeID) (game #\(gameID))")
         return challenge
     }
 
