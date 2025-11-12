@@ -160,7 +160,7 @@ class SceneManager3D: ObservableObject {
         // Fade out previous last move glow before removing stones
         if let prevMove = previousLastMove {
             // Find the stone at the previous last move position
-            if let prevStone = board.grid[prevMove.y][prevMove.x],
+            if let _ = board.grid[prevMove.y][prevMove.x],
                let prevStoneNode = findStoneNode(at: prevMove.x, y: prevMove.y, in: stoneNodes) {
                 // Extract glow nodes and fade them out
                 fadeOutGlowNodes(from: prevStoneNode)
@@ -547,8 +547,6 @@ class SceneManager3D: ObservableObject {
     private func addHollowCircleIndicator(to stoneNode: SCNNode, color: Stone, radius: CGFloat) {
         NSLog("DEBUG3D: ○ Adding hollow circle indicator to \(color) stone with radius \(radius)")
 
-        let thicknessRatio: CGFloat = 0.486
-
         // Ring of small spheres to create hollow circle effect (spheres work!)
         let ringRadius = radius * 0.25
         let sphereRadius = radius * 0.04
@@ -898,8 +896,8 @@ class SceneManager3D: ObservableObject {
         }
 
         // Create ray from camera through screen point
-        let cameraPos = cameraNode.presentationNode.worldPosition
-        let cameraTransform = cameraNode.presentationNode.worldTransform
+        let cameraPos = cameraNode.presentation.worldPosition
+        let cameraTransform = cameraNode.presentation.worldTransform
 
         // Calculate ray direction in world space
         // This is a simplified approach - we'll use the board's Y plane
@@ -918,22 +916,28 @@ class SceneManager3D: ObservableObject {
         hitPlaneNode.opacity = 0.0  // Invisible
         scene.rootNode.addChildNode(hitPlaneNode)
 
-        // Perform hit test using unproject
-        let unprojectedNear = cameraNode.unprojectPoint(SCNVector3(screenPoint.x, sceneKitY, 0))
-        let unprojectedFar = cameraNode.unprojectPoint(SCNVector3(screenPoint.x, sceneKitY, 1))
+        // Manual ray calculation from camera
+        // Get camera position and forward direction
+        let rayOrigin = cameraPos
 
-        // Calculate intersection with board plane (y = boardY)
-        let rayOrigin = unprojectedNear
-        let rayDirection = SCNVector3(
-            unprojectedFar.x - unprojectedNear.x,
-            unprojectedFar.y - unprojectedNear.y,
-            unprojectedFar.z - unprojectedNear.z
-        )
+        // Calculate ray direction from camera transform
+        // Use camera's forward vector and adjust based on screen position
+        let forward = SCNVector3(-cameraTransform.m31, -cameraTransform.m32, -cameraTransform.m33)
+        let right = SCNVector3(cameraTransform.m11, cameraTransform.m12, cameraTransform.m13)
+        let up = SCNVector3(cameraTransform.m21, cameraTransform.m22, cameraTransform.m23)
+
+        // Combine to create ray direction
+        let rayDirectionX = forward.x + right.x * Float(normalizedX) + up.x * Float(normalizedY)
+        let rayDirectionY = forward.y + right.y * Float(normalizedX) + up.y * Float(normalizedY)
+        let rayDirectionZ = forward.z + right.z * Float(normalizedX) + up.z * Float(normalizedY)
+
+        let rayDirection = SCNVector3(rayDirectionX, rayDirectionY, rayDirectionZ)
 
         // Normalize ray direction
-        let rayLength = sqrt(rayDirection.x * rayDirection.x +
-                            rayDirection.y * rayDirection.y +
-                            rayDirection.z * rayDirection.z)
+        let rayLengthSquared = rayDirection.x * rayDirection.x +
+                               rayDirection.y * rayDirection.y +
+                               rayDirection.z * rayDirection.z
+        let rayLength = sqrt(rayLengthSquared)
         let normalizedRay = SCNVector3(
             rayDirection.x / rayLength,
             rayDirection.y / rayLength,
