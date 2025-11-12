@@ -801,8 +801,14 @@ struct ContentView3D: View {
     private func handle3DMouseMove(at location: CGPoint, viewSize: CGSize, isDown: Bool) {
         isMouseDown = isDown
 
+        // Debug logging - VERBOSE
+        let playerColorStr = ogsClient.playerColor == .black ? "BLACK" : (ogsClient.playerColor == .white ? "WHITE" : "nil")
+        let currentColorStr = ogsClient.currentPlayerColor == .black ? "BLACK" : "WHITE"
+        NSLog("DEBUG3D: 🔍 Mouse move - isMyTurn: \(ogsClient.isMyTurn), gamePhase: \(ogsClient.gamePhase.rawValue), playerColor: \(playerColorStr), currentPlayerColor: \(currentColorStr), isDown: \(isDown)")
+
         // Only show phantom stone if it's our turn and game is in progress
         guard ogsClient.isMyTurn, ogsClient.gamePhase == .playing else {
+            NSLog("DEBUG3D: ❌ Cannot show phantom - isMyTurn: \(ogsClient.isMyTurn), gamePhase: \(ogsClient.gamePhase.rawValue)")
             sceneManager.hidePhantomStone()
             phantomStonePosition = nil
             return
@@ -815,6 +821,8 @@ struct ContentView3D: View {
                 // Show phantom stone at this position
                 if phantomStonePosition?.x != boardPos.x || phantomStonePosition?.y != boardPos.y {
                     let stoneColor = ogsClient.playerColor ?? .black
+                    let colorName = stoneColor == .black ? "BLACK" : "WHITE"
+                    NSLog("DEBUG3D: 🎨 Showing phantom \(colorName) stone at (\(boardPos.x), \(boardPos.y)), playerColor from OGS: \(ogsClient.playerColor == nil ? "nil (defaulted to black)" : colorName)")
                     let opacity: CGFloat = isDown ? 0.3 : 0.5  // More transparent when pressed
                     sceneManager.showPhantomStone(at: boardPos, color: stoneColor, opacity: opacity)
                     phantomStonePosition = boardPos

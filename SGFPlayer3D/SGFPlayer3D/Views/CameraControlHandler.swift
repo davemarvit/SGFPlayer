@@ -68,14 +68,17 @@ struct CameraControlHandler: NSViewRepresentable {
         }
 
         override func mouseDown(with event: NSEvent) {
-            // Accept the event to enable dragging
+            // If we reach here, hitTest already filtered for Cmd/Shift held
+            NSLog("DEBUG3D: 🎥 Camera control mode - starting drag")
         }
 
         override func mouseDragged(with event: NSEvent) {
+            // hitTest ensures we only get here with Cmd or Shift held
             let isShiftPressed = event.modifierFlags.contains(.shift)
+            let isCommandPressed = event.modifierFlags.contains(.command)
 
-            if isShiftPressed {
-                // Pan mode
+            if isShiftPressed && !isCommandPressed {
+                // Shift alone = Pan mode
                 let panSensitivity: CGFloat = 0.02
                 panX -= event.deltaX * panSensitivity  // Negate for correct direction
                 panY += event.deltaY * panSensitivity
@@ -87,8 +90,8 @@ struct CameraControlHandler: NSViewRepresentable {
                     panX: panX,
                     panY: panY
                 )
-            } else {
-                // Rotate mode
+            } else if isCommandPressed {
+                // Command (with or without Shift) = Rotate mode
                 let sensitivity: CGFloat = 0.005
                 rotationY -= Float(event.deltaX * sensitivity)  // Negate for correct direction
                 rotationX -= Float(event.deltaY * sensitivity)  // Negate for correct direction
@@ -136,8 +139,14 @@ struct CameraControlHandler: NSViewRepresentable {
         override var acceptsFirstResponder: Bool { true }
 
         override func hitTest(_ point: NSPoint) -> NSView? {
-            // Return self to accept events
-            return self
+            // Only capture events if Command or Shift is held (for camera control)
+            // Otherwise return nil to let events pass through to SwiftUI board interaction
+            let modifiers = NSEvent.modifierFlags
+            if modifiers.contains(.command) || modifiers.contains(.shift) {
+                return self
+            }
+            // Pass through for normal clicks (board interaction)
+            return nil
         }
     }
 }
