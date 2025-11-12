@@ -926,17 +926,29 @@ class SceneManager3D: ObservableObject {
         let right = SCNVector3(cameraTransform.m11, cameraTransform.m12, cameraTransform.m13)
         let up = SCNVector3(cameraTransform.m21, cameraTransform.m22, cameraTransform.m23)
 
-        // Combine to create ray direction
-        let rayDirectionX = forward.x + right.x * Float(normalizedX) + up.x * Float(normalizedY)
-        let rayDirectionY = forward.y + right.y * Float(normalizedX) + up.y * Float(normalizedY)
-        let rayDirectionZ = forward.z + right.z * Float(normalizedX) + up.z * Float(normalizedY)
+        // Combine to create ray direction (broken down for compiler)
+        let normX = Float(normalizedX)
+        let normY = Float(normalizedY)
+
+        let rightContribX = right.x * normX
+        let upContribX = up.x * normY
+        let rayDirectionX = forward.x + rightContribX + upContribX
+
+        let rightContribY = right.y * normX
+        let upContribY = up.y * normY
+        let rayDirectionY = forward.y + rightContribY + upContribY
+
+        let rightContribZ = right.z * normX
+        let upContribZ = up.z * normY
+        let rayDirectionZ = forward.z + rightContribZ + upContribZ
 
         let rayDirection = SCNVector3(rayDirectionX, rayDirectionY, rayDirectionZ)
 
-        // Normalize ray direction
-        let rayLengthSquared = rayDirection.x * rayDirection.x +
-                               rayDirection.y * rayDirection.y +
-                               rayDirection.z * rayDirection.z
+        // Normalize ray direction (broken down for compiler)
+        let xSquared = rayDirection.x * rayDirection.x
+        let ySquared = rayDirection.y * rayDirection.y
+        let zSquared = rayDirection.z * rayDirection.z
+        let rayLengthSquared = xSquared + ySquared + zSquared
         let rayLength = sqrt(rayLengthSquared)
         let normalizedRay = SCNVector3(
             rayDirection.x / rayLength,
