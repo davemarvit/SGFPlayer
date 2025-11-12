@@ -194,25 +194,17 @@ class StonePositionViewModel: ObservableObject {
         return "Model: \(modelInfo), Cache: \(stats), Info: \(physicsInfo)"
     }
 
-    /// Incremental update to prevent stone blinking in UI
+    /// Update stones by completely replacing the array to prevent phantom stones
+    ///
+    /// Previous "incremental" approach tried to prevent blinking by reusing stone objects,
+    /// but this caused phantom stones when navigating between moves because stale stone
+    /// IDs and properties persisted. Complete replacement ensures each move has correct stones.
     private func updateStonesIncremental(current: inout [StonePosition], pending: [StonePosition]) {
-        // Only update if the count has changed or positions have changed significantly
-        if current.count != pending.count {
-            // Add new stones incrementally to prevent blinking
-            if pending.count > current.count {
-                // Adding stones: append the new ones
-                let newStones = Array(pending.suffix(pending.count - current.count))
-                current.append(contentsOf: newStones)
-            } else {
-                // Removing stones: keep the ones that still exist
-                current = Array(current.prefix(pending.count))
-            }
-        }
+        // CRITICAL FIX: Complete array replacement instead of incremental updates
+        // This prevents phantom stones from stale data when navigating between moves
+        current = pending
 
-        // Update positions of existing stones smoothly
-        for i in 0..<min(current.count, pending.count) {
-            current[i] = pending[i]
-        }
+        print("🔄 ViewModel: Replaced stone array - count: \(pending.count)")
     }
 
     /// Reset ViewModel state for new game

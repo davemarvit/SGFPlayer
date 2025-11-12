@@ -55,7 +55,7 @@ struct ControlsView: View {
             
             // Version info
             HStack {
-                Text("v2.3")
+                Text("v3.98")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Spacer()
