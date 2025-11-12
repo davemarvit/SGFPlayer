@@ -58,8 +58,10 @@ struct BoardInteractionOverlay: View {
     private func handleMouseMove(at location: CGPoint, isDown: Bool) {
         isMouseDown = isDown
 
-        // Debug logging
-        NSLog("BoardInteraction: 🔍 Mouse move - isMyTurn: \(ogsClient.isMyTurn), gamePhase: \(ogsClient.gamePhase.rawValue), playerColor: \(ogsClient.playerColor?.description ?? "nil"), currentPlayerColor: \(ogsClient.currentPlayerColor)")
+        // Debug logging - VERBOSE
+        let playerColorStr = ogsClient.playerColor == .black ? "BLACK" : (ogsClient.playerColor == .white ? "WHITE" : "nil")
+        let currentColorStr = ogsClient.currentPlayerColor == .black ? "BLACK" : "WHITE"
+        NSLog("BoardInteraction: 🔍 Mouse move - isMyTurn: \(ogsClient.isMyTurn), gamePhase: \(ogsClient.gamePhase.rawValue), playerColor: \(playerColorStr), currentPlayerColor: \(currentColorStr), isDown: \(isDown)")
 
         // Only show phantom stone if it's our turn and game is in progress
         guard ogsClient.isMyTurn, ogsClient.gamePhase == .playing else {
@@ -163,11 +165,13 @@ struct BoardInteractionOverlay: View {
         let stoneX = boardFrame.minX + offsetX + CGFloat(position.x) * cellWidth
         let stoneY = boardFrame.minY + offsetY + CGFloat(position.y) * cellHeight
 
-        // Determine stone color based on current player
+        // Determine stone color based on what color WE are playing (not whose turn)
         let stoneColor = ogsClient.playerColor ?? .black
-        NSLog("BoardInteraction: 🎨 Rendering phantom stone - playerColor: \(stoneColor), position: (\(position.x), \(position.y))")
+        let colorName = stoneColor == .black ? "BLACK" : "WHITE"
+        NSLog("BoardInteraction: 🎨 Rendering phantom stone - color: \(colorName), playerColor from OGS: \(ogsClient.playerColor == nil ? "nil (defaulted to black)" : colorName), position: (\(position.x), \(position.y))")
 
         let imageName = stoneColor == .black ? "stone_black" : "clam_01"
+        NSLog("BoardInteraction: 🎨 Using image: \(imageName)")
 
         // Stone size (slightly smaller than actual stones)
         let realBlackStoneDiameter: CGFloat = 22.2
