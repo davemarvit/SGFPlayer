@@ -806,13 +806,8 @@ struct ContentView3D: View {
         let currentColorStr = ogsClient.currentPlayerColor == .black ? "BLACK" : "WHITE"
         NSLog("DEBUG3D: 🔍 Mouse move - isMyTurn: \(ogsClient.isMyTurn), gamePhase: \(ogsClient.gamePhase.rawValue), playerColor: \(playerColorStr), currentPlayerColor: \(currentColorStr), isDown: \(isDown)")
 
-        // Only show phantom stone if it's our turn and game is in progress
-        guard ogsClient.isMyTurn, ogsClient.gamePhase == .playing else {
-            NSLog("DEBUG3D: ❌ Cannot show phantom - isMyTurn: \(ogsClient.isMyTurn), gamePhase: \(ogsClient.gamePhase.rawValue)")
-            sceneManager.hidePhantomStone()
-            phantomStonePosition = nil
-            return
-        }
+        // ALWAYS show phantom stone on hover (even during SGF playback)
+        // This provides visual feedback for where a stone would be placed
 
         // Convert screen coordinates to board position
         if let boardPos = sceneManager.hitTestBoard(screenPoint: location, viewSize: viewSize) {
@@ -820,9 +815,10 @@ struct ContentView3D: View {
             if player.board.grid[boardPos.y][boardPos.x] == nil {
                 // Show phantom stone at this position
                 if phantomStonePosition?.x != boardPos.x || phantomStonePosition?.y != boardPos.y {
-                    let stoneColor = ogsClient.playerColor ?? .black
+                    // Use currentPlayerColor (whose turn) not playerColor (our assigned color in live games)
+                    let stoneColor = ogsClient.currentPlayerColor
                     let colorName = stoneColor == .black ? "BLACK" : "WHITE"
-                    NSLog("DEBUG3D: 🎨 Showing phantom \(colorName) stone at (\(boardPos.x), \(boardPos.y)), playerColor from OGS: \(ogsClient.playerColor == nil ? "nil (defaulted to black)" : colorName)")
+                    NSLog("DEBUG3D: 🎨 Showing phantom \(colorName) stone at (\(boardPos.x), \(boardPos.y)), currentPlayerColor: \(colorName)")
                     let opacity: CGFloat = isDown ? 0.3 : 0.5  // More transparent when pressed
                     sceneManager.showPhantomStone(at: boardPos, color: stoneColor, opacity: opacity)
                     phantomStonePosition = boardPos
