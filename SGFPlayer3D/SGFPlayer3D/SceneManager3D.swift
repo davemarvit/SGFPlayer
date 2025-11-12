@@ -927,8 +927,8 @@ class SceneManager3D: ObservableObject {
         let up = SCNVector3(cameraTransform.m21, cameraTransform.m22, cameraTransform.m23)
 
         // Combine to create ray direction (broken down for compiler)
-        let normX = Float(normalizedX)
-        let normY = Float(normalizedY)
+        let normX = CGFloat(normalizedX)
+        let normY = CGFloat(normalizedY)
 
         let rightContribX = right.x * normX
         let upContribX = up.x * normY
