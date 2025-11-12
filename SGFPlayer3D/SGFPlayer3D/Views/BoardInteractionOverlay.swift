@@ -168,10 +168,10 @@ struct BoardInteractionOverlay: View {
         // Determine stone color based on what color WE are playing (not whose turn)
         let stoneColor = ogsClient.playerColor ?? .black
         let colorName = stoneColor == .black ? "BLACK" : "WHITE"
-        NSLog("BoardInteraction: 🎨 Rendering phantom stone - color: \(colorName), playerColor from OGS: \(ogsClient.playerColor == nil ? "nil (defaulted to black)" : colorName), position: (\(position.x), \(position.y))")
+        // NSLog("BoardInteraction: 🎨 Rendering phantom stone - color: \(colorName), playerColor from OGS: \(ogsClient.playerColor == nil ? "nil (defaulted to black)" : colorName), position: (\(position.x), \(position.y))")
 
         let imageName = stoneColor == .black ? "stone_black" : "clam_01"
-        NSLog("BoardInteraction: 🎨 Using image: \(imageName)")
+        // NSLog("BoardInteraction: 🎨 Using image: \(imageName)")
 
         // Stone size (slightly smaller than actual stones)
         let realBlackStoneDiameter: CGFloat = 22.2
@@ -181,7 +181,7 @@ struct BoardInteractionOverlay: View {
             ? (realBlackStoneDiameter / realCellWidth) * cellWidth * 0.95
             : (realWhiteStoneDiameter / realCellWidth) * cellWidth * 0.95
 
-        NSLog("BoardInteraction: 🎨 Stone details - image: \(imageName), size: \(stoneSize), opacity: \(isMouseDown ? 0.5 : 0.7)")
+        // NSLog("BoardInteraction: 🎨 Stone details - image: \(imageName), size: \(stoneSize), opacity: \(isMouseDown ? 0.5 : 0.7)")
 
         Image(imageName)
             .resizable()
