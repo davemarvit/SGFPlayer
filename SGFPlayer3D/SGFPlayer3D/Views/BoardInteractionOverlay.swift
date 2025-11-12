@@ -58,8 +58,12 @@ struct BoardInteractionOverlay: View {
     private func handleMouseMove(at location: CGPoint, isDown: Bool) {
         isMouseDown = isDown
 
+        // Debug logging
+        NSLog("BoardInteraction: 🔍 Mouse move - isMyTurn: \(ogsClient.isMyTurn), gamePhase: \(ogsClient.gamePhase.rawValue), playerColor: \(ogsClient.playerColor?.description ?? "nil"), currentPlayerColor: \(ogsClient.currentPlayerColor)")
+
         // Only show phantom stone if it's our turn and game is in progress
         guard ogsClient.isMyTurn, ogsClient.gamePhase == .playing else {
+            NSLog("BoardInteraction: ❌ Cannot show phantom - isMyTurn: \(ogsClient.isMyTurn), gamePhase: \(ogsClient.gamePhase.rawValue)")
             phantomStonePosition = nil
             return
         }
@@ -80,11 +84,14 @@ struct BoardInteractionOverlay: View {
     private func handleMouseUp(at location: CGPoint) {
         isMouseDown = false
 
+        NSLog("BoardInteraction: 🔍 Mouse up - isMyTurn: \(ogsClient.isMyTurn), gamePhase: \(ogsClient.gamePhase.rawValue), phantomPos: \(phantomStonePosition?.x ?? -1),\(phantomStonePosition?.y ?? -1), gameID: \(ogsClient.currentGameID ?? -1)")
+
         // Only send move if it's our turn and game is in progress
         guard ogsClient.isMyTurn,
               ogsClient.gamePhase == .playing,
               let position = phantomStonePosition,
               let gameID = ogsClient.currentGameID else {
+            NSLog("BoardInteraction: ❌ Cannot send move - one or more conditions failed")
             phantomStonePosition = nil
             return
         }
@@ -158,6 +165,8 @@ struct BoardInteractionOverlay: View {
 
         // Determine stone color based on current player
         let stoneColor = ogsClient.playerColor ?? .black
+        NSLog("BoardInteraction: 🎨 Rendering phantom stone - playerColor: \(stoneColor), position: (\(position.x), \(position.y))")
+
         let imageName = stoneColor == .black ? "stone_black" : "clam_01"
 
         // Stone size (slightly smaller than actual stones)
@@ -167,6 +176,8 @@ struct BoardInteractionOverlay: View {
         let stoneSize = stoneColor == .black
             ? (realBlackStoneDiameter / realCellWidth) * cellWidth * 0.95
             : (realWhiteStoneDiameter / realCellWidth) * cellWidth * 0.95
+
+        NSLog("BoardInteraction: 🎨 Stone details - image: \(imageName), size: \(stoneSize), opacity: \(isMouseDown ? 0.5 : 0.7)")
 
         Image(imageName)
             .resizable()
