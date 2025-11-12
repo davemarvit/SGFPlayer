@@ -2179,9 +2179,29 @@ class OGSClient: NSObject, ObservableObject {
             extractClockData(clock)
         }
 
-        // Determine whose turn it is
+        // Determine whose turn it is and set game phase
         if let phase = gameData["phase"] as? String {
-            NSLog("OGS: 🎮 Game phase: \(phase)")
+            NSLog("OGS: 🎮 Game phase from OGS: \(phase)")
+            DispatchQueue.main.async {
+                switch phase {
+                case "play":
+                    self.gamePhase = .playing
+                    NSLog("OGS: ✅ Set gamePhase to .playing")
+                case "stone removal":
+                    self.gamePhase = .scoring
+                    NSLog("OGS: ✅ Set gamePhase to .scoring")
+                case "finished":
+                    self.gamePhase = .finished
+                    NSLog("OGS: ✅ Set gamePhase to .finished")
+                default:
+                    NSLog("OGS: ⚠️ Unknown game phase: \(phase)")
+                }
+            }
+        } else {
+            NSLog("OGS: ⚠️ No phase field in game data, defaulting to .playing")
+            DispatchQueue.main.async {
+                self.gamePhase = .playing
+            }
         }
 
         // Get the current player (whose turn it is)
@@ -2205,9 +2225,38 @@ class OGSClient: NSObject, ObservableObject {
 
         // Check if there's a "you" field or similar to identify our color
         if let myColor = gameData["player_color"] as? String {
-            NSLog("OGS: 🎮 My color: \(myColor)")
+            NSLog("OGS: 🎮 My color from player_color field: \(myColor)")
             DispatchQueue.main.async {
                 self.playerColor = myColor == "black" ? .black : .white
+                NSLog("OGS: ✅ Set playerColor to \(self.playerColor!) from player_color field")
+            }
+        } else {
+            // Try to determine our color by matching our player ID with black/white player
+            NSLog("OGS: 🔍 No player_color field, trying to match player ID")
+            if let players = gameData["players"] as? [String: Any],
+               let myPlayerID = self.playerID {
+
+                if let black = players["black"] as? [String: Any],
+                   let blackID = black["id"] as? Int,
+                   blackID == myPlayerID {
+                    NSLog("OGS: 🎮 My color: BLACK (matched player ID \(myPlayerID))")
+                    DispatchQueue.main.async {
+                        self.playerColor = .black
+                        NSLog("OGS: ✅ Set playerColor to BLACK from player ID match")
+                    }
+                } else if let white = players["white"] as? [String: Any],
+                          let whiteID = white["id"] as? Int,
+                          whiteID == myPlayerID {
+                    NSLog("OGS: 🎮 My color: WHITE (matched player ID \(myPlayerID))")
+                    DispatchQueue.main.async {
+                        self.playerColor = .white
+                        NSLog("OGS: ✅ Set playerColor to WHITE from player ID match")
+                    }
+                } else {
+                    NSLog("OGS: ⚠️ Could not determine player color - myPlayerID: \(myPlayerID)")
+                }
+            } else {
+                NSLog("OGS: ⚠️ Could not determine player color - missing players or playerID")
             }
         }
 
