@@ -28,6 +28,7 @@ struct Interactive2DBoardView: View {
                 physicsIntegration: physicsIntegration,
                 boardStoneDiameter: boardStoneDiameter,
                 gameCacheManager: gameCacheManager,
+                ogsClient: ogsClient,
                 boardFrame: boardFrame,
                 ulBowlCenter: ulBowlCenter,
                 lrBowlCenter: lrBowlCenter,
