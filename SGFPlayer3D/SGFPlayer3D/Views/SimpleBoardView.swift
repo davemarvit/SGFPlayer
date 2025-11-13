@@ -16,11 +16,12 @@ struct SimpleBoardView: View {
     let lrBowlCenter: CGPoint
     let bowlRadius: CGFloat
 
-    // v3.120: Simple hover test - no overlay, direct in this view
+    // v3.122: Phantom stone implementation
     @State private var hoverLocation: CGPoint?
+    @State private var phantomStonePos: (x: Int, y: Int)?
 
     var body: some View {
-        NSLog("🟦 SimpleBoardView.body CALLED - this should appear in logs!")
+        NSLog("🟦 SimpleBoardView.body CALLED v3.122")
 
         let _ = {
             if DebugConfig.enableUIDebugging {
@@ -47,28 +48,13 @@ struct SimpleBoardView: View {
                 gridSize: player.board.size
             )
 
-            // v3.120: FRESH START - Simplest possible hover test
-            // Red rectangle that covers entire view to test hover capture
-            Rectangle()
-                .fill(Color.red.opacity(0.3))
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active(let location):
-                        hoverLocation = location
-                        NSLog("🟥 SIMPLE HOVER TEST: \(location.x), \(location.y)")
-                    case .ended:
-                        hoverLocation = nil
-                        NSLog("🟥 HOVER ENDED")
-                    }
-                }
-
-            // Show yellow dot at hover location
-            if let loc = hoverLocation {
-                Circle()
-                    .fill(Color.yellow)
-                    .frame(width: 30, height: 30)
-                    .position(loc)
-            }
+            // v3.122: Phantom stone overlay
+            PhantomStoneOverlay(
+                player: player,
+                ogsClient: ogsClient,
+                boardFrame: boardFrame,
+                boardStoneDiameter: boardStoneDiameter
+            )
         }
     }
 }
@@ -569,6 +555,92 @@ struct BowlContent: View {
                     .onAppear {
                         Logger.warning("🎨 WHITE STONE RENDERED - ID: \(stone.id.uuidString.prefix(8)), finalPos: (\(finalX), \(finalY))")
                     }
+            }
+        }
+    }
+}
+
+// MARK: - Phantom Stone Overlay (v3.122)
+struct PhantomStoneOverlay: View {
+    @ObservedObject var player: SGFPlayer
+    @ObservedObject var ogsClient: OGSClient
+    let boardFrame: CGRect
+    let boardStoneDiameter: CGFloat
+
+    @State private var hoverLocation: CGPoint?
+    @State private var phantomBoardPos: (x: Int, y: Int)?
+
+    var body: some View {
+        let gridSize = player.board.size
+
+        // Calculate grid dimensions (same as BoardContent)
+        let cellRatio: CGFloat = 15.0 / 14.0
+        let baseCellWidth = boardFrame.width * 0.9 / CGFloat(gridSize - 1)
+        let cellWidth = baseCellWidth
+        let cellHeight = baseCellWidth * cellRatio
+        let gridWidth = cellWidth * CGFloat(gridSize - 1)
+        let gridHeight = cellHeight * CGFloat(gridSize - 1)
+        let offsetX = (boardFrame.width - gridWidth) / 2
+        let offsetY = (boardFrame.height - gridHeight) / 2
+
+        // Calculate stone sizes
+        let realCellWidth = 22.0 // mm
+        let realBlackStoneDiameter = 22.2 // mm
+        let realWhiteStoneDiameter = 21.9 // mm
+        let blackStoneSize = (realBlackStoneDiameter / realCellWidth) * cellWidth
+        let whiteStoneSize = (realWhiteStoneDiameter / realCellWidth) * cellWidth
+
+        return ZStack {
+            // Invisible hover capture rectangle
+            Rectangle()
+                .fill(Color.clear)
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let location):
+                        hoverLocation = location
+
+                        // Convert screen coordinates to board coordinates
+                        let relativeX = location.x - boardFrame.minX - offsetX
+                        let relativeY = location.y - boardFrame.minY - offsetY
+
+                        // Convert to grid position (round to nearest intersection)
+                        let col = Int(round(relativeX / cellWidth))
+                        let row = Int(round(relativeY / cellHeight))
+
+                        // Check if position is valid and empty
+                        if col >= 0 && col < gridSize && row >= 0 && row < gridSize {
+                            if player.board.grid[row][col] == nil {
+                                phantomBoardPos = (x: col, y: row)
+                                NSLog("👻 v3.122: Phantom stone at board (\(col), \(row))")
+                            } else {
+                                phantomBoardPos = nil
+                            }
+                        } else {
+                            phantomBoardPos = nil
+                        }
+
+                    case .ended:
+                        hoverLocation = nil
+                        phantomBoardPos = nil
+                        NSLog("👻 v3.122: Phantom stone cleared")
+                    }
+                }
+
+            // Show phantom stone if we have a valid position
+            if let pos = phantomBoardPos {
+                let stoneX = boardFrame.minX + offsetX + CGFloat(pos.x) * cellWidth
+                let stoneY = boardFrame.minY + offsetY + CGFloat(pos.y) * cellHeight
+
+                // Determine stone color based on next player
+                let isBlackTurn = player.currentMove % 2 == 0
+                let stoneSize = isBlackTurn ? blackStoneSize : whiteStoneSize
+                let imageName = isBlackTurn ? "stone_black" : "clam_01"
+
+                Image(imageName)
+                    .resizable()
+                    .frame(width: stoneSize, height: stoneSize)
+                    .opacity(0.6) // Semi-transparent phantom stone
+                    .position(x: stoneX, y: stoneY)
             }
         }
     }

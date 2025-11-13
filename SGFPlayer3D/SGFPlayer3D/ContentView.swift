@@ -162,12 +162,12 @@ struct ContentView: View {
 
             gameInfoOverlay
 
-            // v3.121: Version number - ALWAYS visible, large, obvious
+            // v3.122: Version number with phantom stone implementation
             VStack {
                 Spacer()
                 HStack {
                     Spacer()
-                    Text("v3.121")
+                    Text("v3.122")
                         .foregroundColor(.white)
                         .font(.title)
                         .fontWeight(.bold)
@@ -178,11 +178,6 @@ struct ContentView: View {
                         .padding(.bottom, 20)
                 }
             }
-
-            // v3.121: OBVIOUS TEST - Big red border to prove code is running
-            Rectangle()
-                .stroke(Color.red, lineWidth: 10)
-                .allowsHitTesting(false)
         }
         .contentShape(Rectangle())
         .onContinuousHover { phase in

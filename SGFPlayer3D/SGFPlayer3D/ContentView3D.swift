@@ -137,11 +137,6 @@ struct ContentView3D: View {
             }
 
             overlayUI
-
-            // v3.121: OBVIOUS TEST - Big blue border to prove code is running
-            Rectangle()
-                .stroke(Color.blue, lineWidth: 10)
-                .allowsHitTesting(false)
         }
     }
 
@@ -585,10 +580,10 @@ struct ContentView3D: View {
 
                 Spacer()
 
-                // v3.121: Version number - ALWAYS visible, large, obvious
+                // v3.122: Version number (phantom stone in 2D)
                 HStack {
                     Spacer()
-                    Text("v3.121")
+                    Text("v3.122")
                         .foregroundColor(.white)
                         .font(.title)
                         .fontWeight(.bold)
