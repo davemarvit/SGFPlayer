@@ -833,7 +833,8 @@ class OGSClient: NSObject, ObservableObject {
 
         // OGS uses cookie-based authentication - session cookies are automatically sent by URLSession
         // Also need CSRF protection headers
-        let url = URL(string: "https://online-go.com/api/v1/challenges")!
+        // CRITICAL: Use player-specific endpoint for direct challenges (matches OGS web interface)
+        let url = URL(string: "https://online-go.com/api/v1/players/\(playerID)/challenge")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -870,8 +871,8 @@ class OGSClient: NSObject, ObservableObject {
         }
 
         // Build challenge request body
+        // NOTE: Player ID is in the URL (/players/{id}/challenge), NOT in the body
         let challengeData: [String: Any] = [
-            "challenged_player_id": playerID,
             "challenger_color": settings.colorPreference.apiValue,
             "game": [
                 "width": settings.boardSize,

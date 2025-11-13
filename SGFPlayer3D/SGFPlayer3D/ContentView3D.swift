@@ -562,7 +562,7 @@ struct ContentView3D: View {
                 // Version number in lower right
                 HStack {
                     Spacer()
-                    Text("v3.30")
+                    Text("v3.113-phantom (OGS source fix)")
                         .foregroundColor(.gray)
                         .font(.caption)
                         .padding(.trailing, 20)
