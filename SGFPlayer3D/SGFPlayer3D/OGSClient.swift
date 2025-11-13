@@ -964,6 +964,19 @@ class OGSClient: NSObject, ObservableObject {
                         handle.closeFile()
                     }
                     NSLog("OGS: ✅ Challenge sent successfully!")
+
+                    // v3.116: Extract game_id and challenge_id from response and start keepalives
+                    // This ensures activeChallengeID is set so we can detect when the game starts
+                    if let data = data,
+                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let gameID = json["game"] as? Int,
+                       let challengeID = json["challenge"] as? Int {
+                        NSLog("OGS: 🎮 Challenge created - game_id: \(gameID), challenge_id: \(challengeID)")
+                        self?.startChallengeKeepalive(challengeID: challengeID, gameID: gameID)
+                    } else {
+                        NSLog("OGS: ⚠️ Could not extract challenge/game IDs from response")
+                    }
+
                     DispatchQueue.main.async {
                         self?.lastError = nil
                     }
@@ -2555,16 +2568,21 @@ class OGSClient: NSObject, ObservableObject {
             }
 
             // Check if this is a game_started message (also remove)
-            // DIAGNOSTIC: Log the raw item to see its structure
-            if item.keys.contains("game_started") || item.keys.contains("game_id") {
-                NSLog("OGS: 🔍 DIAGNOSTIC - Possible game_started item for challenge #\(challengeID)")
-                NSLog("OGS: 🔍 DIAGNOSTIC - All keys: \(item.keys.sorted())")
-                NSLog("OGS: 🔍 DIAGNOSTIC - Full item: \(item)")
+            // v3.116: The field can be either "game_started" or "game_id" depending on message type
+            var gameID: Int? = nil
+            if let id = item["game_started"] as? Int {
+                gameID = id
+                NSLog("OGS: 📊 🎮 GAME STARTED (via game_started field) for challenge #\(challengeID), game ID: \(id)")
+            } else if let id = item["game_id"] as? Int {
+                // Only treat this as a game start if we're tracking this challenge
+                // (All challenges have game_id, but we only care about ones we created/accepted)
+                if self.activeChallengeID == challengeID {
+                    gameID = id
+                    NSLog("OGS: 📊 🎮 GAME STARTED (via game_id field) for challenge #\(challengeID), game ID: \(id)")
+                }
             }
 
-            if let gameID = item["game_started"] as? Int {
-                // Always log game_started - this is important for debugging
-                NSLog("OGS: 📊 🎮 GAME STARTED for challenge #\(challengeID), game ID: \(gameID)")
+            if let gameID = gameID {
                 DispatchQueue.main.async {
                     self.availableGames.removeAll { $0.id == challengeID }
                     NSLog("OGS: 📊 Removed started game #\(challengeID), now have \(self.availableGames.count) games")
@@ -2574,7 +2592,7 @@ class OGSClient: NSObject, ObservableObject {
                         self.stopChallengeKeepalive()
                     }
 
-                    // v3.115: BUG FIX - Actually join the game that was just started!
+                    // v3.116: BUG FIX - Actually join the game that was just started!
                     // This is the critical missing piece - we need to call joinGame() to load the game data
                     NSLog("OGS: 🎮 Calling joinGame(\(gameID)) to load the started game")
                     self.joinGame(gameID: gameID)
