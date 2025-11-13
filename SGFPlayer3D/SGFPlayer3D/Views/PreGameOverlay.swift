@@ -45,7 +45,7 @@ struct PreGameOverlay: View {
             VStack(spacing: 0) {
                 // Header with close button
                 HStack {
-                    Text("Find a Game [v3.113]")
+                    Text("Find a Game [v3.114]")
                         .font(.title.bold())
                         .foregroundColor(.white)
 
@@ -325,7 +325,7 @@ struct PreGameOverlay: View {
             Button(action: createCustomGame) {
                 HStack {
                     Image(systemName: "plus.circle.fill")
-                    Text("Create Game")
+                    Text("Create Public Game")
                 }
                 .frame(maxWidth: .infinity)
                 .padding()
@@ -334,6 +334,59 @@ struct PreGameOverlay: View {
                 .cornerRadius(8)
             }
             .buttonStyle(.plain)
+
+            // Divider between public and direct challenge
+            Divider()
+                .background(Color.white.opacity(0.3))
+                .padding(.vertical, 4)
+
+            Text("Challenge a Specific Player")
+                .font(.subheadline.bold())
+                .foregroundColor(.white)
+
+            Text("Send a direct challenge to a player by username")
+                .font(.caption)
+                .foregroundColor(.white.opacity(0.7))
+
+            HStack(spacing: 8) {
+                TextField("Player username", text: $challengeUsername)
+                    .textFieldStyle(.plain)
+                    .padding(8)
+                    .background(Color.white.opacity(0.1))
+                    .foregroundColor(.white)
+                    .cornerRadius(6)
+                    .disabled(ogsClient.isSendingChallenge)
+
+                Button(action: challengePlayer) {
+                    HStack {
+                        Image(systemName: "person.crop.circle.badge.plus")
+                        Text("Challenge")
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(challengeUsername.isEmpty ? Color.gray.opacity(0.5) : Color.blue.opacity(0.8))
+                    .foregroundColor(.white)
+                    .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+                .disabled(challengeUsername.isEmpty || ogsClient.isSendingChallenge)
+            }
+
+            if ogsClient.isSendingChallenge {
+                HStack {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                    Text("Sending challenge...")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+            }
+
+            if let error = ogsClient.lastError {
+                Text("Error: \(error)")
+                    .font(.caption)
+                    .foregroundColor(.red.opacity(0.9))
+            }
         }
     }
 
@@ -740,6 +793,25 @@ struct PreGameOverlay: View {
                 NSLog("PreGameOverlay: ❌ Failed to post game: \(error ?? "unknown error")")
             }
         }
+    }
+
+    private func challengePlayer() {
+        let username = challengeUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !username.isEmpty else {
+            NSLog("PreGameOverlay: ⚠️ Challenge username is empty")
+            return
+        }
+
+        NSLog("PreGameOverlay: Challenging player '\(username)' with settings: \(gameSettings)")
+
+        // Save settings
+        gameSettings.save()
+
+        // Send challenge to specific player
+        ogsClient.sendChallenge(to: username, settings: gameSettings)
+
+        // Clear the username field on success (will be handled by OGSClient state)
+        // The UI will show loading state via ogsClient.isSendingChallenge
     }
 }
 
