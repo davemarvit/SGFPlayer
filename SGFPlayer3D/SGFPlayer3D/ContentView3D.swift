@@ -874,9 +874,8 @@ struct ContentView3D: View {
               ogsClient.gamePhase == .playing,
               let position = phantomStonePosition,
               let gameID = ogsClient.currentGameID else {
-            NSLog("👻 ❌ 3D Click ignored - conditions not met")
-            sceneManager.hidePhantomStone()
-            phantomStonePosition = nil
+            NSLog("👻 ❌ 3D Click ignored - conditions not met (keeping phantom stone visible)")
+            // Don't hide the phantom stone - let it remain visible so user can see what they tried to click
             return
         }
 

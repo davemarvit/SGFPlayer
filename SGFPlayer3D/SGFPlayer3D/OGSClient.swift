@@ -2258,11 +2258,20 @@ class OGSClient: NSObject, ObservableObject {
                 NSLog("OGS: ⚠️ playerID is nil - cannot determine our color")
             }
 
-            // Get whose turn it is
-            let playerToMoveID = gameData["player_to_move"] as? Int
+            // Get whose turn it is from the clock data (OGS sends it as "current_player" in the clock subdictionary)
+            var playerToMoveID: Int?
+            if let clock = gameData["clock"] as? [String: Any],
+               let currentPlayerID = clock["current_player"] as? Int {
+                playerToMoveID = currentPlayerID
+                NSLog("OGS: 🎮 Current player (from clock): \(currentPlayerID)")
+            } else if let currentPlayerID = gameData["player_to_move"] as? Int {
+                // Fallback to player_to_move if it exists (some OGS endpoints may use this)
+                playerToMoveID = currentPlayerID
+                NSLog("OGS: 🎮 Player to move (from gameData): \(currentPlayerID)")
+            }
 
             // Set currentPlayerColor based on whose turn it is
-            // This is CRITICAL for correct color mapping
+            // This is CRITICAL for correct color mapping and isMyTurn to work
             if let playerToMoveID = playerToMoveID {
                 if playerToMoveID == blackPlayerID {
                     NSLog("OGS: 🎨 Setting currentPlayerColor to Black (player \(playerToMoveID) to move)")
@@ -2277,6 +2286,8 @@ class OGSClient: NSObject, ObservableObject {
                 } else {
                     NSLog("OGS: ⚠️ playerToMoveID \(playerToMoveID) doesn't match black (\(blackPlayerID ?? -1)) or white (\(whitePlayerID ?? -1))")
                 }
+            } else {
+                NSLog("OGS: ⚠️ Could not determine current player from game data")
             }
 
             // Get handicap for proper turn calculation
