@@ -881,7 +881,16 @@ class SceneManager3D: ObservableObject {
     ///   - screenPoint: Point in view coordinates
     ///   - viewSize: Size of the view
     /// - Returns: Board coordinates (x, y) if hit, nil otherwise
+    /// NOTE: Phantom stone hit testing temporarily disabled - needs SCNView reference
     func hitTestBoard(screenPoint: CGPoint, viewSize: CGSize) -> (x: Int, y: Int)? {
+        // TODO: Implement proper hit testing with SCNView reference
+        return nil
+    }
+
+    // REMOVED: Old hit testing code that was causing compilation errors
+    // The code used deprecated SceneKit APIs (presentationNode, unprojectPoint on SCNNode)
+    // This can be re-implemented when we have proper SCNView access
+    private func hitTestBoardOLD_DISABLED(screenPoint: CGPoint, viewSize: CGSize) -> (x: Int, y: Int)? {
         // Create a hit test from the camera through the screen point
         // SceneKit uses (0,0) at bottom-left, but AppKit uses top-left
         // Convert to SceneKit coordinates
