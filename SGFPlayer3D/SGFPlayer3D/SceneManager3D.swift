@@ -942,7 +942,7 @@ class SceneManager3D: ObservableObject {
             return nil
         }
 
-        let t = (boardY - cameraWorldPos.y) / rayDirNorm.y
+        let t: Float = (boardY - cameraWorldPos.y) / rayDirNorm.y
         guard t > 0 else {
             // Intersection is behind camera
             return nil
