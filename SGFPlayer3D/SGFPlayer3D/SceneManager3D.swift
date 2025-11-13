@@ -916,21 +916,17 @@ class SceneManager3D: ObservableObject {
         let nearPointCamera = SCNVector3(nearX, nearY, nearZ)
         let nearPointWorld = transformPoint(nearPointCamera, by: cameraWorldTransform)
 
-        // Ray direction from camera to near point
-        let rayDir = SCNVector3(
-            nearPointWorld.x - cameraWorldPos.x,
-            nearPointWorld.y - cameraWorldPos.y,
-            nearPointWorld.z - cameraWorldPos.z
-        )
+        // Ray direction from camera to near point (force Float)
+        let rayDirX = Float(nearPointWorld.x - cameraWorldPos.x)
+        let rayDirY = Float(nearPointWorld.y - cameraWorldPos.y)
+        let rayDirZ = Float(nearPointWorld.z - cameraWorldPos.z)
 
-        // Normalize ray direction (force Float arithmetic)
-        let rayLengthSq = rayDir.x * rayDir.x + rayDir.y * rayDir.y + rayDir.z * rayDir.z
-        let rayLength = Float(sqrt(Double(rayLengthSq)))
-        let rayDirNorm = SCNVector3(
-            rayDir.x / rayLength,
-            rayDir.y / rayLength,
-            rayDir.z / rayLength
-        )
+        // Normalize ray direction (all Float arithmetic)
+        let rayLengthSq: Float = rayDirX * rayDirX + rayDirY * rayDirY + rayDirZ * rayDirZ
+        let rayLength: Float = Float(sqrt(Double(rayLengthSq)))
+        let rayDirNormX: Float = rayDirX / rayLength
+        let rayDirNormY: Float = rayDirY / rayLength
+        let rayDirNormZ: Float = rayDirZ / rayLength
 
         // Board top surface is at y = boardThickness / 2 = 1.0
         let boardY: Float = 1.0
@@ -938,20 +934,20 @@ class SceneManager3D: ObservableObject {
         // Ray-plane intersection: find t where ray.y = boardY
         // ray.y = cameraY + t * rayDir.y = boardY
         // t = (boardY - cameraY) / rayDir.y
-        guard abs(rayDirNorm.y) > 0.001 else {
+        guard abs(rayDirNormY) > 0.001 else {
             // Ray is parallel to board
             return nil
         }
 
-        let t: Float = (boardY - cameraWorldPos.y) / rayDirNorm.y
+        let t: Float = (boardY - Float(cameraWorldPos.y)) / rayDirNormY
         guard t > 0 else {
             // Intersection is behind camera
             return nil
         }
 
-        // Calculate intersection point (explicit Float arithmetic)
-        let hitX: Float = cameraWorldPos.x + (t * rayDirNorm.x)
-        let hitZ: Float = cameraWorldPos.z + (t * rayDirNorm.z)
+        // Calculate intersection point (all Float)
+        let hitX: Float = Float(cameraWorldPos.x) + (t * rayDirNormX)
+        let hitZ: Float = Float(cameraWorldPos.z) + (t * rayDirNormZ)
 
         // Convert world position to board coordinates
         // Board is centered at (0, 0), with cells spanning from negative to positive
