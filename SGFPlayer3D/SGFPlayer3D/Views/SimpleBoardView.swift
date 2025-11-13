@@ -632,7 +632,7 @@ struct PhantomStoneOverlay: View {
                 let stoneY = boardFrame.minY + offsetY + CGFloat(pos.y) * cellHeight
 
                 // Determine stone color based on next player
-                let isBlackTurn = player.currentMove % 2 == 0
+                let isBlackTurn = player.currentIndex % 2 == 0
                 let stoneSize = isBlackTurn ? blackStoneSize : whiteStoneSize
                 let imageName = isBlackTurn ? "stone_black" : "clam_01"
 
