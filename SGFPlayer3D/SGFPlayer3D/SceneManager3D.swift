@@ -898,8 +898,8 @@ class SceneManager3D: ObservableObject {
         }
 
         // Create ray from camera through screen point
-        let cameraPos = cameraNode.presentationNode.worldPosition
-        let cameraTransform = cameraNode.presentationNode.worldTransform
+        let cameraPos = cameraNode.presentation.worldPosition
+        let cameraTransform = cameraNode.presentation.worldTransform
 
         // Calculate ray direction in world space
         // This is a simplified approach - we'll use the board's Y plane
@@ -918,6 +918,12 @@ class SceneManager3D: ObservableObject {
         hitPlaneNode.opacity = 0.0  // Invisible
         scene.rootNode.addChildNode(hitPlaneNode)
 
+        // TODO: Fix phantom stone hit testing - unprojectPoint needs SCNView, not SCNNode
+        // Temporarily disabled to allow compilation
+        scene.rootNode.childNodes.first(where: { $0.name == "hit_test_plane" })?.removeFromParentNode()
+        return nil
+
+        /* DISABLED - SceneKit API incompatibility
         // Perform hit test using unproject
         let unprojectedNear = cameraNode.unprojectPoint(SCNVector3(screenPoint.x, sceneKitY, 0))
         let unprojectedFar = cameraNode.unprojectPoint(SCNVector3(screenPoint.x, sceneKitY, 1))
@@ -970,5 +976,6 @@ class SceneManager3D: ObservableObject {
         }
 
         return nil
+        */ // END DISABLED
     }
 }
