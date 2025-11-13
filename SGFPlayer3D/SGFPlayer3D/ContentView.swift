@@ -166,7 +166,7 @@ struct ContentView: View {
                     Spacer()
                     HStack {
                         Spacer()
-                        Text("v3.117 - Phantom Stone Preview")
+                        Text("v3.118 - Hover Test (red dot)")
                             .foregroundColor(.gray)
                             .font(.caption)
                             .padding(.trailing, 20)

@@ -15,6 +15,9 @@ struct BoardInteractionOverlay: View {
     @State private var phantomStonePosition: (x: Int, y: Int)?
     @State private var isMouseDown: Bool = false
 
+    // v3.117: Simple test - track raw mouse position
+    @State private var mousePosition: CGPoint?
+
     var body: some View {
         GeometryReader { geometry in
             ZStack {
@@ -33,15 +36,26 @@ struct BoardInteractionOverlay: View {
                     .onContinuousHover { phase in
                         switch phase {
                         case .active(let location):
+                            mousePosition = location  // v3.117: Track raw mouse for testing
+                            NSLog("🔴 HOVER TEST: Mouse at (\(location.x), \(location.y))")
                             if !isMouseDown {
                                 handleMouseMove(at: location, isDown: false)
                             }
                         case .ended:
+                            mousePosition = nil  // v3.117: Clear when hover ends
                             if !isMouseDown {
                                 phantomStonePosition = nil
                             }
                         }
                     }
+
+                // v3.117: TEST - Show red dot at mouse position (ignores board logic)
+                if let mouse = mousePosition {
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 20, height: 20)
+                        .position(mouse)
+                }
 
                 // v3.117: Phantom stone rendering - always show on hover for preview
                 if let position = phantomStonePosition {

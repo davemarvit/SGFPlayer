@@ -584,7 +584,7 @@ struct ContentView3D: View {
                 if !app.showPreGameOverlay {
                     HStack {
                         Spacer()
-                        Text("v3.117 - Phantom Stone Preview")
+                        Text("v3.118 - Hover Test (red dot, 2D only)")
                             .foregroundColor(.gray)
                             .font(.caption)
                             .padding(.trailing, 20)
