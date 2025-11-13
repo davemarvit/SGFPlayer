@@ -894,9 +894,9 @@ class SceneManager3D: ObservableObject {
         // Get camera's world transform (includes pivot rotation)
         let cameraWorldTransform = cameraNode.presentation.worldTransform
         let cameraWorldPos = SCNVector3(
-            cameraWorldTransform.m41,
-            cameraWorldTransform.m42,
-            cameraWorldTransform.m43
+            Float(cameraWorldTransform.m41),
+            Float(cameraWorldTransform.m42),
+            Float(cameraWorldTransform.m43)
         )
 
         // Calculate ray direction in world space
@@ -977,9 +977,9 @@ class SceneManager3D: ObservableObject {
 
     /// Helper to transform a point by a matrix
     private func transformPoint(_ point: SCNVector3, by matrix: SCNMatrix4) -> SCNVector3 {
-        let x = point.x * matrix.m11 + point.y * matrix.m21 + point.z * matrix.m31 + matrix.m41
-        let y = point.x * matrix.m12 + point.y * matrix.m22 + point.z * matrix.m32 + matrix.m42
-        let z = point.x * matrix.m13 + point.y * matrix.m23 + point.z * matrix.m33 + matrix.m43
+        let x = Float(point.x * matrix.m11 + point.y * matrix.m21 + point.z * matrix.m31 + matrix.m41)
+        let y = Float(point.x * matrix.m12 + point.y * matrix.m22 + point.z * matrix.m32 + matrix.m42)
+        let z = Float(point.x * matrix.m13 + point.y * matrix.m23 + point.z * matrix.m33 + matrix.m43)
         return SCNVector3(x, y, z)
     }
 
