@@ -21,15 +21,16 @@ struct BoardInteractionOverlay: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // Transparent interaction layer that captures all mouse events
-                Color.clear
-                    .contentShape(Rectangle())
+                // v3.118: DEBUG - Semi-transparent red to verify overlay position
+                Color.red.opacity(0.2)
                     .gesture(
                         DragGesture(minimumDistance: 0)
                             .onChanged { value in
+                                NSLog("🔴 DRAG GESTURE: \(value.location)")
                                 handleMouseMove(at: value.location, isDown: true)
                             }
                             .onEnded { value in
+                                NSLog("🔴 DRAG ENDED: \(value.location)")
                                 handleMouseUp(at: value.location)
                             }
                     )
@@ -42,6 +43,7 @@ struct BoardInteractionOverlay: View {
                                 handleMouseMove(at: location, isDown: false)
                             }
                         case .ended:
+                            NSLog("🔴 HOVER ENDED")
                             mousePosition = nil  // v3.117: Clear when hover ends
                             if !isMouseDown {
                                 phantomStonePosition = nil
