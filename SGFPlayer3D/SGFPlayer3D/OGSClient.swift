@@ -2555,6 +2555,13 @@ class OGSClient: NSObject, ObservableObject {
             }
 
             // Check if this is a game_started message (also remove)
+            // DIAGNOSTIC: Log the raw item to see its structure
+            if item.keys.contains("game_started") || item.keys.contains("game_id") {
+                NSLog("OGS: 🔍 DIAGNOSTIC - Possible game_started item for challenge #\(challengeID)")
+                NSLog("OGS: 🔍 DIAGNOSTIC - All keys: \(item.keys.sorted())")
+                NSLog("OGS: 🔍 DIAGNOSTIC - Full item: \(item)")
+            }
+
             if let gameID = item["game_started"] as? Int {
                 // Always log game_started - this is important for debugging
                 NSLog("OGS: 📊 🎮 GAME STARTED for challenge #\(challengeID), game ID: \(gameID)")
