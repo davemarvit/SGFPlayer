@@ -147,7 +147,9 @@ struct ContentView: View {
     }
 
     var body: some View {
-        ZStack {
+        NSLog("📺 ContentView.body CALLED - 2D view is rendering!")
+
+        return ZStack {
             mainGameContent
             topButtonsOverlay
             settingsPanelOverlay

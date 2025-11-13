@@ -20,13 +20,15 @@ struct SimpleBoardView: View {
     @State private var hoverLocation: CGPoint?
 
     var body: some View {
+        NSLog("🟦 SimpleBoardView.body CALLED - this should appear in logs!")
+
         let _ = {
             if DebugConfig.enableUIDebugging {
                 Logger.debug("SimpleBoardView: BODY COMPUTED - blackStones: \(physicsIntegration.blackStones.count), whiteStones: \(physicsIntegration.whiteStones.count)")
             }
         }()
 
-        ZStack {
+        return ZStack {
             // Board rendering at explicit position (no hit testing)
             BoardContent(
                 player: player,
