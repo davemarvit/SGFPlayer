@@ -580,14 +580,16 @@ struct ContentView3D: View {
 
                 Spacer()
 
-                // Version number in lower right
-                HStack {
-                    Spacer()
-                    Text("v3.115-phantom (handicap + moves fixed)")
-                        .foregroundColor(.gray)
-                        .font(.caption)
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 8)
+                // Version number in lower right - v3.117: Hide when PreGameOverlay is showing
+                if !app.showPreGameOverlay {
+                    HStack {
+                        Spacer()
+                        Text("v3.117 - Phantom Stone Preview")
+                            .foregroundColor(.gray)
+                            .font(.caption)
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 8)
+                    }
                 }
 
                 // Bottom controls - extracted to PlaybackControls
@@ -822,21 +824,24 @@ struct ContentView3D: View {
     private func handle3DMouseMove(at location: CGPoint, viewSize: CGSize, isDown: Bool) {
         isMouseDown = isDown
 
-        // Only show phantom stone if it's our turn and game is in progress
-        guard ogsClient.isMyTurn, ogsClient.gamePhase == .playing else {
-            sceneManager.hidePhantomStone()
-            phantomStonePosition = nil
-            return
-        }
-
+        // v3.117: Simplified phantom stone - always show on hover for preview/visualization
         // Convert screen coordinates to board position
         if let boardPos = sceneManager.hitTestBoard(screenPoint: location, viewSize: viewSize) {
             // Check if position is empty
             if player.board.grid[boardPos.y][boardPos.x] == nil {
                 // Show phantom stone at this position
                 if phantomStonePosition?.x != boardPos.x || phantomStonePosition?.y != boardPos.y {
-                    let stoneColor = ogsClient.playerColor ?? .black
-                    let opacity: CGFloat = isDown ? 0.3 : 0.5  // More transparent when pressed
+                    // Determine stone color: use OGS player color if available, otherwise alternate based on move count
+                    let stoneColor: Stone
+                    if let playerColor = ogsClient.playerColor {
+                        stoneColor = playerColor
+                    } else {
+                        // Alternate: black plays on odd moves (0, 2, 4...), white on even (1, 3, 5...)
+                        stoneColor = (player.currentIndex % 2 == 0) ? .black : .white
+                    }
+
+                    // v3.117: Better opacity - 0.5 hover, 0.6 pressed (more visible)
+                    let opacity: CGFloat = isDown ? 0.6 : 0.5
                     sceneManager.showPhantomStone(at: boardPos, color: stoneColor, opacity: opacity)
                     phantomStonePosition = boardPos
                 }

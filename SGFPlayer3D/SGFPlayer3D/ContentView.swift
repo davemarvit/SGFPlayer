@@ -159,6 +159,21 @@ struct ContentView: View {
             }
 
             gameInfoOverlay
+
+            // v3.117: Version number in lower right - hide when PreGameOverlay is showing
+            if !app.showPreGameOverlay {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        Text("v3.117 - Phantom Stone Preview")
+                            .foregroundColor(.gray)
+                            .font(.caption)
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 8)
+                    }
+                }
+            }
         }
         .contentShape(Rectangle())
         .onContinuousHover { phase in

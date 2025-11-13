@@ -43,10 +43,8 @@ struct BoardInteractionOverlay: View {
                         }
                     }
 
-                // Phantom stone rendering
-                if let position = phantomStonePosition,
-                   ogsClient.isMyTurn,
-                   ogsClient.gamePhase == .playing {
+                // v3.117: Phantom stone rendering - always show on hover for preview
+                if let position = phantomStonePosition {
                     renderPhantomStone(at: position)
                 }
             }
@@ -58,12 +56,7 @@ struct BoardInteractionOverlay: View {
     private func handleMouseMove(at location: CGPoint, isDown: Bool) {
         isMouseDown = isDown
 
-        // Only show phantom stone if it's our turn and game is in progress
-        guard ogsClient.isMyTurn, ogsClient.gamePhase == .playing else {
-            phantomStonePosition = nil
-            return
-        }
-
+        // v3.117: Simplified - always show phantom stone on hover for preview/visualization
         // Convert screen coordinates to board position
         if let boardPos = screenToBoardPosition(location) {
             // Check if position is empty
@@ -156,8 +149,14 @@ struct BoardInteractionOverlay: View {
         let stoneX = boardFrame.minX + offsetX + CGFloat(position.x) * cellWidth
         let stoneY = boardFrame.minY + offsetY + CGFloat(position.y) * cellHeight
 
-        // Determine stone color based on current player
-        let stoneColor = ogsClient.playerColor ?? .black
+        // v3.117: Determine stone color - use OGS player color if available, otherwise alternate
+        let stoneColor: Stone
+        if let playerColor = ogsClient.playerColor {
+            stoneColor = playerColor
+        } else {
+            // Alternate: black plays on even moves (0, 2, 4...), white on odd (1, 3, 5...)
+            stoneColor = (player.currentIndex % 2 == 0) ? .black : .white
+        }
         let imageName = stoneColor == .black ? "stone_black" : "clam_01"
 
         // Stone size (slightly smaller than actual stones)
