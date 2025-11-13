@@ -166,13 +166,7 @@ struct BoardInteractionOverlay: View {
         let stoneY = boardFrame.minY + offsetY + CGFloat(position.y) * cellHeight
 
         // v3.117: Determine stone color - use OGS player color if available, otherwise alternate
-        let stoneColor: Stone
-        if let playerColor = ogsClient.playerColor {
-            stoneColor = playerColor
-        } else {
-            // Alternate: black plays on even moves (0, 2, 4...), white on odd (1, 3, 5...)
-            stoneColor = (player.currentIndex % 2 == 0) ? .black : .white
-        }
+        let stoneColor = ogsClient.playerColor ?? ((player.currentIndex % 2 == 0) ? Stone.black : Stone.white)
         let imageName = stoneColor == .black ? "stone_black" : "clam_01"
 
         // Stone size (slightly smaller than actual stones)
@@ -183,7 +177,7 @@ struct BoardInteractionOverlay: View {
             ? (realBlackStoneDiameter / realCellWidth) * cellWidth * 0.95
             : (realWhiteStoneDiameter / realCellWidth) * cellWidth * 0.95
 
-        Image(imageName)
+        return Image(imageName)
             .resizable()
             .frame(width: stoneSize, height: stoneSize)
             .opacity(isMouseDown ? 0.5 : 0.7)  // More transparent on mouse down
