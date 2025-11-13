@@ -180,7 +180,8 @@ class OGSGameViewModel: ObservableObject {
                 userInfo: [
                     "game": game,
                     "moveCount": moves.count,
-                    "handicap": handicap
+                    "handicap": handicap,
+                    "gameID": gameID
                 ]
             )
 

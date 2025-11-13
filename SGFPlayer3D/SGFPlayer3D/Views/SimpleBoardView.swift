@@ -8,6 +8,7 @@ struct SimpleBoardView: View {
     let physicsIntegration: PhysicsIntegration  // Only for bowl rendering, NOT board stones
     let boardStoneDiameter: CGFloat
     @ObservedObject var gameCacheManager: GameCacheManager
+    @ObservedObject var ogsClient: OGSClient  // For sending moves
 
     // Explicit positioning from parent (ContentView)
     let boardFrame: CGRect
@@ -23,7 +24,7 @@ struct SimpleBoardView: View {
         }()
 
         ZStack {
-            // Board rendering at explicit position
+            // Board rendering at explicit position (no hit testing)
             BoardContent(
                 player: player,
                 boardStoneDiameter: boardStoneDiameter,
@@ -31,7 +32,7 @@ struct SimpleBoardView: View {
                 boardFrame: boardFrame
             )
 
-            // Bowl rendering at explicit positions
+            // Bowl rendering at explicit positions (no hit testing)
             BowlContent(
                 physicsIntegration: physicsIntegration,
                 ulCenter: ulBowlCenter,
@@ -40,8 +41,15 @@ struct SimpleBoardView: View {
                 boardFrame: boardFrame,
                 gridSize: player.board.size
             )
+
+            // Board interaction overlay (handles mouse events and phantom stones)
+            BoardInteractionOverlay(
+                boardFrame: boardFrame,
+                gridSize: player.board.size,
+                player: player,
+                ogsClient: ogsClient
+            )
         }
-        .allowsHitTesting(false)
     }
 }
 
@@ -459,6 +467,7 @@ struct GameStones: View {
 // MARK: - Bowl Content
 struct BowlContent: View {
     @ObservedObject var physicsIntegration: PhysicsIntegration
+    @AppStorage("verboseLogging") private var verboseLogging: Bool = false
     let ulCenter: CGPoint
     let lrCenter: CGPoint
     let bowlRadius: CGFloat
@@ -475,7 +484,9 @@ struct BowlContent: View {
         let whiteBowlStoneSize = (realWhiteStoneDiameter / realCellWidth) * cellWidth
 
         let _ = {
-            Logger.warning("🎨 BowlContent: BODY COMPUTED - blackStones: \(physicsIntegration.blackStones.count), whiteStones: \(physicsIntegration.whiteStones.count), bowlRadius: \(bowlRadius)")
+            if verboseLogging {
+                Logger.warning("🎨 BowlContent: BODY COMPUTED - blackStones: \(physicsIntegration.blackStones.count), whiteStones: \(physicsIntegration.whiteStones.count), bowlRadius: \(bowlRadius)")
+            }
             if DebugConfig.enableUIDebugging {
                 Logger.debug("BowlContent: Stone arrays - BLACK IDs: \(physicsIntegration.blackStones.map { $0.id.uuidString.prefix(8) })")
                 Logger.debug("BowlContent: Stone arrays - WHITE IDs: \(physicsIntegration.whiteStones.map { $0.id.uuidString.prefix(8) })")

@@ -7,6 +7,9 @@ import SwiftUI
 /// Bridge that connects the new modular architecture with existing ContentView
 class ContentViewBridge: ObservableObject {
 
+    // Debug settings
+    @AppStorage("verboseLogging") private var verboseLogging: Bool = false
+
     // New architecture components
     @Published private var stoneViewModel = StonePositionViewModel()
 
@@ -38,7 +41,9 @@ class ContentViewBridge: ObservableObject {
             .combineLatest(stoneViewModel.$whiteStonePositions)
             .debounce(for: .milliseconds(10), scheduler: RunLoop.main)
             .sink { [weak self] blackStones, whiteStones in
-                print("🔄 ContentViewBridge: Processing stones - Black: \(blackStones.count), White: \(whiteStones.count)")
+                if self?.verboseLogging == true {
+                    print("🔄 ContentViewBridge: Processing stones - Black: \(blackStones.count), White: \(whiteStones.count)")
+                }
                 self?.updateUIPositions()
             }
             .store(in: &cancellables)

@@ -8,6 +8,9 @@ import Combine
 /// Strategic integration point that can gradually replace ContentView physics
 class PhysicsIntegration: ObservableObject {
 
+    // MARK: - Debug Settings
+    @AppStorage("verboseLogging") private var verboseLogging: Bool = false
+
     // MARK: - New Architecture
     private let physicsReplacement: PhysicsReplacement
 
@@ -18,7 +21,9 @@ class PhysicsIntegration: ObservableObject {
     // MARK: - Published State (compatible with ContentView)
     @Published var blackStones: [LegacyCapturedStone] = [] {
         didSet {
-            Logger.warning("🚀 blackStones @Published CHANGED - OLD: \(oldValue.count), NEW: \(blackStones.count)")
+            if verboseLogging {
+                Logger.warning("🚀 blackStones @Published CHANGED - OLD: \(oldValue.count), NEW: \(blackStones.count)")
+            }
             if DebugConfig.enablePhysicsDebugging {
                 Logger.debug("blackStones NEW IDs: \(blackStones.map { $0.id.uuidString.prefix(8) })")
             }
@@ -26,7 +31,9 @@ class PhysicsIntegration: ObservableObject {
     }
     @Published var whiteStones: [LegacyCapturedStone] = [] {
         didSet {
-            Logger.warning("🚀 whiteStones @Published CHANGED - OLD: \(oldValue.count), NEW: \(whiteStones.count)")
+            if verboseLogging {
+                Logger.warning("🚀 whiteStones @Published CHANGED - OLD: \(oldValue.count), NEW: \(whiteStones.count)")
+            }
             if DebugConfig.enablePhysicsDebugging {
                 Logger.debug("whiteStones NEW IDs: \(whiteStones.map { $0.id.uuidString.prefix(8) })")
             }
@@ -122,7 +129,7 @@ class PhysicsIntegration: ObservableObject {
         updateStonesIncremental(current: &blackStones, pending: pendingBlackStones)
         updateStonesIncremental(current: &whiteStones, pending: pendingWhiteStones)
 
-        if debugMode {
+        if verboseLogging {
             Logger.warning("✅ FINAL PHYSICS UPDATE - Black: \(pendingBlackStones.count), White: \(pendingWhiteStones.count)")
         }
 
