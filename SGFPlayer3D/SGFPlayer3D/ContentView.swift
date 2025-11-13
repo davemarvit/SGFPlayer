@@ -535,6 +535,7 @@ struct ContentView: View {
                             isPanelOpen: $isPanelOpen,
                             activePhysicsModelRaw: $activePhysicsModelRaw,
                             physicsIntegration: physicsIntegration,
+                            soundManager: soundManager,
                             m1_repel: $m1_repel,
                             m1_spacing: $m1_spacing,
                             m1_centerPullK: $m1_centerPullK,

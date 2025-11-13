@@ -646,7 +646,7 @@ struct PhantomStoneOverlay: View {
                 let isBlackTurn = player.currentIndex % 2 == 0
                 let stoneSize = isBlackTurn ? blackStoneSize : whiteStoneSize
                 let imageName = isBlackTurn ? "stone_black" : "clam_01"
-                let opacity = isBlackTurn ? 0.5 : 0.6  // Black more transparent in 2D
+                let opacity = isBlackTurn ? 0.4 : 0.6  // Black more transparent in 2D
 
                 Image(imageName)
                     .resizable()

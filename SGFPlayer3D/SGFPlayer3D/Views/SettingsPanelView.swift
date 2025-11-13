@@ -8,6 +8,7 @@ struct SettingsPanelView: View {
     @Binding var isPanelOpen: Bool
     @Binding var activePhysicsModelRaw: Int
     @ObservedObject var physicsIntegration: PhysicsIntegration
+    @ObservedObject var soundManager: SoundManager
 
     // Physics model parameters - kept for compatibility
     @Binding var m1_repel: Double
@@ -594,6 +595,40 @@ struct SettingsPanelView: View {
                             .controlSize(.regular)
                             .padding(.horizontal, 16)
                         }
+                    }
+
+                    Divider()
+                        .padding(.horizontal, 16)
+
+                    // Sound Volume Control
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Sound")
+                            .font(.headline)
+                            .padding(.horizontal, 16)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("Volume")
+                                Spacer()
+                                Text("\(Int(soundManager.volume * 100))%")
+                                    .monospacedDigit()
+                            }
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                            Slider(
+                                value: Binding(
+                                    get: { soundManager.volume },
+                                    set: { newValue in
+                                        soundManager.setVolume(newValue)
+                                    }
+                                ),
+                                in: 0.0...1.0,
+                                step: 0.05
+                            )
+                            .controlSize(.regular)
+                        }
+                        .padding(.horizontal, 16)
                     }
 
                     Divider()
