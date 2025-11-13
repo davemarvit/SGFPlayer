@@ -162,20 +162,27 @@ struct ContentView: View {
 
             gameInfoOverlay
 
-            // v3.117: Version number in lower right - hide when PreGameOverlay is showing
-            if !app.showPreGameOverlay {
-                VStack {
+            // v3.121: Version number - ALWAYS visible, large, obvious
+            VStack {
+                Spacer()
+                HStack {
                     Spacer()
-                    HStack {
-                        Spacer()
-                        Text("v3.120 - Fresh start hover test")
-                            .foregroundColor(.gray)
-                            .font(.caption)
-                            .padding(.trailing, 20)
-                            .padding(.bottom, 8)
-                    }
+                    Text("v3.121")
+                        .foregroundColor(.white)
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .padding(10)
+                        .background(Color.red)
+                        .cornerRadius(5)
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 20)
                 }
             }
+
+            // v3.121: OBVIOUS TEST - Big red border to prove code is running
+            Rectangle()
+                .stroke(Color.red, lineWidth: 10)
+                .allowsHitTesting(false)
         }
         .contentShape(Rectangle())
         .onContinuousHover { phase in

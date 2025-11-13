@@ -137,6 +137,11 @@ struct ContentView3D: View {
             }
 
             overlayUI
+
+            // v3.121: OBVIOUS TEST - Big blue border to prove code is running
+            Rectangle()
+                .stroke(Color.blue, lineWidth: 10)
+                .allowsHitTesting(false)
         }
     }
 
@@ -580,16 +585,18 @@ struct ContentView3D: View {
 
                 Spacer()
 
-                // Version number in lower right - v3.117: Hide when PreGameOverlay is showing
-                if !app.showPreGameOverlay {
-                    HStack {
-                        Spacer()
-                        Text("v3.120 - Fresh start hover test (2D only)")
-                            .foregroundColor(.gray)
-                            .font(.caption)
-                            .padding(.trailing, 20)
-                            .padding(.bottom, 8)
-                    }
+                // v3.121: Version number - ALWAYS visible, large, obvious
+                HStack {
+                    Spacer()
+                    Text("v3.121")
+                        .foregroundColor(.white)
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .padding(10)
+                        .background(Color.blue)
+                        .cornerRadius(5)
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 20)
                 }
 
                 // Bottom controls - extracted to PlaybackControls
