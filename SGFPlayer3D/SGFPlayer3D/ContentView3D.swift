@@ -51,6 +51,8 @@ struct ContentView3D: View {
     @State private var previousMoveIndex: Int = -1
     // Track last loaded OGS move count to avoid re-seeking on every poll
     @State private var lastLoadedOGSMoveCount: Int = -1
+    // Track last loaded game ID to detect game switches
+    @State private var lastLoadedOGSGameID: Int?
 
     // Search state
     @State private var filteredGames: [SGFGameWrapper] = []
@@ -287,6 +289,9 @@ struct ContentView3D: View {
             player.clear()  // Completely clear board including handicap stones
             player.pause()  // Stop any playback
             ogsClient.currentGameID = nil  // Clear any active OGS game
+            lastLoadedOGSMoveCount = -1  // Reset move counter for next game
+            lastLoadedOGSGameID = nil  // Reset game ID tracker
+            NSLog("DEBUG3D: 🔌 Reset lastLoadedOGSMoveCount and lastLoadedOGSGameID")
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameDataReceived"))) { notification in
             // Only process if we have an active OGS game ID (allows initial game load)
@@ -330,21 +335,30 @@ struct ContentView3D: View {
             // Handle game loading from OGSGameViewModel
             guard let userInfo = notification.userInfo,
                   let game = userInfo["game"] as? SGFGame,
-                  let moveCount = userInfo["moveCount"] as? Int else {
+                  let moveCount = userInfo["moveCount"] as? Int,
+                  let gameID = userInfo["gameID"] as? Int else {
                 NSLog("DEBUG3D: ❌ Invalid OGSGameLoaded notification")
                 return
             }
 
-            // IMPORTANT: Only reload/seek if the move count has actually changed
+            // Check if this is a new game (game ID changed)
+            let isNewGame = (gameID != lastLoadedOGSGameID)
+            if isNewGame {
+                NSLog("DEBUG3D: 🎮 New game detected! GameID changed from \(lastLoadedOGSGameID ?? -1) to \(gameID)")
+                lastLoadedOGSGameID = gameID
+                lastLoadedOGSMoveCount = -1  // Reset counter for new game
+            }
+
+            // IMPORTANT: Reload if move count changed OR if this is a new game
             // Otherwise polling will trigger seek() every second, causing spurious click sounds
-            if moveCount != lastLoadedOGSMoveCount {
-                NSLog("DEBUG3D: 🎮 Received OGSGameLoaded notification with \(game.moves.count) moves (changed from \(lastLoadedOGSMoveCount))")
+            if moveCount != lastLoadedOGSMoveCount || isNewGame {
+                NSLog("DEBUG3D: 🎮 Loading game \(gameID) with \(game.moves.count) moves, \(game.setup.count) handicap stones (moveCount changed from \(lastLoadedOGSMoveCount) to \(moveCount), isNewGame: \(isNewGame))")
                 player.load(game: game)
                 player.seek(to: moveCount)
                 updateStonesWithJitter()
                 lastLoadedOGSMoveCount = moveCount
             } else {
-                NSLog("DEBUG3D: 🔄 OGSGameLoaded poll - move count unchanged (\(moveCount))")
+                NSLog("DEBUG3D: 🔄 OGSGameLoaded poll - game \(gameID) move count unchanged (\(moveCount))")
             }
         }
         .onAppear {
@@ -562,7 +576,7 @@ struct ContentView3D: View {
                 // Version number in lower right
                 HStack {
                     Spacer()
-                    Text("v3.114-phantom (OGS fix + UI restored)")
+                    Text("v3.115-phantom (handicap + moves fixed)")
                         .foregroundColor(.gray)
                         .font(.caption)
                         .padding(.trailing, 20)
