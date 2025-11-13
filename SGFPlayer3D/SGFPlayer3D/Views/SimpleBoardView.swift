@@ -591,9 +591,11 @@ struct PhantomStoneOverlay: View {
         let whiteStoneSize = (realWhiteStoneDiameter / realCellWidth) * cellWidth
 
         return ZStack {
-            // Invisible hover capture rectangle
+            // Invisible hover capture rectangle over entire board area
             Rectangle()
                 .fill(Color.clear)
+                .contentShape(Rectangle())
+                .allowsHitTesting(true)
                 .onContinuousHover { phase in
                     switch phase {
                     case .active(let location):
@@ -610,13 +612,22 @@ struct PhantomStoneOverlay: View {
                         // Check if position is valid and empty
                         if col >= 0 && col < gridSize && row >= 0 && row < gridSize {
                             if player.board.grid[row][col] == nil {
-                                phantomBoardPos = (x: col, y: row)
-                                NSLog("👻 v3.122: Phantom stone at board (\(col), \(row))")
+                                // Only update if position actually changed
+                                if phantomBoardPos?.x != col || phantomBoardPos?.y != row {
+                                    phantomBoardPos = (x: col, y: row)
+                                    NSLog("👻 v3.122: Phantom stone at board (\(col), \(row))")
+                                }
                             } else {
-                                phantomBoardPos = nil
+                                // Occupied position
+                                if phantomBoardPos != nil {
+                                    phantomBoardPos = nil
+                                }
                             }
                         } else {
-                            phantomBoardPos = nil
+                            // Outside board bounds
+                            if phantomBoardPos != nil {
+                                phantomBoardPos = nil
+                            }
                         }
 
                     case .ended:
@@ -641,6 +652,7 @@ struct PhantomStoneOverlay: View {
                     .frame(width: stoneSize, height: stoneSize)
                     .opacity(0.6) // Semi-transparent phantom stone
                     .position(x: stoneX, y: stoneY)
+                    .allowsHitTesting(false) // Don't interfere with hover detection
             }
         }
     }
