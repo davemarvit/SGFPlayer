@@ -580,10 +580,10 @@ struct ContentView3D: View {
 
                 Spacer()
 
-                // v3.122: Version number (phantom stone in 2D)
+                // v3.123: Phantom stones in both 2D and 3D
                 HStack {
                     Spacer()
-                    Text("v3.122")
+                    Text("v3.123")
                         .foregroundColor(.white)
                         .font(.title)
                         .fontWeight(.bold)

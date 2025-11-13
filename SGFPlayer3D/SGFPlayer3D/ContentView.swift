@@ -162,12 +162,12 @@ struct ContentView: View {
 
             gameInfoOverlay
 
-            // v3.122: Version number with phantom stone implementation
+            // v3.123: Phantom stones working in both 2D and 3D
             VStack {
                 Spacer()
                 HStack {
                     Spacer()
-                    Text("v3.122")
+                    Text("v3.123")
                         .foregroundColor(.white)
                         .font(.title)
                         .fontWeight(.bold)
