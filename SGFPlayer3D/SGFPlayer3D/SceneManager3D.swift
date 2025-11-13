@@ -908,9 +908,9 @@ class SceneManager3D: ObservableObject {
         // Calculate point on near plane in camera space
         let nearPlaneHeight = 2.0 * tanHalfFOV * CGFloat(camera.zNear)
         let nearPlaneWidth = nearPlaneHeight * aspect
-        let nearX = ndcX * nearPlaneWidth / 2.0
-        let nearY = ndcY * nearPlaneHeight / 2.0
-        let nearZ = -CGFloat(camera.zNear)
+        let nearX = Float(ndcX * nearPlaneWidth / 2.0)
+        let nearY = Float(ndcY * nearPlaneHeight / 2.0)
+        let nearZ = Float(-CGFloat(camera.zNear))
 
         // Transform near point from camera space to world space
         let nearPointCamera = SCNVector3(nearX, nearY, nearZ)
