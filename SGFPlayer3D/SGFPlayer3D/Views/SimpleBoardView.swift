@@ -654,11 +654,19 @@ struct PhantomStoneOverlay: View {
                 let stoneX = boardFrame.minX + offsetX + CGFloat(pos.x) * cellWidth
                 let stoneY = boardFrame.minY + offsetY + CGFloat(pos.y) * cellHeight
 
-                // Determine stone color based on next player
-                let isBlackTurn = player.currentIndex % 2 == 0
-                let stoneSize = isBlackTurn ? blackStoneSize : whiteStoneSize
-                let imageName = isBlackTurn ? "stone_black" : "clam_01"
-                let opacity = isBlackTurn ? 0.4 : 0.6  // Black more transparent in 2D
+                // Determine stone color based on OGS player assignment (not turn)
+                let stoneColor: Stone
+                if let playerColor = ogsClient.playerColor {
+                    // Use the color assigned to us by OGS
+                    stoneColor = playerColor
+                } else {
+                    // Fallback: alternate based on move count
+                    stoneColor = (player.currentIndex % 2 == 0) ? .black : .white
+                }
+
+                let stoneSize = stoneColor == .black ? blackStoneSize : whiteStoneSize
+                let imageName = stoneColor == .black ? "stone_black" : "clam_01"
+                let opacity = stoneColor == .black ? 0.4 : 0.6  // Black more transparent in 2D
 
                 Image(imageName)
                     .resizable()
@@ -672,12 +680,18 @@ struct PhantomStoneOverlay: View {
 
     // MARK: - Click Handler
     private func handleClick() {
+        NSLog("👻 2D Click detected!")
+        NSLog("👻   isMyTurn: \(ogsClient.isMyTurn)")
+        NSLog("👻   gamePhase: \(ogsClient.gamePhase.rawValue)")
+        NSLog("👻   phantomBoardPos: \(phantomBoardPos.map { "(\($0.x), \($0.y))" } ?? "nil")")
+        NSLog("👻   currentGameID: \(ogsClient.currentGameID ?? "nil")")
+
         // Only send move if it's our turn and game is in progress
         guard ogsClient.isMyTurn,
               ogsClient.gamePhase == .playing,
               let position = phantomBoardPos,
               let gameID = ogsClient.currentGameID else {
-            NSLog("👻 Click ignored - not our turn or no valid position")
+            NSLog("👻 ❌ Click ignored - conditions not met")
             return
         }
 

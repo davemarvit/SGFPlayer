@@ -867,11 +867,18 @@ struct ContentView3D: View {
     private func handle3DMouseUp(at location: CGPoint, viewSize: CGSize) {
         isMouseDown = false
 
+        NSLog("👻 3D Click detected!")
+        NSLog("👻   isMyTurn: \(ogsClient.isMyTurn)")
+        NSLog("👻   gamePhase: \(ogsClient.gamePhase.rawValue)")
+        NSLog("👻   phantomStonePosition: \(phantomStonePosition.map { "(\($0.x), \($0.y))" } ?? "nil")")
+        NSLog("👻   currentGameID: \(ogsClient.currentGameID ?? "nil")")
+
         // Only send move if it's our turn and game is in progress
         guard ogsClient.isMyTurn,
               ogsClient.gamePhase == .playing,
               let position = phantomStonePosition,
               let gameID = ogsClient.currentGameID else {
+            NSLog("👻 ❌ 3D Click ignored - conditions not met")
             sceneManager.hidePhantomStone()
             phantomStonePosition = nil
             return
@@ -881,7 +888,7 @@ struct ContentView3D: View {
         let sgfMove = boardPositionToSGF(x: position.x, y: position.y)
 
         // Send move to OGS
-        NSLog("DEBUG3D: 🎯 Sending move: \(sgfMove) at (\(position.x), \(position.y))")
+        NSLog("👻 🎯 3D: Sending move \(sgfMove) at board position (\(position.x), \(position.y))")
         ogsClient.sendMove(gameID: gameID, move: sgfMove)
 
         // Clear phantom stone
