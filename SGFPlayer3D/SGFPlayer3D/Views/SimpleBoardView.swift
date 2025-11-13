@@ -16,6 +16,9 @@ struct SimpleBoardView: View {
     let lrBowlCenter: CGPoint
     let bowlRadius: CGFloat
 
+    // v3.120: Simple hover test - no overlay, direct in this view
+    @State private var hoverLocation: CGPoint?
+
     var body: some View {
         let _ = {
             if DebugConfig.enableUIDebugging {
@@ -42,13 +45,28 @@ struct SimpleBoardView: View {
                 gridSize: player.board.size
             )
 
-            // Board interaction overlay (handles mouse events and phantom stones)
-            BoardInteractionOverlay(
-                boardFrame: boardFrame,
-                gridSize: player.board.size,
-                player: player,
-                ogsClient: ogsClient
-            )
+            // v3.120: FRESH START - Simplest possible hover test
+            // Red rectangle that covers entire view to test hover capture
+            Rectangle()
+                .fill(Color.red.opacity(0.3))
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let location):
+                        hoverLocation = location
+                        NSLog("🟥 SIMPLE HOVER TEST: \(location.x), \(location.y)")
+                    case .ended:
+                        hoverLocation = nil
+                        NSLog("🟥 HOVER ENDED")
+                    }
+                }
+
+            // Show yellow dot at hover location
+            if let loc = hoverLocation {
+                Circle()
+                    .fill(Color.yellow)
+                    .frame(width: 30, height: 30)
+                    .position(loc)
+            }
         }
     }
 }

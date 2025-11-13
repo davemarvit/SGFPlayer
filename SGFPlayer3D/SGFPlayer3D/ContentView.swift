@@ -166,7 +166,7 @@ struct ContentView: View {
                     Spacer()
                     HStack {
                         Spacer()
-                        Text("v3.119 - Red overlay test")
+                        Text("v3.120 - Fresh start hover test")
                             .foregroundColor(.gray)
                             .font(.caption)
                             .padding(.trailing, 20)
