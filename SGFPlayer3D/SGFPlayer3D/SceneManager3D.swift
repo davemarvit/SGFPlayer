@@ -942,15 +942,15 @@ class SceneManager3D: ObservableObject {
             return nil
         }
 
-        let t: Float = (boardY - cameraWorldPos.y) / rayDirNorm.y
+        let t = (boardY - cameraWorldPos.y) / rayDirNorm.y
         guard t > 0 else {
             // Intersection is behind camera
             return nil
         }
 
-        // Calculate intersection point
-        let hitX = cameraWorldPos.x + t * rayDirNorm.x
-        let hitZ = cameraWorldPos.z + t * rayDirNorm.z
+        // Calculate intersection point (all Float types from SCNVector3)
+        let hitX: Float = cameraWorldPos.x + t * rayDirNorm.x
+        let hitZ: Float = cameraWorldPos.z + t * rayDirNorm.z
 
         // Convert world position to board coordinates
         // Board is centered at (0, 0), with cells spanning from negative to positive
