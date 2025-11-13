@@ -342,6 +342,13 @@ struct ContentView: View {
                 NSLog("ContentView: 🛑 Ignoring OGSGameDataReceived - no active game ID")
                 return
             }
+
+            // v3.116: Auto-dismiss the PreGameOverlay when game loads
+            if app.showPreGameOverlay {
+                NSLog("ContentView: 🎮 Game loaded - auto-dismissing PreGameOverlay")
+                app.showPreGameOverlay = false
+            }
+
             ogsGame?.handleGameData(notification)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSMoveReceived"))) { notification in
