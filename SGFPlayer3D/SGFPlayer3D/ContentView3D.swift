@@ -842,8 +842,9 @@ struct ContentView3D: View {
                         stoneColor = (player.currentIndex % 2 == 0) ? .black : .white
                     }
 
-                    // v3.117: Better opacity - 0.5 hover, 0.6 pressed (more visible)
-                    let opacity: CGFloat = isDown ? 0.6 : 0.5
+                    // v3.123: Opacity varies by color - white more transparent in 3D
+                    let baseOpacity: CGFloat = stoneColor == .white ? 0.4 : 0.5
+                    let opacity: CGFloat = isDown ? (baseOpacity + 0.1) : baseOpacity
                     sceneManager.showPhantomStone(at: boardPos, color: stoneColor, opacity: opacity)
                     phantomStonePosition = boardPos
                 }
