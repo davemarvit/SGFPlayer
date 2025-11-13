@@ -467,6 +467,7 @@ struct GameStones: View {
 // MARK: - Bowl Content
 struct BowlContent: View {
     @ObservedObject var physicsIntegration: PhysicsIntegration
+    @AppStorage("verboseLogging") private var verboseLogging: Bool = false
     let ulCenter: CGPoint
     let lrCenter: CGPoint
     let bowlRadius: CGFloat
@@ -483,7 +484,9 @@ struct BowlContent: View {
         let whiteBowlStoneSize = (realWhiteStoneDiameter / realCellWidth) * cellWidth
 
         let _ = {
-            Logger.warning("🎨 BowlContent: BODY COMPUTED - blackStones: \(physicsIntegration.blackStones.count), whiteStones: \(physicsIntegration.whiteStones.count), bowlRadius: \(bowlRadius)")
+            if verboseLogging {
+                Logger.warning("🎨 BowlContent: BODY COMPUTED - blackStones: \(physicsIntegration.blackStones.count), whiteStones: \(physicsIntegration.whiteStones.count), bowlRadius: \(bowlRadius)")
+            }
             if DebugConfig.enableUIDebugging {
                 Logger.debug("BowlContent: Stone arrays - BLACK IDs: \(physicsIntegration.blackStones.map { $0.id.uuidString.prefix(8) })")
                 Logger.debug("BowlContent: Stone arrays - WHITE IDs: \(physicsIntegration.whiteStones.map { $0.id.uuidString.prefix(8) })")

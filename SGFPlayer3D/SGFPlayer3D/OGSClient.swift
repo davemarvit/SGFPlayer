@@ -1,5 +1,6 @@
 import Foundation
 import Security
+import SwiftUI
 
 /// Represents the current phase of an OGS game
 enum GamePhase: String {
@@ -11,6 +12,9 @@ enum GamePhase: String {
 
 /// OGS (Online Go Server) WebSocket client for real-time game communication
 class OGSClient: NSObject, ObservableObject {
+    // MARK: - Debug Settings
+    @AppStorage("verboseLogging") private var verboseLogging: Bool = false
+
     @Published var isConnected = false
     @Published var currentGameID: Int?
     @Published var lastError: String?
@@ -1716,7 +1720,9 @@ class OGSClient: NSObject, ObservableObject {
     }
 
     private func receiveMessage() {
-        NSLog("OGS: 🔄 receiveMessage() called - task state: \(webSocketTask?.state.rawValue ?? -1)")
+        if verboseLogging {
+            NSLog("OGS: 🔄 receiveMessage() called - task state: \(webSocketTask?.state.rawValue ?? -1)")
+        }
         webSocketTask?.receive { [weak self] result in
             guard let self = self else {
                 NSLog("OGS: ⚠️ receiveMessage: self is nil")
@@ -1725,7 +1731,9 @@ class OGSClient: NSObject, ObservableObject {
 
             switch result {
             case .success(let message):
-                NSLog("OGS: ✅ Received message successfully")
+                if self.verboseLogging {
+                    NSLog("OGS: ✅ Received message successfully")
+                }
                 switch message {
                 case .string(let text):
                     self.handleMessage(text)
@@ -1782,8 +1790,11 @@ class OGSClient: NSObject, ObservableObject {
     }
 
     private func handleMessage(_ message: String) {
-        NSLog("OGS: 📨 Received: \(message)")
-        print("OGS: 📨 Received: \(message)")
+        // Only log to console if verbose logging is enabled
+        // (Still write to debug log file regardless)
+        if verboseLogging {
+            NSLog("OGS: 📨 Received: \(message)")
+        }
 
         // Write to debug log file
         let logMessage = "[\(Date())] OGS: Received: \(message)\n"
@@ -1880,8 +1891,10 @@ class OGSClient: NSObject, ObservableObject {
             return
         }
 
-        // DEBUGGING: Log ALL events to catch authentication response
-        NSLog("OGS: 📨 EVENT RECEIVED: \(eventName)")
+        // DEBUGGING: Log ALL events to catch authentication response (only if verbose)
+        if verboseLogging {
+            NSLog("OGS: 📨 EVENT RECEIVED: \(eventName)")
+        }
 
         // Also write to file for debugging
         if let logData = "RECEIVED EVENT: \(eventName)\n".data(using: .utf8) {
@@ -1894,8 +1907,8 @@ class OGSClient: NSObject, ObservableObject {
         }
 
         // Suppress logging for noisy broadcast messages
-        let suppressedEvents = ["active-bots", "active-players", "incident-report"]
-        if !suppressedEvents.contains(eventName) {
+        let suppressedEvents = ["active-bots", "active-players", "incident-report", "notification"]
+        if verboseLogging && !suppressedEvents.contains(eventName) {
             NSLog("OGS: 📨 Event data: \(json[1])")
         }
 
@@ -1956,14 +1969,17 @@ class OGSClient: NSObject, ObservableObject {
             } else {
                 NSLog("OGS: ⚠️ Seekgraph data in unexpected format: \(type(of: json[1]))")
             }
-        case "active-bots", "active-players", "incident-report":
+        case "active-bots", "active-players", "incident-report", "notification":
             // Suppress these broadcast messages - they're noisy
             break
         case _ where eventName.contains("/latency"):
             // Suppress latency pings
             break
         default:
-            NSLog("OGS: 📨 Unhandled event: \(eventName) - Full message: \(message.prefix(200))")
+            // Only log unhandled events if verbose (except already suppressed ones)
+            if verboseLogging {
+                NSLog("OGS: 📨 Unhandled event: \(eventName) - Full message: \(message.prefix(200))")
+            }
         }
     }
 
