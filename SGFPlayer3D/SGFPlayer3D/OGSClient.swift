@@ -2167,9 +2167,21 @@ class OGSClient: NSObject, ObservableObject {
             extractClockData(clock)
         }
 
-        // Determine whose turn it is
+        // Update game phase based on OGS phase field
         if let phase = gameData["phase"] as? String {
-            NSLog("OGS: 🎮 Game phase: \(phase)")
+            NSLog("OGS: 🎮 Game phase from OGS: \(phase)")
+            DispatchQueue.main.async {
+                switch phase {
+                case "play":
+                    self.gamePhase = .playing
+                    NSLog("OGS: 🎮 Updated gamePhase to .playing")
+                case "stone removal", "finished":
+                    self.gamePhase = .scoring
+                    NSLog("OGS: 🎮 Updated gamePhase to .scoring")
+                default:
+                    NSLog("OGS: ⚠️ Unknown phase '\(phase)' - keeping current gamePhase")
+                }
+            }
         }
 
         // Get the current player (whose turn it is)
@@ -2225,6 +2237,25 @@ class OGSClient: NSObject, ObservableObject {
                    let whiteID = white["id"] as? Int {
                     whitePlayerID = whiteID
                 }
+            }
+
+            // Determine which color we are playing by comparing our playerID to black/white player IDs
+            if let myPlayerID = self.playerID {
+                if myPlayerID == blackPlayerID {
+                    NSLog("OGS: 🎨 We are playing BLACK (our ID \(myPlayerID) matches black player)")
+                    DispatchQueue.main.async {
+                        self.playerColor = .black
+                    }
+                } else if myPlayerID == whitePlayerID {
+                    NSLog("OGS: 🎨 We are playing WHITE (our ID \(myPlayerID) matches white player)")
+                    DispatchQueue.main.async {
+                        self.playerColor = .white
+                    }
+                } else {
+                    NSLog("OGS: ⚠️ Our player ID \(myPlayerID) doesn't match black (\(blackPlayerID ?? -1)) or white (\(whitePlayerID ?? -1)) - we may be spectating")
+                }
+            } else {
+                NSLog("OGS: ⚠️ playerID is nil - cannot determine our color")
             }
 
             // Get whose turn it is
