@@ -826,7 +826,13 @@ struct ContentView3D: View {
     private func handle3DMouseMove(at location: CGPoint, viewSize: CGSize, isDown: Bool) {
         isMouseDown = isDown
 
-        // v3.117: Simplified phantom stone - always show on hover for preview/visualization
+        // Only show phantom stones in OGS mode
+        guard ogsClient.currentGameID != nil else {
+            sceneManager.hidePhantomStone()
+            phantomStonePosition = nil
+            return
+        }
+
         // Convert screen coordinates to board position
         if let boardPos = sceneManager.hitTestBoard(screenPoint: location, viewSize: viewSize) {
             // Check if position is empty

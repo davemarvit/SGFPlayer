@@ -571,6 +571,12 @@ struct PhantomStoneOverlay: View {
     @State private var phantomBoardPos: (x: Int, y: Int)?
 
     var body: some View {
+        // Only show phantom stones in OGS mode
+        let isOGSMode = ogsClient.currentGameID != nil
+        guard isOGSMode else {
+            return AnyView(EmptyView())
+        }
+
         let gridSize = player.board.size
 
         // Calculate grid dimensions (same as BoardContent)
@@ -590,12 +596,18 @@ struct PhantomStoneOverlay: View {
         let blackStoneSize = (realBlackStoneDiameter / realCellWidth) * cellWidth
         let whiteStoneSize = (realWhiteStoneDiameter / realCellWidth) * cellWidth
 
-        return ZStack {
+        return AnyView(ZStack {
             // Invisible hover capture rectangle over entire board area
             Rectangle()
                 .fill(Color.clear)
                 .contentShape(Rectangle())
                 .allowsHitTesting(true)
+                .gesture(
+                    TapGesture()
+                        .onEnded { _ in
+                            handleClick()
+                        }
+                )
                 .onContinuousHover { phase in
                     switch phase {
                     case .active(let location):
@@ -655,6 +667,31 @@ struct PhantomStoneOverlay: View {
                     .position(x: stoneX, y: stoneY)
                     .allowsHitTesting(false) // Don't interfere with hover detection
             }
+        })
+    }
+
+    // MARK: - Click Handler
+    private func handleClick() {
+        // Only send move if it's our turn and game is in progress
+        guard ogsClient.isMyTurn,
+              ogsClient.gamePhase == .playing,
+              let position = phantomBoardPos,
+              let gameID = ogsClient.currentGameID else {
+            NSLog("👻 Click ignored - not our turn or no valid position")
+            return
         }
+
+        // Convert board position to SGF notation (a-s for both x and y)
+        let letters = "abcdefghijklmnopqrs"
+        let xChar = letters[letters.index(letters.startIndex, offsetBy: position.x)]
+        let yChar = letters[letters.index(letters.startIndex, offsetBy: position.y)]
+        let sgfMove = "\(xChar)\(yChar)"
+
+        // Send move to OGS
+        NSLog("👻 🎯 2D: Sending move \(sgfMove) at board position (\(position.x), \(position.y))")
+        ogsClient.sendMove(gameID: gameID, move: sgfMove)
+
+        // Clear phantom stone after sending
+        phantomBoardPos = nil
     }
 }
