@@ -655,14 +655,7 @@ struct PhantomStoneOverlay: View {
                 let stoneY = boardFrame.minY + offsetY + CGFloat(pos.y) * cellHeight
 
                 // Determine stone color based on OGS player assignment (not turn)
-                let stoneColor: Stone
-                if let playerColor = ogsClient.playerColor {
-                    // Use the color assigned to us by OGS
-                    stoneColor = playerColor
-                } else {
-                    // Fallback: alternate based on move count
-                    stoneColor = (player.currentIndex % 2 == 0) ? .black : .white
-                }
+                let stoneColor = ogsClient.playerColor ?? ((player.currentIndex % 2 == 0) ? Stone.black : Stone.white)
 
                 let stoneSize = stoneColor == .black ? blackStoneSize : whiteStoneSize
                 let imageName = stoneColor == .black ? "stone_black" : "clam_01"
@@ -684,7 +677,7 @@ struct PhantomStoneOverlay: View {
         NSLog("👻   isMyTurn: \(ogsClient.isMyTurn)")
         NSLog("👻   gamePhase: \(ogsClient.gamePhase.rawValue)")
         NSLog("👻   phantomBoardPos: \(phantomBoardPos.map { "(\($0.x), \($0.y))" } ?? "nil")")
-        NSLog("👻   currentGameID: \(ogsClient.currentGameID ?? "nil")")
+        NSLog("👻   currentGameID: \(ogsClient.currentGameID.map { String($0) } ?? "nil")")
 
         // Only send move if it's our turn and game is in progress
         guard ogsClient.isMyTurn,

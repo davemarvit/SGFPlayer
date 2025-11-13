@@ -871,7 +871,7 @@ struct ContentView3D: View {
         NSLog("👻   isMyTurn: \(ogsClient.isMyTurn)")
         NSLog("👻   gamePhase: \(ogsClient.gamePhase.rawValue)")
         NSLog("👻   phantomStonePosition: \(phantomStonePosition.map { "(\($0.x), \($0.y))" } ?? "nil")")
-        NSLog("👻   currentGameID: \(ogsClient.currentGameID ?? "nil")")
+        NSLog("👻   currentGameID: \(ogsClient.currentGameID.map { String($0) } ?? "nil")")
 
         // Only send move if it's our turn and game is in progress
         guard ogsClient.isMyTurn,
