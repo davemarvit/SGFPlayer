@@ -10,6 +10,9 @@ struct PreGameOverlay: View {
     // UI state
     @State private var challengeUsername = ""
 
+    // Debug settings
+    @AppStorage("verboseLogging") private var verboseLogging: Bool = false
+
     // Filter state (persisted)
     @AppStorage("filterLive") private var filterLive = true  // Real-time games (Blitz + Live)
     @AppStorage("filterCorrespondence") private var filterCorrespondence = true  // Turn-based (days/weeks per move)
@@ -125,8 +128,9 @@ struct PreGameOverlay: View {
         }
         .task {
             // Fetch games immediately when overlay appears
-            NSLog("PreGameOverlay: 📋 Overlay appeared - fetching initial games")
-            print("PreGameOverlay: 📋 Overlay appeared - fetching initial games")
+            if verboseLogging {
+                NSLog("PreGameOverlay: 📋 Overlay appeared - fetching initial games")
+            }
             refreshAvailableGames()
 
             // Auto-refresh loop
@@ -135,13 +139,15 @@ struct PreGameOverlay: View {
                 do {
                     try await Task.sleep(nanoseconds: 10_000_000_000) // 10 seconds
                     count += 1
-                    NSLog("PreGameOverlay: ⏰ Timer #\(count) fired - refreshing games")
-                    print("PreGameOverlay: ⏰ Timer #\(count) fired - refreshing games")
+                    if verboseLogging {
+                        NSLog("PreGameOverlay: ⏰ Timer #\(count) fired - refreshing games")
+                    }
                     refreshAvailableGames()
                 } catch {
                     // Task cancelled, stop loop
-                    NSLog("PreGameOverlay: ❌ Task cancelled")
-                    print("PreGameOverlay: ❌ Task cancelled")
+                    if verboseLogging {
+                        NSLog("PreGameOverlay: ❌ Task cancelled")
+                    }
                     break
                 }
             }
@@ -262,7 +268,9 @@ struct PreGameOverlay: View {
     // Filter games based on speed and board size
     private var filteredGames: [OGSChallenge] {
         let all = ogsClient.availableGames
-        NSLog("PreGameOverlay: Filtering \(all.count) total games")
+        if verboseLogging {
+            NSLog("PreGameOverlay: Filtering \(all.count) total games")
+        }
 
         let filtered = all.filter { challenge in
             // MOST IMPORTANT: Only show games that are truly available
@@ -279,8 +287,8 @@ struct PreGameOverlay: View {
             // A challenge is NOT available if it's expired or abandoned
             let notExpired = !blackLost && !whiteLost && !annulled
 
-            // Debug first game
-            if challenge.id == all.first?.id {
+            // Debug first game (only if verbose logging)
+            if verboseLogging && challenge.id == all.first?.id {
                 NSLog("PreGameOverlay: First game - black:\(challenge.game.black?.description ?? "nil") white:\(challenge.game.white?.description ?? "nil") started:\(challenge.game.started ?? "nil") blackLost:\(blackLost) whiteLost:\(whiteLost) annulled:\(annulled) notExpired:\(notExpired)")
             }
 
@@ -306,7 +314,9 @@ struct PreGameOverlay: View {
             return speedMatches && sizeMatches
         }
 
-        NSLog("PreGameOverlay: After filtering: \(filtered.count) games (from \(all.count))")
+        if verboseLogging {
+            NSLog("PreGameOverlay: After filtering: \(filtered.count) games (from \(all.count))")
+        }
         return filtered
     }
 
@@ -737,13 +747,17 @@ struct PreGameOverlay: View {
 
     private func refreshAvailableGames() {
         let currentCount = ogsClient.availableGames.count
-        NSLog("PreGameOverlay: 🔄 Refreshing available games (current: \(currentCount))...")
+        if verboseLogging {
+            NSLog("PreGameOverlay: 🔄 Refreshing available games (current: \(currentCount))...")
+        }
 
         ogsClient.fetchAvailableGames { challenges, error in
             if let error = error {
                 NSLog("PreGameOverlay: ❌ Failed to fetch games: \(error)")
             } else if let challenges = challenges {
-                NSLog("PreGameOverlay: ✅ Fetched \(challenges.count) available games")
+                if self.verboseLogging {
+                    NSLog("PreGameOverlay: ✅ Fetched \(challenges.count) available games")
+                }
                 // Update last refresh timestamp on main thread
                 DispatchQueue.main.async {
                     self.lastRefresh = Date()

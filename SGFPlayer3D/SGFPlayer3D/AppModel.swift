@@ -21,6 +21,9 @@ enum ViewMode: String, CaseIterable, Identifiable {
 }
 
 final class AppModel: ObservableObject {
+    // MARK: - Debug Settings
+    @AppStorage("verboseLogging") var verboseLogging: Bool = false
+
     // Audio player for stone click sound
     private var stoneClickPlayer: AVAudioPlayer?
     @Published var folderURL: URL? {

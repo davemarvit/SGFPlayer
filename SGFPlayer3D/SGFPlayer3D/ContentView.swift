@@ -449,7 +449,9 @@ struct ContentView: View {
                     DispatchQueue.main.async {
                         let newLayout = calculateResponsiveLayout(in: geometry)
                         let (deferredBlackCaptured, deferredWhiteCaptured) = calculateCapturesAtMove(player.currentIndex)
-                        print("🔍 Deferred layout recalc: bowlRadius=\(newLayout.bowlRadius)")
+                        if app.verboseLogging {
+                            print("🔍 Deferred layout recalc: bowlRadius=\(newLayout.bowlRadius)")
+                        }
                         updatePhysicsWithLayout(newLayout, deferredBlackCaptured, deferredWhiteCaptured)
                     }
                 }
@@ -740,9 +742,11 @@ struct ContentView: View {
         // Set initial window title
         updateWindowTitle()
 
-        print("🚀 NEW MODULAR PHYSICS: ContentView initialized with resolved stone clustering")
-        print("   - Black stones in UL bowl: \(physicsIntegration.blackStones.count)")
-        print("   - White stones in LR bowl: \(physicsIntegration.whiteStones.count)")
+        if app.verboseLogging {
+            print("🚀 NEW MODULAR PHYSICS: ContentView initialized with resolved stone clustering")
+            print("   - Black stones in UL bowl: \(physicsIntegration.blackStones.count)")
+            print("   - White stones in LR bowl: \(physicsIntegration.whiteStones.count)")
+        }
     }
 
     private func updatePhysicsForMove(_ moveIndex: Int) {
@@ -981,7 +985,9 @@ extension ContentView {
         // Board is 19x19 cells, and cell HEIGHT > cell WIDTH, so use height for proper scaling
         let bowlDiameterInCells: CGFloat = (19.0 / 3.0) * 1.37  // ~6.33 cells * 1.37 = ~8.67 cells
         let bowlRadius = (bowlDiameterInCells * actualCellHeight) / 2
-        print("🥣 BOWL DEBUG: cellHeight=\(actualCellHeight), diameterInCells=\(bowlDiameterInCells), bowlRadius=\(bowlRadius), bowlDiameter=\(bowlRadius*2)")
+        if app.verboseLogging {
+            print("🥣 BOWL DEBUG: cellHeight=\(actualCellHeight), diameterInCells=\(bowlDiameterInCells), bowlRadius=\(bowlRadius), bowlDiameter=\(bowlRadius*2)")
+        }
         let bowlOffset = bowlRadius * 1.1 // Tighter spacing
 
         let ulBowlCenter = CGPoint(
@@ -998,15 +1004,17 @@ extension ContentView {
         let actualBottomSpace = screenHeight - boardFrame.maxY
         let metadataY = boardFrame.maxY + actualBottomSpace / 2
 
-        // Debug: Print layout values
-        print("🎯 METADATA POSITIONING:")
-        print("   screenHeight: \(screenHeight)")
-        print("   boardFrame.maxY: \(boardFrame.maxY)")
-        print("   actualBottomSpace: \(actualBottomSpace)")
-        print("   metadataY: \(metadataY)")
-        print("   boardBottom to metadataY: \(metadataY - boardFrame.maxY)")
-        print("   metadataY to windowBottom: \(screenHeight - metadataY)")
-        print("   Expected center Y: \(boardFrame.maxY + actualBottomSpace / 2)")
+        // Debug: Print layout values (only if verbose logging enabled)
+        if app.verboseLogging {
+            print("🎯 METADATA POSITIONING:")
+            print("   screenHeight: \(screenHeight)")
+            print("   boardFrame.maxY: \(boardFrame.maxY)")
+            print("   actualBottomSpace: \(actualBottomSpace)")
+            print("   metadataY: \(metadataY)")
+            print("   boardBottom to metadataY: \(metadataY - boardFrame.maxY)")
+            print("   metadataY to windowBottom: \(screenHeight - metadataY)")
+            print("   Expected center Y: \(boardFrame.maxY + actualBottomSpace / 2)")
+        }
 
         return ResponsiveLayout(
             boardFrame: boardFrame,
