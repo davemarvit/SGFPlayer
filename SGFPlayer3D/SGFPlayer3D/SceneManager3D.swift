@@ -897,7 +897,7 @@ class SceneManager3D: ObservableObject {
             return nil
         }
 
-        // Create ray from camera through screen point
+        // Create ray from camera through screen point (FIXED: presentation not presentationNode)
         let cameraPos = cameraNode.presentation.worldPosition
         let cameraTransform = cameraNode.presentation.worldTransform
 
