@@ -923,8 +923,9 @@ class SceneManager3D: ObservableObject {
             nearPointWorld.z - cameraWorldPos.z
         )
 
-        // Normalize ray direction
-        let rayLength = sqrt(rayDir.x * rayDir.x + rayDir.y * rayDir.y + rayDir.z * rayDir.z)
+        // Normalize ray direction (force Float arithmetic)
+        let rayLengthSq = rayDir.x * rayDir.x + rayDir.y * rayDir.y + rayDir.z * rayDir.z
+        let rayLength = Float(sqrt(Double(rayLengthSq)))
         let rayDirNorm = SCNVector3(
             rayDir.x / rayLength,
             rayDir.y / rayLength,
@@ -942,15 +943,15 @@ class SceneManager3D: ObservableObject {
             return nil
         }
 
-        let t = (boardY - cameraWorldPos.y) / rayDirNorm.y
+        let t: Float = (boardY - cameraWorldPos.y) / rayDirNorm.y
         guard t > 0 else {
             // Intersection is behind camera
             return nil
         }
 
-        // Calculate intersection point (all Float types from SCNVector3)
-        let hitX: Float = cameraWorldPos.x + t * rayDirNorm.x
-        let hitZ: Float = cameraWorldPos.z + t * rayDirNorm.z
+        // Calculate intersection point (explicit Float arithmetic)
+        let hitX: Float = cameraWorldPos.x + (t * rayDirNorm.x)
+        let hitZ: Float = cameraWorldPos.z + (t * rayDirNorm.z)
 
         // Convert world position to board coordinates
         // Board is centered at (0, 0), with cells spanning from negative to positive
