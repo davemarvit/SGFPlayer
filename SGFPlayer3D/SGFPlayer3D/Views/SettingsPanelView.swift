@@ -1026,6 +1026,7 @@ struct SettingsPanelView_Previews: PreviewProvider {
             isPanelOpen: .constant(true),
             activePhysicsModelRaw: .constant(2),
             physicsIntegration: PhysicsIntegration(),
+            soundManager: SoundManager.shared,
             m1_repel: .constant(1.6),
             m1_spacing: .constant(2.1),
             m1_centerPullK: .constant(0.003),
