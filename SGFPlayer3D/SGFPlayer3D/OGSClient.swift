@@ -1746,7 +1746,9 @@ class OGSClient: NSObject, ObservableObject {
                 }
 
                 // Continue receiving messages
-                NSLog("OGS: 🔄 Calling receiveMessage() again to continue loop")
+                if verboseLogging {
+                    NSLog("OGS: 🔄 Calling receiveMessage() again to continue loop")
+                }
                 self.receiveMessage()
 
             case .failure(let error):
@@ -2488,13 +2490,15 @@ class OGSClient: NSObject, ObservableObject {
         // Update health check timestamp
         lastSeekgraphMessageTime = Date()
 
-        log("OGS: ========== v3.63 handleSeekgraph CALLED with \(seekgraphData.count) items ==========")
-        NSLog("OGS: 📊 Processing \(seekgraphData.count) seekgraph update(s)...")
+        if verboseLogging {
+            log("OGS: ========== v3.63 handleSeekgraph CALLED with \(seekgraphData.count) items ==========")
+            NSLog("OGS: 📊 Processing \(seekgraphData.count) seekgraph update(s)...")
+        }
 
         // If this is a large batch (>10 items), it's likely the initial snapshot - replace the list
         // Otherwise it's incremental updates - process one by one
         let isInitialSnapshot = seekgraphData.count > 10
-        if isInitialSnapshot {
+        if verboseLogging && isInitialSnapshot {
             NSLog("OGS: 📊 Detected initial snapshot with \(seekgraphData.count) items - will replace entire list")
         }
 
@@ -2510,29 +2514,37 @@ class OGSClient: NSObject, ObservableObject {
 
         // Process each update incrementally (add/remove from existing list)
         for (index, item) in seekgraphData.enumerated() {
-            log("OGS: 🔍 Processing item \(index+1)/\(seekgraphData.count)")
+            if verboseLogging {
+                log("OGS: 🔍 Processing item \(index+1)/\(seekgraphData.count)")
+            }
             guard let challengeID = item["challenge_id"] as? Int else {
-                log("OGS: ⚠️ Seekgraph item missing challenge_id")
+                if verboseLogging {
+                    log("OGS: ⚠️ Seekgraph item missing challenge_id")
+                }
                 continue
             }
 
             // Check if this is a delete message
             if item["delete"] != nil {
-                NSLog("OGS: 📊 ❌ DELETE challenge #\(challengeID)")
-                NSLog("OGS: 📊 ❌ DELETE PAYLOAD: \(item)")
-                // Log specific fields that might indicate why
-                if let deleteReason = item["delete"] as? String {
-                    NSLog("OGS: 📊 ❌ DELETE REASON: \(deleteReason)")
-                }
-                if let error = item["error"] as? String {
-                    NSLog("OGS: 📊 ❌ ERROR: \(error)")
-                }
-                if let message = item["message"] as? String {
-                    NSLog("OGS: 📊 ❌ MESSAGE: \(message)")
+                if verboseLogging {
+                    NSLog("OGS: 📊 ❌ DELETE challenge #\(challengeID)")
+                    NSLog("OGS: 📊 ❌ DELETE PAYLOAD: \(item)")
+                    // Log specific fields that might indicate why
+                    if let deleteReason = item["delete"] as? String {
+                        NSLog("OGS: 📊 ❌ DELETE REASON: \(deleteReason)")
+                    }
+                    if let error = item["error"] as? String {
+                        NSLog("OGS: 📊 ❌ ERROR: \(error)")
+                    }
+                    if let message = item["message"] as? String {
+                        NSLog("OGS: 📊 ❌ MESSAGE: \(message)")
+                    }
                 }
                 DispatchQueue.main.async {
                     self.availableGames.removeAll { $0.id == challengeID }
-                    NSLog("OGS: 📊 Removed challenge #\(challengeID), now have \(self.availableGames.count) games")
+                    if self.verboseLogging {
+                        NSLog("OGS: 📊 Removed challenge #\(challengeID), now have \(self.availableGames.count) games")
+                    }
 
                     // v3.84: Stop keepalives if this was our active challenge
                     if self.activeChallengeID == challengeID {
@@ -2543,8 +2555,9 @@ class OGSClient: NSObject, ObservableObject {
             }
 
             // Check if this is a game_started message (also remove)
-            if item["game_started"] != nil {
-                NSLog("OGS: 📊 GAME STARTED for challenge #\(challengeID)")
+            if let gameID = item["game_started"] as? Int {
+                // Always log game_started - this is important for debugging
+                NSLog("OGS: 📊 🎮 GAME STARTED for challenge #\(challengeID), game ID: \(gameID)")
                 DispatchQueue.main.async {
                     self.availableGames.removeAll { $0.id == challengeID }
                     NSLog("OGS: 📊 Removed started game #\(challengeID), now have \(self.availableGames.count) games")
@@ -2553,6 +2566,11 @@ class OGSClient: NSObject, ObservableObject {
                     if self.activeChallengeID == challengeID {
                         self.stopChallengeKeepalive()
                     }
+
+                    // v3.115: BUG FIX - Actually join the game that was just started!
+                    // This is the critical missing piece - we need to call joinGame() to load the game data
+                    NSLog("OGS: 🎮 Calling joinGame(\(gameID)) to load the started game")
+                    self.joinGame(gameID: gameID)
                 }
                 continue
             }
@@ -2566,7 +2584,9 @@ class OGSClient: NSObject, ObservableObject {
 
             let isRengo = item["rengo"] as? Bool ?? false
             let userChallenge = item["user_challenge"] as? Bool ?? false
-            log("OGS: 📊 ➕ RECEIVED challenge #\(challengeID): rank[\(minRank)-\(maxRank)] board[\(boardWidth)x\(boardHeight)] time[\(timeControl)] rengo[\(isRengo)] userChallenge[\(userChallenge)]")
+            if verboseLogging {
+                log("OGS: 📊 ➕ RECEIVED challenge #\(challengeID): rank[\(minRank)-\(maxRank)] board[\(boardWidth)x\(boardHeight)] time[\(timeControl)] rengo[\(isRengo)] userChallenge[\(userChallenge)]")
+            }
 
             // NOTE: We intentionally INCLUDE user's own challenges so they can cancel them
             // OGS web filters these out, but we want to show them with a "Cancel" button
@@ -2574,13 +2594,17 @@ class OGSClient: NSObject, ObservableObject {
 
             // Skip rengo (team) games - OGS web filters these out by default
             if isRengo {
-                log("OGS: 📊 ❌ FILTERED challenge #\(challengeID) - RENGO (team game)")
+                if verboseLogging {
+                    log("OGS: 📊 ❌ FILTERED challenge #\(challengeID) - RENGO (team game)")
+                }
                 continue
             }
 
             // Skip private games (invite-only to specific players)
             if let isPrivate = item["private"] as? Bool, isPrivate {
-                log("OGS: 📊 ❌ FILTERED challenge #\(challengeID) - PRIVATE game")
+                if verboseLogging {
+                    log("OGS: 📊 ❌ FILTERED challenge #\(challengeID) - PRIVATE game")
+                }
                 continue
             }
 
@@ -2590,12 +2614,16 @@ class OGSClient: NSObject, ObservableObject {
                 // Check if user's rank is within the acceptable range
                 // Rank in OGS: higher number = stronger player (opposite of kyu/dan system)
                 if Int(userRank) < minRank || Int(userRank) > maxRank {
-                    log("OGS: 📊 ❌ FILTERED challenge #\(challengeID) - RANK MISMATCH: user rank \(Int(userRank)) not in range [\(minRank)-\(maxRank)]")
+                    if verboseLogging {
+                        log("OGS: 📊 ❌ FILTERED challenge #\(challengeID) - RANK MISMATCH: user rank \(Int(userRank)) not in range [\(minRank)-\(maxRank)]")
+                    }
                     continue
                 }
             }
 
-            log("OGS: 📊 ✅ ADD/UPDATE challenge #\(challengeID)")
+            if verboseLogging {
+                log("OGS: 📊 ✅ ADD/UPDATE challenge #\(challengeID)")
+            }
             if let challenge = convertSeekgraphToChallenge(item) {
                 if isInitialSnapshot {
                     // For snapshot, collect all games
@@ -2605,7 +2633,9 @@ class OGSClient: NSObject, ObservableObject {
                     DispatchQueue.main.async {
                         self.availableGames.removeAll { $0.id == challengeID }
                         self.availableGames.append(challenge)
-                        NSLog("OGS: 📊 Updated challenge #\(challengeID), now have \(self.availableGames.count) games")
+                        if self.verboseLogging {
+                            NSLog("OGS: 📊 Updated challenge #\(challengeID), now have \(self.availableGames.count) games")
+                        }
                     }
                 }
             }
@@ -2615,7 +2645,9 @@ class OGSClient: NSObject, ObservableObject {
         if isInitialSnapshot {
             DispatchQueue.main.async {
                 self.availableGames = newGames
-                NSLog("OGS: 📊 Replaced availableGames with \(newGames.count) games from snapshot")
+                if self.verboseLogging {
+                    NSLog("OGS: 📊 Replaced availableGames with \(newGames.count) games from snapshot")
+                }
             }
         }
     }
