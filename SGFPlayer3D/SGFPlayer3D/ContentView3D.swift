@@ -840,13 +840,9 @@ struct ContentView3D: View {
                 // Show phantom stone at this position
                 if phantomStonePosition?.x != boardPos.x || phantomStonePosition?.y != boardPos.y {
                     // Determine stone color: use OGS player color if available, otherwise alternate based on move count
-                    let stoneColor: Stone
-                    if let playerColor = ogsClient.playerColor {
-                        stoneColor = playerColor
-                    } else {
-                        // Alternate: black plays on odd moves (0, 2, 4...), white on even (1, 3, 5...)
-                        stoneColor = (player.currentIndex % 2 == 0) ? .black : .white
-                    }
+                    let stoneColor = ogsClient.playerColor ?? ((player.currentIndex % 2 == 0) ? Stone.black : Stone.white)
+
+                    NSLog("👻 3D Phantom color: \(stoneColor == .black ? "BLACK" : "WHITE"), playerColor: \(ogsClient.playerColor.map { $0 == .black ? "BLACK" : "WHITE" } ?? "nil"), currentIndex: \(player.currentIndex)")
 
                     // v3.123: Opacity varies by color - white more transparent in 3D
                     let baseOpacity: CGFloat = stoneColor == .white ? 0.4 : 0.5

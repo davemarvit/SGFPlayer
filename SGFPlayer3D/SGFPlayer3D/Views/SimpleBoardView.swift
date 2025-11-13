@@ -656,6 +656,7 @@ struct PhantomStoneOverlay: View {
 
                 // Determine stone color based on OGS player assignment (not turn)
                 let stoneColor = ogsClient.playerColor ?? ((player.currentIndex % 2 == 0) ? Stone.black : Stone.white)
+                NSLog("👻 Phantom color: \(stoneColor == .black ? "BLACK" : "WHITE"), playerColor: \(ogsClient.playerColor.map { $0 == .black ? "BLACK" : "WHITE" } ?? "nil"), currentIndex: \(player.currentIndex)")
 
                 let stoneSize = stoneColor == .black ? blackStoneSize : whiteStoneSize
                 let imageName = stoneColor == .black ? "stone_black" : "clam_01"
