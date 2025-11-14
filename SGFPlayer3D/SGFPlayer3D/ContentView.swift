@@ -162,6 +162,10 @@ struct ContentView: View {
 
             gameInfoOverlay
 
+            // Game result overlay (Phase 1 scoring)
+            GameResultOverlay(ogsClient: ogsClient, ogsGame: ogsGame)
+                .showWhenResultAvailable()
+
             // v3.123: Phantom stones working in both 2D and 3D
             VStack {
                 Spacer()

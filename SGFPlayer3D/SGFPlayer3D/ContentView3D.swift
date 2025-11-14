@@ -137,6 +137,10 @@ struct ContentView3D: View {
             }
 
             overlayUI
+
+            // Game result overlay (Phase 1 scoring)
+            GameResultOverlay(ogsClient: ogsClient, ogsGame: ogsGame)
+                .showWhenResultAvailable()
         }
     }
 

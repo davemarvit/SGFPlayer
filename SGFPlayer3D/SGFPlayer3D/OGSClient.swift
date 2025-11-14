@@ -10,6 +10,48 @@ enum GamePhase: String {
     case finished   // Game complete, showing results
 }
 
+/// Represents the outcome of a finished game
+enum GameOutcome: String, Codable {
+    case blackWins = "B"        // Black wins by points or resignation
+    case whiteWins = "W"        // White wins by points or resignation
+    case tie = "0"              // Tie game (rare in Go)
+    case timeout = "Timeout"    // Win by timeout
+    case resignation = "Resignation"  // Win by resignation
+    case cancellation = "Cancellation"  // Game cancelled
+    case unknown = "?"          // Unknown outcome
+}
+
+/// Represents the final result of a game
+struct GameResult: Codable {
+    let gameID: Int
+    let outcome: GameOutcome
+    let winner: Stone?          // nil if tie or unknown
+    let blackScore: Double
+    let whiteScore: Double
+    let winReason: String       // "resignation", "timeout", "points", etc.
+
+    /// Score margin (absolute difference)
+    var margin: Double {
+        abs(blackScore - whiteScore)
+    }
+
+    /// Human-readable description of the result
+    var winDescription: String {
+        if let winner = winner {
+            let winnerName = winner == .black ? "Black" : "White"
+            if winReason == "resignation" || winReason == "Resignation" {
+                return "\(winnerName) wins by resignation"
+            } else if winReason == "timeout" || winReason == "Timeout" {
+                return "\(winnerName) wins by timeout"
+            } else {
+                return "\(winnerName) wins by \(String(format: "%.1f", margin)) points"
+            }
+        } else {
+            return "Game ended in a tie"
+        }
+    }
+}
+
 /// OGS (Online Go Server) WebSocket client for real-time game communication
 class OGSClient: NSObject, ObservableObject {
     // MARK: - Debug Settings
@@ -34,6 +76,8 @@ class OGSClient: NSObject, ObservableObject {
     // MARK: - Live Play State
     /// Current game phase - drives UI visibility and interaction
     @Published var gamePhase: GamePhase = .preGame
+    /// Game result when the game is finished
+    @Published var gameResult: GameResult? = nil
 
     // MARK: - Automatch State
     /// UUID of the current automatch request (if any)
@@ -2282,6 +2326,42 @@ class OGSClient: NSObject, ObservableObject {
                     NSLog("OGS: ⚠️ Unknown phase '\(phase)' - keeping current gamePhase")
                 }
             }
+
+            // If game is finished, extract the result data
+            if phase == "finished" {
+                NSLog("OGS: 🏁 ========== GAME FINISHED - EXTRACTING RESULT DATA ==========")
+                NSLog("OGS: 🏁 All gameData keys: \(gameData.keys.sorted())")
+
+                // Log potential scoring fields to discover the exact structure
+                if let outcome = gameData["outcome"] {
+                    NSLog("OGS: 🏁 outcome field: \(outcome) (type: \(type(of: outcome)))")
+                }
+                if let winner = gameData["winner"] {
+                    NSLog("OGS: 🏁 winner field: \(winner) (type: \(type(of: winner)))")
+                }
+                if let whitePoints = gameData["white_points"] {
+                    NSLog("OGS: 🏁 white_points field: \(whitePoints)")
+                }
+                if let blackPoints = gameData["black_points"] {
+                    NSLog("OGS: 🏁 black_points field: \(blackPoints)")
+                }
+                if let whiteLost = gameData["white_lost"] {
+                    NSLog("OGS: 🏁 white_lost field: \(whiteLost)")
+                }
+                if let blackLost = gameData["black_lost"] {
+                    NSLog("OGS: 🏁 black_lost field: \(blackLost)")
+                }
+                if let endTime = gameData["end_time"] {
+                    NSLog("OGS: 🏁 end_time field: \(endTime)")
+                }
+
+                // Extract game result data
+                if let gameID = gameData["game_id"] as? Int {
+                    self.extractGameResult(gameData: gameData, gameID: gameID)
+                } else {
+                    NSLog("OGS: ⚠️ Cannot extract game result - no game_id found")
+                }
+            }
         }
 
         // Get the current player (whose turn it is)
@@ -2569,6 +2649,122 @@ class OGSClient: NSObject, ObservableObject {
             }
         } else {
             NSLog("OGS: ❌ Could not extract white_time dictionary from clockData")
+        }
+    }
+
+    private func extractGameResult(gameData: [String: Any], gameID: Int) {
+        NSLog("OGS: 🏁 Extracting game result for game \(gameID)")
+
+        // Extract outcome string (e.g., "B+15.5", "W+R", "W+T", "0" for tie)
+        let outcomeString = gameData["outcome"] as? String ?? "?"
+        NSLog("OGS: 🏁 Outcome string: '\(outcomeString)'")
+
+        // Extract winner (player ID or nil for tie)
+        let winnerID = gameData["winner"] as? Int
+        NSLog("OGS: 🏁 Winner ID: \(winnerID?.description ?? "nil")")
+
+        // Extract scores
+        // OGS may send scores in different formats - try both direct fields and nested objects
+        var blackScore: Double = 0.0
+        var whiteScore: Double = 0.0
+
+        // Try direct fields first
+        if let blackPoints = gameData["black_points"] as? Double {
+            blackScore = blackPoints
+            NSLog("OGS: 🏁 Black score (direct): \(blackScore)")
+        } else if let blackPoints = gameData["black_points"] as? Int {
+            blackScore = Double(blackPoints)
+            NSLog("OGS: 🏁 Black score (direct int): \(blackScore)")
+        }
+
+        if let whitePoints = gameData["white_points"] as? Double {
+            whiteScore = whitePoints
+            NSLog("OGS: 🏁 White score (direct): \(whiteScore)")
+        } else if let whitePoints = gameData["white_points"] as? Int {
+            whiteScore = Double(whitePoints)
+            NSLog("OGS: 🏁 White score (direct int): \(whiteScore)")
+        }
+
+        // Try nested player objects if direct fields weren't found
+        if blackScore == 0.0 || whiteScore == 0.0 {
+            if let players = gameData["players"] as? [String: Any] {
+                if let blackPlayer = players["black"] as? [String: Any],
+                   let blackPts = blackPlayer["score"] as? Double {
+                    blackScore = blackPts
+                    NSLog("OGS: 🏁 Black score (nested): \(blackScore)")
+                }
+                if let whitePlayer = players["white"] as? [String: Any],
+                   let whitePts = whitePlayer["score"] as? Double {
+                    whiteScore = whitePts
+                    NSLog("OGS: 🏁 White score (nested): \(whiteScore)")
+                }
+            }
+        }
+
+        // Determine winner color based on winner ID
+        var winnerColor: Stone? = nil
+        if let winnerID = winnerID {
+            // Get black and white player IDs to compare
+            if let players = gameData["players"] as? [String: Any],
+               let blackPlayer = players["black"] as? [String: Any],
+               let whitePlayer = players["white"] as? [String: Any],
+               let blackPlayerID = blackPlayer["id"] as? Int,
+               let whitePlayerID = whitePlayer["id"] as? Int {
+
+                if winnerID == blackPlayerID {
+                    winnerColor = .black
+                    NSLog("OGS: 🏁 Winner is Black")
+                } else if winnerID == whitePlayerID {
+                    winnerColor = .white
+                    NSLog("OGS: 🏁 Winner is White")
+                }
+            }
+        } else {
+            NSLog("OGS: 🏁 No winner - likely a tie")
+        }
+
+        // Parse outcome type and reason
+        var outcomeType: GameOutcome = .unknown
+        var winReason = "points"
+
+        if outcomeString.contains("R") || outcomeString.contains("Resignation") {
+            outcomeType = .resignation
+            winReason = "resignation"
+        } else if outcomeString.contains("T") || outcomeString.contains("Timeout") {
+            outcomeType = .timeout
+            winReason = "timeout"
+        } else if outcomeString == "0" || outcomeString.contains("Tie") {
+            outcomeType = .tie
+            winReason = "tie"
+        } else if outcomeString.contains("C") || outcomeString.contains("Cancellation") {
+            outcomeType = .cancellation
+            winReason = "cancellation"
+        } else if outcomeString.starts(with: "B+") {
+            outcomeType = .blackWins
+            winReason = "points"
+        } else if outcomeString.starts(with: "W+") {
+            outcomeType = .whiteWins
+            winReason = "points"
+        }
+
+        NSLog("OGS: 🏁 Outcome type: \(outcomeType), Win reason: \(winReason)")
+
+        // Create GameResult object
+        let result = GameResult(
+            gameID: gameID,
+            outcome: outcomeType,
+            winner: winnerColor,
+            blackScore: blackScore,
+            whiteScore: whiteScore,
+            winReason: winReason
+        )
+
+        NSLog("OGS: 🏁 Created GameResult: \(result.winDescription)")
+
+        // Update published property on main thread
+        DispatchQueue.main.async {
+            self.gameResult = result
+            NSLog("OGS: 🏁 gameResult published to UI")
         }
     }
 
