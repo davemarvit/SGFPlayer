@@ -2048,7 +2048,7 @@ class OGSClient: NSObject, ObservableObject {
             NSLog("OGS: ↩️ ========== UNDO REQUEST EVENT ==========")
             NSLog("OGS: ↩️ Full message: \(message)")
             if let undoData = json[1] as? [String: Any] {
-                handleUndoRequest(undoData)
+                handleUndoRequest(eventName: eventName, data: undoData)
             }
         case "game/undo/accept", "game/undo/accepted":
             NSLog("OGS: ✅ ========== UNDO ACCEPTED ==========")
