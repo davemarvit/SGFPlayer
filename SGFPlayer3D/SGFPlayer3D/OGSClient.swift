@@ -1977,9 +1977,11 @@ class OGSClient: NSObject, ObservableObject {
             return
         }
 
-        // DEBUGGING: Log ALL events to catch authentication response (only if verbose)
+        // DEBUGGING: Log ALL events to catch authentication response
+        // Temporarily always log to debug undo issues
+        NSLog("OGS: 📨 EVENT RECEIVED: \(eventName)")
         if verboseLogging {
-            NSLog("OGS: 📨 EVENT RECEIVED: \(eventName)")
+            NSLog("OGS: 📨 Full event data: \(json[1])")
         }
 
         // Also write to file for debugging
@@ -2088,9 +2090,10 @@ class OGSClient: NSObject, ObservableObject {
             // Suppress latency pings
             break
         default:
-            // Only log unhandled events if verbose (except already suppressed ones)
-            if verboseLogging {
-                NSLog("OGS: 📨 Unhandled event: \(eventName) - Full message: \(message.prefix(200))")
+            // Temporarily always log unhandled events to debug undo
+            if !["active-bots", "active-players", "incident-report", "notification"].contains(eventName) &&
+               !eventName.contains("/latency") {
+                NSLog("OGS: 📨 Unhandled event: \(eventName) - First 200 chars: \(message.prefix(200))")
             }
         }
     }
