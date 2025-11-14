@@ -15,38 +15,52 @@ struct BoardInteractionOverlay: View {
     @State private var phantomStonePosition: (x: Int, y: Int)?
     @State private var isMouseDown: Bool = false
 
+    // v3.117: Simple test - track raw mouse position
+    @State private var mousePosition: CGPoint?
+
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // Transparent interaction layer that captures all mouse events
-                Color.clear
-                    .contentShape(Rectangle())
+                // v3.118: DEBUG - Semi-transparent red to verify overlay position
+                Color.red.opacity(0.2)
                     .gesture(
                         DragGesture(minimumDistance: 0)
                             .onChanged { value in
+                                NSLog("🔴 DRAG GESTURE: \(value.location)")
                                 handleMouseMove(at: value.location, isDown: true)
                             }
                             .onEnded { value in
+                                NSLog("🔴 DRAG ENDED: \(value.location)")
                                 handleMouseUp(at: value.location)
                             }
                     )
                     .onContinuousHover { phase in
                         switch phase {
                         case .active(let location):
+                            mousePosition = location  // v3.117: Track raw mouse for testing
+                            NSLog("🔴 HOVER TEST: Mouse at (\(location.x), \(location.y))")
                             if !isMouseDown {
                                 handleMouseMove(at: location, isDown: false)
                             }
                         case .ended:
+                            NSLog("🔴 HOVER ENDED")
+                            mousePosition = nil  // v3.117: Clear when hover ends
                             if !isMouseDown {
                                 phantomStonePosition = nil
                             }
                         }
                     }
 
-                // Phantom stone rendering
-                if let position = phantomStonePosition,
-                   ogsClient.isMyTurn,
-                   ogsClient.gamePhase == .playing {
+                // v3.117: TEST - Show red dot at mouse position (ignores board logic)
+                if let mouse = mousePosition {
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 20, height: 20)
+                        .position(mouse)
+                }
+
+                // v3.117: Phantom stone rendering - always show on hover for preview
+                if let position = phantomStonePosition {
                     renderPhantomStone(at: position)
                 }
             }
@@ -58,12 +72,7 @@ struct BoardInteractionOverlay: View {
     private func handleMouseMove(at location: CGPoint, isDown: Bool) {
         isMouseDown = isDown
 
-        // Only show phantom stone if it's our turn and game is in progress
-        guard ogsClient.isMyTurn, ogsClient.gamePhase == .playing else {
-            phantomStonePosition = nil
-            return
-        }
-
+        // v3.117: Simplified - always show phantom stone on hover for preview/visualization
         // Convert screen coordinates to board position
         if let boardPos = screenToBoardPosition(location) {
             // Check if position is empty
@@ -156,8 +165,8 @@ struct BoardInteractionOverlay: View {
         let stoneX = boardFrame.minX + offsetX + CGFloat(position.x) * cellWidth
         let stoneY = boardFrame.minY + offsetY + CGFloat(position.y) * cellHeight
 
-        // Determine stone color based on current player
-        let stoneColor = ogsClient.playerColor ?? .black
+        // v3.117: Determine stone color - use OGS player color if available, otherwise alternate
+        let stoneColor = ogsClient.playerColor ?? ((player.currentIndex % 2 == 0) ? Stone.black : Stone.white)
         let imageName = stoneColor == .black ? "stone_black" : "clam_01"
 
         // Stone size (slightly smaller than actual stones)
@@ -168,7 +177,7 @@ struct BoardInteractionOverlay: View {
             ? (realBlackStoneDiameter / realCellWidth) * cellWidth * 0.95
             : (realWhiteStoneDiameter / realCellWidth) * cellWidth * 0.95
 
-        Image(imageName)
+        return Image(imageName)
             .resizable()
             .frame(width: stoneSize, height: stoneSize)
             .opacity(isMouseDown ? 0.5 : 0.7)  // More transparent on mouse down

@@ -876,15 +876,108 @@ class SceneManager3D: ObservableObject {
         }
     }
 
-    /// Convert screen point to board coordinates
+    /// Convert screen point to board coordinates using ray-plane intersection
     /// - Parameters:
-    ///   - screenPoint: Point in view coordinates
+    ///   - screenPoint: Point in view coordinates (AppKit: origin at top-left)
     ///   - viewSize: Size of the view
     /// - Returns: Board coordinates (x, y) if hit, nil otherwise
-    /// NOTE: Phantom stone hit testing temporarily disabled - needs SCNView reference
     func hitTestBoard(screenPoint: CGPoint, viewSize: CGSize) -> (x: Int, y: Int)? {
-        // TODO: Implement proper hit testing with SCNView reference
-        return nil
+        guard let camera = cameraNode.camera else {
+            return nil
+        }
+
+        // Convert AppKit coordinates (top-left origin) to normalized device coordinates
+        // NDC range: x and y both in [-1, 1]
+        let ndcX = (screenPoint.x / viewSize.width) * 2.0 - 1.0
+        let ndcY = 1.0 - (screenPoint.y / viewSize.height) * 2.0  // Flip Y for AppKit
+
+        // Get camera's world transform (includes pivot rotation)
+        let cameraWorldTransform = cameraNode.presentation.worldTransform
+        let cameraWorldPos = SCNVector3(
+            Float(cameraWorldTransform.m41),
+            Float(cameraWorldTransform.m42),
+            Float(cameraWorldTransform.m43)
+        )
+
+        // Calculate ray direction in world space
+        // For perspective projection, the ray goes through the near plane at the NDC position
+        let fov = camera.fieldOfView * .pi / 180.0
+        let aspect = viewSize.width / viewSize.height
+        let tanHalfFOV = tan(fov / 2.0)
+
+        // Calculate point on near plane in camera space
+        let nearPlaneHeight = 2.0 * tanHalfFOV * CGFloat(camera.zNear)
+        let nearPlaneWidth = nearPlaneHeight * aspect
+        let nearX = Float(ndcX * nearPlaneWidth / 2.0)
+        let nearY = Float(ndcY * nearPlaneHeight / 2.0)
+        let nearZ = Float(-CGFloat(camera.zNear))
+
+        // Transform near point from camera space to world space
+        let nearPointCamera = SCNVector3(nearX, nearY, nearZ)
+        let nearPointWorld = transformPoint(nearPointCamera, by: cameraWorldTransform)
+
+        // Ray direction from camera to near point (force Float)
+        let rayDirX = Float(nearPointWorld.x - cameraWorldPos.x)
+        let rayDirY = Float(nearPointWorld.y - cameraWorldPos.y)
+        let rayDirZ = Float(nearPointWorld.z - cameraWorldPos.z)
+
+        // Normalize ray direction (all Float arithmetic)
+        let rayLengthSq: Float = rayDirX * rayDirX + rayDirY * rayDirY + rayDirZ * rayDirZ
+        let rayLength: Float = Float(sqrt(Double(rayLengthSq)))
+        let rayDirNormX: Float = rayDirX / rayLength
+        let rayDirNormY: Float = rayDirY / rayLength
+        let rayDirNormZ: Float = rayDirZ / rayLength
+
+        // Board top surface is at y = boardThickness / 2 = 1.0
+        let boardY: Float = 1.0
+
+        // Ray-plane intersection: find t where ray.y = boardY
+        // ray.y = cameraY + t * rayDir.y = boardY
+        // t = (boardY - cameraY) / rayDir.y
+        guard abs(rayDirNormY) > 0.001 else {
+            // Ray is parallel to board
+            return nil
+        }
+
+        let t: Float = (boardY - Float(cameraWorldPos.y)) / rayDirNormY
+        guard t > 0 else {
+            // Intersection is behind camera
+            return nil
+        }
+
+        // Calculate intersection point (all Float)
+        let hitX: Float = Float(cameraWorldPos.x) + (t * rayDirNormX)
+        let hitZ: Float = Float(cameraWorldPos.z) + (t * rayDirNormZ)
+
+        // Convert world position to board coordinates
+        // Board is centered at (0, 0), with cells spanning from negative to positive
+        let totalWidth = Float(boardSize - 1) * Float(effectiveCellWidth)
+        let totalHeight = Float(boardSize - 1) * Float(effectiveCellHeight)
+
+        // Convert to board space (0-based grid)
+        let boardX = (hitX + totalWidth / 2.0) / Float(effectiveCellWidth)
+        let boardZ = (hitZ + totalHeight / 2.0) / Float(effectiveCellHeight)
+
+        // Round to nearest intersection
+        let col = Int(round(boardX))
+        let row = Int(round(boardZ))
+
+        // Check bounds
+        guard col >= 0 && col < boardSize && row >= 0 && row < boardSize else {
+            return nil
+        }
+
+        NSLog("DEBUG3D: 🎯 v3.123: Hit test: screen(\(screenPoint.x),\(screenPoint.y)) -> board(\(col),\(row))")
+
+        return (x: col, y: row)
+    }
+
+    /// Helper to transform a point by a matrix
+    private func transformPoint(_ point: SCNVector3, by matrix: SCNMatrix4) -> SCNVector3 {
+        let x = Float(point.x * matrix.m11 + point.y * matrix.m21 + point.z * matrix.m31 + matrix.m41)
+        let y = Float(point.x * matrix.m12 + point.y * matrix.m22 + point.z * matrix.m32 + matrix.m42)
+        let z = Float(point.x * matrix.m13 + point.y * matrix.m23 + point.z * matrix.m33 + matrix.m43)
+        return SCNVector3(x, y, z)
     }
 
     // REMOVED: Old hit testing code that was causing compilation errors

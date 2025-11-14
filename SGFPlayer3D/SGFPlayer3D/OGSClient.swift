@@ -1500,6 +1500,77 @@ class OGSClient: NSObject, ObservableObject {
         }
     }
 
+    /// Request to undo the last move
+    /// - Parameters:
+    ///   - gameID: The game ID
+    ///   - moveNumber: The current move number (used as validation)
+    func requestUndo(gameID: Int, moveNumber: Int) {
+        guard isConnected else {
+            NSLog("OGS: ❌ Cannot request undo - not connected")
+            return
+        }
+
+        let undoMessage = """
+        ["game/undo/request",{"game_id":\(gameID),"move_number":\(moveNumber)}]
+        """
+
+        let message = URLSessionWebSocketTask.Message.string(undoMessage)
+        webSocketTask?.send(message) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error requesting undo: \(error.localizedDescription)")
+                self.lastError = error.localizedDescription
+            } else {
+                NSLog("OGS: ✅ Undo request sent for game \(gameID) at move \(moveNumber)")
+            }
+        }
+    }
+
+    /// Send a pass move
+    /// - Parameter gameID: The game ID
+    func sendPass(gameID: Int) {
+        guard isConnected else {
+            NSLog("OGS: ❌ Cannot send pass - not connected")
+            return
+        }
+
+        let passMessage = """
+        ["game/move",{"game_id":\(gameID),"move":".."}]
+        """
+
+        let message = URLSessionWebSocketTask.Message.string(passMessage)
+        webSocketTask?.send(message) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error sending pass: \(error.localizedDescription)")
+                self.lastError = error.localizedDescription
+            } else {
+                NSLog("OGS: ✅ Pass sent for game \(gameID)")
+            }
+        }
+    }
+
+    /// Resign from the game
+    /// - Parameter gameID: The game ID
+    func sendResign(gameID: Int) {
+        guard isConnected else {
+            NSLog("OGS: ❌ Cannot resign - not connected")
+            return
+        }
+
+        let resignMessage = """
+        ["game/resign",{"game_id":\(gameID)}]
+        """
+
+        let message = URLSessionWebSocketTask.Message.string(resignMessage)
+        webSocketTask?.send(message) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error sending resign: \(error.localizedDescription)")
+                self.lastError = error.localizedDescription
+            } else {
+                NSLog("OGS: ✅ Resign sent for game \(gameID)")
+            }
+        }
+    }
+
     /// Join a game to start receiving updates
     /// - Parameter gameID: The game ID to join
     func joinGame(gameID: Int) {
@@ -1889,9 +1960,11 @@ class OGSClient: NSObject, ObservableObject {
             return
         }
 
-        // DEBUGGING: Log ALL events to catch authentication response (only if verbose)
+        // DEBUGGING: Log ALL events to catch authentication response
+        // Temporarily always log to debug undo issues
+        NSLog("OGS: 📨 EVENT RECEIVED: \(eventName)")
         if verboseLogging {
-            NSLog("OGS: 📨 EVENT RECEIVED: \(eventName)")
+            NSLog("OGS: 📨 Full event data: \(json[1])")
         }
 
         // Also write to file for debugging
@@ -1944,6 +2017,32 @@ class OGSClient: NSObject, ObservableObject {
             } else {
                 NSLog("OGS: ❌ Failed to cast json[1] to [String: Any]. json[1] type: \(type(of: json[1]))")
             }
+        case _ where eventName.contains("/undo"):
+            NSLog("OGS: ↩️ ========== UNDO EVENT MATCHED! ==========")
+            NSLog("OGS: ↩️ Event name: \(eventName)")
+            NSLog("OGS: ↩️ Full message: \(message)")
+            if let undoData = json[1] as? [String: Any] {
+                NSLog("OGS: ↩️ Undo data: \(undoData)")
+                handleUndo(eventName: eventName, data: undoData)
+            } else {
+                NSLog("OGS: ❌ Failed to cast undo data. json[1] type: \(type(of: json[1]))")
+            }
+        case "game/undo/request", "game/undo/requested":
+            NSLog("OGS: ↩️ ========== UNDO REQUEST EVENT ==========")
+            NSLog("OGS: ↩️ Full message: \(message)")
+            if let undoData = json[1] as? [String: Any] {
+                handleUndoRequest(eventName: eventName, data: undoData)
+            }
+        case "game/undo/accept", "game/undo/accepted":
+            NSLog("OGS: ✅ ========== UNDO ACCEPTED ==========")
+            if let undoData = json[1] as? [String: Any] {
+                handleUndoAccepted(undoData)
+            }
+        case "game/undo/reject", "game/undo/rejected":
+            NSLog("OGS: ❌ ========== UNDO REJECTED ==========")
+            if let undoData = json[1] as? [String: Any] {
+                handleUndoRejected(undoData)
+            }
         case "automatch/entry":
             NSLog("OGS: 🎯 ========== AUTOMATCH ENTRY ==========")
             if let preferencesData = json[1] as? [String: Any] {
@@ -1974,9 +2073,10 @@ class OGSClient: NSObject, ObservableObject {
             // Suppress latency pings
             break
         default:
-            // Only log unhandled events if verbose (except already suppressed ones)
-            if verboseLogging {
-                NSLog("OGS: 📨 Unhandled event: \(eventName) - Full message: \(message.prefix(200))")
+            // Temporarily always log unhandled events to debug undo
+            if !["active-bots", "active-players", "incident-report", "notification"].contains(eventName) &&
+               !eventName.contains("/latency") {
+                NSLog("OGS: 📨 Unhandled event: \(eventName) - First 200 chars: \(message.prefix(200))")
             }
         }
     }
@@ -2150,9 +2250,21 @@ class OGSClient: NSObject, ObservableObject {
             extractClockData(clock)
         }
 
-        // Determine whose turn it is
+        // Update game phase based on OGS phase field
         if let phase = gameData["phase"] as? String {
-            NSLog("OGS: 🎮 Game phase: \(phase)")
+            NSLog("OGS: 🎮 Game phase from OGS: \(phase)")
+            DispatchQueue.main.async {
+                switch phase {
+                case "play":
+                    self.gamePhase = .playing
+                    NSLog("OGS: 🎮 Updated gamePhase to .playing")
+                case "stone removal", "finished":
+                    self.gamePhase = .scoring
+                    NSLog("OGS: 🎮 Updated gamePhase to .scoring")
+                default:
+                    NSLog("OGS: ⚠️ Unknown phase '\(phase)' - keeping current gamePhase")
+                }
+            }
         }
 
         // Get the current player (whose turn it is)
@@ -2210,11 +2322,39 @@ class OGSClient: NSObject, ObservableObject {
                 }
             }
 
-            // Get whose turn it is
-            let playerToMoveID = gameData["player_to_move"] as? Int
+            // Determine which color we are playing by comparing our playerID to black/white player IDs
+            if let myPlayerID = self.playerID {
+                if myPlayerID == blackPlayerID {
+                    NSLog("OGS: 🎨 We are playing BLACK (our ID \(myPlayerID) matches black player)")
+                    DispatchQueue.main.async {
+                        self.playerColor = .black
+                    }
+                } else if myPlayerID == whitePlayerID {
+                    NSLog("OGS: 🎨 We are playing WHITE (our ID \(myPlayerID) matches white player)")
+                    DispatchQueue.main.async {
+                        self.playerColor = .white
+                    }
+                } else {
+                    NSLog("OGS: ⚠️ Our player ID \(myPlayerID) doesn't match black (\(blackPlayerID ?? -1)) or white (\(whitePlayerID ?? -1)) - we may be spectating")
+                }
+            } else {
+                NSLog("OGS: ⚠️ playerID is nil - cannot determine our color")
+            }
+
+            // Get whose turn it is from the clock data (OGS sends it as "current_player" in the clock subdictionary)
+            var playerToMoveID: Int?
+            if let clock = gameData["clock"] as? [String: Any],
+               let currentPlayerID = clock["current_player"] as? Int {
+                playerToMoveID = currentPlayerID
+                NSLog("OGS: 🎮 Current player (from clock): \(currentPlayerID)")
+            } else if let currentPlayerID = gameData["player_to_move"] as? Int {
+                // Fallback to player_to_move if it exists (some OGS endpoints may use this)
+                playerToMoveID = currentPlayerID
+                NSLog("OGS: 🎮 Player to move (from gameData): \(currentPlayerID)")
+            }
 
             // Set currentPlayerColor based on whose turn it is
-            // This is CRITICAL for correct color mapping
+            // This is CRITICAL for correct color mapping and isMyTurn to work
             if let playerToMoveID = playerToMoveID {
                 if playerToMoveID == blackPlayerID {
                     NSLog("OGS: 🎨 Setting currentPlayerColor to Black (player \(playerToMoveID) to move)")
@@ -2229,6 +2369,8 @@ class OGSClient: NSObject, ObservableObject {
                 } else {
                     NSLog("OGS: ⚠️ playerToMoveID \(playerToMoveID) doesn't match black (\(blackPlayerID ?? -1)) or white (\(whitePlayerID ?? -1))")
                 }
+            } else {
+                NSLog("OGS: ⚠️ Could not determine current player from game data")
             }
 
             // Get handicap for proper turn calculation
@@ -2410,6 +2552,122 @@ class OGSClient: NSObject, ObservableObject {
             }
         } else {
             NSLog("OGS: ❌ Could not extract white_time dictionary from clockData")
+        }
+    }
+
+    // MARK: - Undo Event Handlers
+
+    private func handleUndo(eventName: String, data: [String: Any]) {
+        NSLog("OGS: ↩️ handleUndo() - Event: \(eventName), Data: \(data)")
+
+        // Route to specific handlers based on event name
+        if eventName.contains("requested") || eventName.hasSuffix("/request") {
+            handleUndoRequest(eventName: eventName, data: data)
+        } else if eventName.contains("accepted") || eventName.hasSuffix("/accept") {
+            handleUndoAccepted(data)
+        } else if eventName.contains("rejected") || eventName.hasSuffix("/reject") {
+            handleUndoRejected(data)
+        }
+    }
+
+    private func handleUndoRequest(eventName: String, data: [String: Any]) {
+        NSLog("OGS: ↩️ ========== UNDO REQUEST RECEIVED ==========")
+        NSLog("OGS: ↩️ Event: \(eventName)")
+        NSLog("OGS: ↩️ Data: \(data)")
+
+        // Extract game ID from event name (format: "game/12345/undo_requested")
+        let components = eventName.components(separatedBy: "/")
+        guard components.count >= 2,
+              let gameID = Int(components[1]),
+              let moveNumber = data["move_number"] as? Int,
+              let requestedBy = data["requested_by"] as? Int else {
+            NSLog("OGS: ❌ Missing required fields in undo request")
+            return
+        }
+
+        // Only show dialog if the request is from opponent (not ourselves)
+        if requestedBy == self.playerID {
+            NSLog("OGS: ↩️ Undo request is from us - ignoring")
+            return
+        }
+
+        NSLog("OGS: ↩️ ✅ Opponent requested undo - showing dialog")
+
+        // Post notification for UI to handle (show dialog to accept/reject)
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("OGSUndoRequested"),
+                object: nil,
+                userInfo: ["gameID": gameID, "moveNumber": moveNumber]
+            )
+        }
+    }
+
+    private func handleUndoAccepted(_ data: [String: Any]) {
+        NSLog("OGS: ✅ Undo request accepted")
+        NSLog("OGS: ✅ Data: \(data)")
+
+        // Reload game data to reflect the undo
+        if let gameID = data["game_id"] as? Int {
+            fetchGameData(gameID: gameID)
+        }
+    }
+
+    private func handleUndoRejected(_ data: [String: Any]) {
+        NSLog("OGS: ❌ Undo request rejected")
+        NSLog("OGS: ❌ Data: \(data)")
+
+        // Show notification to user
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("OGSUndoRejected"),
+                object: nil,
+                userInfo: data
+            )
+        }
+    }
+
+    /// Accept an undo request from opponent
+    func acceptUndo(gameID: Int, moveNumber: Int) {
+        guard isConnected else {
+            NSLog("OGS: ❌ Cannot accept undo - not connected")
+            return
+        }
+
+        let acceptMessage = """
+        ["game/undo/accept",{"game_id":\(gameID),"move_number":\(moveNumber)}]
+        """
+
+        let message = URLSessionWebSocketTask.Message.string(acceptMessage)
+        webSocketTask?.send(message) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error accepting undo: \(error.localizedDescription)")
+                self.lastError = error.localizedDescription
+            } else {
+                NSLog("OGS: ✅ Undo accepted for game \(gameID) at move \(moveNumber)")
+            }
+        }
+    }
+
+    /// Reject an undo request from opponent
+    func rejectUndo(gameID: Int, moveNumber: Int) {
+        guard isConnected else {
+            NSLog("OGS: ❌ Cannot reject undo - not connected")
+            return
+        }
+
+        let rejectMessage = """
+        ["game/undo/reject",{"game_id":\(gameID),"move_number":\(moveNumber)}]
+        """
+
+        let message = URLSessionWebSocketTask.Message.string(rejectMessage)
+        webSocketTask?.send(message) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error rejecting undo: \(error.localizedDescription)")
+                self.lastError = error.localizedDescription
+            } else {
+                NSLog("OGS: ✅ Undo rejected for game \(gameID) at move \(moveNumber)")
+            }
         }
     }
 

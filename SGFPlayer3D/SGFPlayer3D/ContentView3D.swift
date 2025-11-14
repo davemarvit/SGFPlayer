@@ -140,7 +140,7 @@ struct ContentView3D: View {
         }
     }
 
-    private var contentWithEventHandlers: some View {
+    private var baseZStackWithPlayerHandlers: some View {
         baseZStack
         .onReceive(player.$currentIndex) { newIndex in
             // Update 3D board immediately
@@ -155,6 +155,13 @@ struct ContentView3D: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .gameDidFinish)) { _ in
             handleGameFinished()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSUndoRequested"))) { notification in
+            if let userInfo = notification.userInfo,
+               let gameID = userInfo["gameID"] as? Int,
+               let moveNumber = userInfo["moveNumber"] as? Int {
+                handleUndoRequest(gameID: gameID, moveNumber: moveNumber)
+            }
         }
         .onChange(of: app.selection) { _, newSelection in
             if let gameWrapper = newSelection {
@@ -264,6 +271,10 @@ struct ContentView3D: View {
                 timeControl.startClock()
             }
         }
+    }
+
+    private var contentWithEventHandlers: some View {
+        AnyView(baseZStackWithPlayerHandlers)
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { _ in
             isFullscreen = true
         }
@@ -580,14 +591,68 @@ struct ContentView3D: View {
 
                 Spacer()
 
-                // Version number in lower right
-                HStack {
-                    Spacer()
-                    Text("v3.115-phantom (handicap + moves fixed)")
-                        .foregroundColor(.gray)
-                        .font(.caption)
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 8)
+                // OGS Game Control Buttons (only visible during OGS gameplay)
+                if ogsClient.currentGameID != nil, ogsClient.gamePhase == .playing {
+                    HStack(spacing: 20) {
+                        // Undo button
+                        Button(action: {
+                            if let gameID = ogsClient.currentGameID {
+                                // Pass current move number as validation
+                                ogsClient.requestUndo(gameID: gameID, moveNumber: player.currentIndex)
+                            }
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.uturn.backward")
+                                Text("Undo")
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.orange.opacity(0.7))
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+
+                        // Pass button
+                        Button(action: {
+                            if let gameID = ogsClient.currentGameID {
+                                ogsClient.sendPass(gameID: gameID)
+                            }
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "forward.end")
+                                Text("Pass")
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.blue.opacity(0.7))
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+
+                        // Resign button
+                        Button(action: {
+                            if let gameID = ogsClient.currentGameID {
+                                // Show confirmation before resigning
+                                resignConfirmation(gameID: gameID)
+                            }
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "flag.fill")
+                                Text("Resign")
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.red.opacity(0.7))
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.bottom, 10)
+                    .opacity(showControls ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: 0.2), value: showControls)
                 }
 
                 // Bottom controls - extracted to PlaybackControls
@@ -822,8 +887,8 @@ struct ContentView3D: View {
     private func handle3DMouseMove(at location: CGPoint, viewSize: CGSize, isDown: Bool) {
         isMouseDown = isDown
 
-        // Only show phantom stone if it's our turn and game is in progress
-        guard ogsClient.isMyTurn, ogsClient.gamePhase == .playing else {
+        // Only show phantom stones in OGS mode AND when it's our turn
+        guard ogsClient.currentGameID != nil, ogsClient.isMyTurn else {
             sceneManager.hidePhantomStone()
             phantomStonePosition = nil
             return
@@ -835,8 +900,14 @@ struct ContentView3D: View {
             if player.board.grid[boardPos.y][boardPos.x] == nil {
                 // Show phantom stone at this position
                 if phantomStonePosition?.x != boardPos.x || phantomStonePosition?.y != boardPos.y {
-                    let stoneColor = ogsClient.playerColor ?? .black
-                    let opacity: CGFloat = isDown ? 0.3 : 0.5  // More transparent when pressed
+                    // Determine stone color: use OGS player color if available, otherwise alternate based on move count
+                    let stoneColor = ogsClient.playerColor ?? ((player.currentIndex % 2 == 0) ? Stone.black : Stone.white)
+
+                    NSLog("👻 3D Phantom color: \(stoneColor == .black ? "BLACK" : "WHITE"), playerColor: \(ogsClient.playerColor.map { $0 == .black ? "BLACK" : "WHITE" } ?? "nil"), currentIndex: \(player.currentIndex)")
+
+                    // v3.123: Opacity varies by color - white more transparent in 3D
+                    let baseOpacity: CGFloat = stoneColor == .white ? 0.4 : 0.5
+                    let opacity: CGFloat = isDown ? (baseOpacity + 0.1) : baseOpacity
                     sceneManager.showPhantomStone(at: boardPos, color: stoneColor, opacity: opacity)
                     phantomStonePosition = boardPos
                 }
@@ -850,16 +921,58 @@ struct ContentView3D: View {
         }
     }
 
+    private func resignConfirmation(gameID: Int) {
+        #if os(macOS)
+        let alert = NSAlert()
+        alert.messageText = "Resign Game?"
+        alert.informativeText = "Are you sure you want to resign this game? This action cannot be undone."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Resign")
+        alert.addButton(withTitle: "Cancel")
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            ogsClient.sendResign(gameID: gameID)
+        }
+        #endif
+    }
+
+    private func handleUndoRequest(gameID: Int, moveNumber: Int) {
+        #if os(macOS)
+        let alert = NSAlert()
+        alert.messageText = "Undo Request"
+        alert.informativeText = "Your opponent wants to undo move \(moveNumber). Do you accept?"
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Accept")
+        alert.addButton(withTitle: "Decline")
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            NSLog("OGS: ✅ User accepted undo request")
+            ogsClient.acceptUndo(gameID: gameID, moveNumber: moveNumber)
+        } else {
+            NSLog("OGS: ❌ User declined undo request")
+            ogsClient.rejectUndo(gameID: gameID, moveNumber: moveNumber)
+        }
+        #endif
+    }
+
     private func handle3DMouseUp(at location: CGPoint, viewSize: CGSize) {
         isMouseDown = false
+
+        NSLog("👻 3D Click detected!")
+        NSLog("👻   isMyTurn: \(ogsClient.isMyTurn)")
+        NSLog("👻   gamePhase: \(ogsClient.gamePhase.rawValue)")
+        NSLog("👻   phantomStonePosition: \(phantomStonePosition.map { "(\($0.x), \($0.y))" } ?? "nil")")
+        NSLog("👻   currentGameID: \(ogsClient.currentGameID.map { String($0) } ?? "nil")")
 
         // Only send move if it's our turn and game is in progress
         guard ogsClient.isMyTurn,
               ogsClient.gamePhase == .playing,
               let position = phantomStonePosition,
               let gameID = ogsClient.currentGameID else {
-            sceneManager.hidePhantomStone()
-            phantomStonePosition = nil
+            NSLog("👻 ❌ 3D Click ignored - conditions not met (keeping phantom stone visible)")
+            // Don't hide the phantom stone - let it remain visible so user can see what they tried to click
             return
         }
 
@@ -867,7 +980,7 @@ struct ContentView3D: View {
         let sgfMove = boardPositionToSGF(x: position.x, y: position.y)
 
         // Send move to OGS
-        NSLog("DEBUG3D: 🎯 Sending move: \(sgfMove) at (\(position.x), \(position.y))")
+        NSLog("👻 🎯 3D: Sending move \(sgfMove) at board position (\(position.x), \(position.y))")
         ogsClient.sendMove(gameID: gameID, move: sgfMove)
 
         // Clear phantom stone

@@ -16,14 +16,20 @@ struct SimpleBoardView: View {
     let lrBowlCenter: CGPoint
     let bowlRadius: CGFloat
 
+    // v3.122: Phantom stone implementation
+    @State private var hoverLocation: CGPoint?
+    @State private var phantomStonePos: (x: Int, y: Int)?
+
     var body: some View {
+        NSLog("🟦 SimpleBoardView.body CALLED v3.122")
+
         let _ = {
             if DebugConfig.enableUIDebugging {
                 Logger.debug("SimpleBoardView: BODY COMPUTED - blackStones: \(physicsIntegration.blackStones.count), whiteStones: \(physicsIntegration.whiteStones.count)")
             }
         }()
 
-        ZStack {
+        return ZStack {
             // Board rendering at explicit position (no hit testing)
             BoardContent(
                 player: player,
@@ -42,12 +48,12 @@ struct SimpleBoardView: View {
                 gridSize: player.board.size
             )
 
-            // Board interaction overlay (handles mouse events and phantom stones)
-            BoardInteractionOverlay(
-                boardFrame: boardFrame,
-                gridSize: player.board.size,
+            // v3.122: Phantom stone overlay
+            PhantomStoneOverlay(
                 player: player,
-                ogsClient: ogsClient
+                ogsClient: ogsClient,
+                boardFrame: boardFrame,
+                boardStoneDiameter: boardStoneDiameter
             )
         }
     }
@@ -551,5 +557,153 @@ struct BowlContent: View {
                     }
             }
         }
+    }
+}
+
+// MARK: - Phantom Stone Overlay (v3.122)
+struct PhantomStoneOverlay: View {
+    @ObservedObject var player: SGFPlayer
+    @ObservedObject var ogsClient: OGSClient
+    let boardFrame: CGRect
+    let boardStoneDiameter: CGFloat
+
+    @State private var hoverLocation: CGPoint?
+    @State private var phantomBoardPos: (x: Int, y: Int)?
+
+    var body: some View {
+        // Only show phantom stones in OGS mode
+        let isOGSMode = ogsClient.currentGameID != nil
+        guard isOGSMode else {
+            return AnyView(EmptyView())
+        }
+
+        let gridSize = player.board.size
+
+        // Calculate grid dimensions (same as BoardContent)
+        let cellRatio: CGFloat = 15.0 / 14.0
+        let baseCellWidth = boardFrame.width * 0.9 / CGFloat(gridSize - 1)
+        let cellWidth = baseCellWidth
+        let cellHeight = baseCellWidth * cellRatio
+        let gridWidth = cellWidth * CGFloat(gridSize - 1)
+        let gridHeight = cellHeight * CGFloat(gridSize - 1)
+        let offsetX = (boardFrame.width - gridWidth) / 2
+        let offsetY = (boardFrame.height - gridHeight) / 2
+
+        // Calculate stone sizes
+        let realCellWidth = 22.0 // mm
+        let realBlackStoneDiameter = 22.2 // mm
+        let realWhiteStoneDiameter = 21.9 // mm
+        let blackStoneSize = (realBlackStoneDiameter / realCellWidth) * cellWidth
+        let whiteStoneSize = (realWhiteStoneDiameter / realCellWidth) * cellWidth
+
+        return AnyView(ZStack {
+            // Invisible hover capture rectangle over entire board area
+            Rectangle()
+                .fill(Color.clear)
+                .contentShape(Rectangle())
+                .allowsHitTesting(true)
+                .gesture(
+                    TapGesture()
+                        .onEnded { _ in
+                            handleClick()
+                        }
+                )
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let location):
+                        hoverLocation = location
+
+                        // Convert screen coordinates to board coordinates
+                        let relativeX = location.x - boardFrame.minX - offsetX
+                        let relativeY = location.y - boardFrame.minY - offsetY
+
+                        // Convert to grid position (round to nearest intersection)
+                        let col = Int(round(relativeX / cellWidth))
+                        let row = Int(round(relativeY / cellHeight))
+
+                        // Check if position is valid and empty
+                        if col >= 0 && col < gridSize && row >= 0 && row < gridSize {
+                            if player.board.grid[row][col] == nil {
+                                // Only update if position actually changed
+                                if phantomBoardPos?.x != col || phantomBoardPos?.y != row {
+                                    phantomBoardPos = (x: col, y: row)
+                                    NSLog("👻 v3.122: Phantom stone at board (\(col), \(row))")
+                                }
+                            } else {
+                                // Occupied position
+                                if phantomBoardPos != nil {
+                                    phantomBoardPos = nil
+                                }
+                            }
+                        } else {
+                            // Outside board bounds
+                            if phantomBoardPos != nil {
+                                phantomBoardPos = nil
+                            }
+                        }
+
+                    case .ended:
+                        hoverLocation = nil
+                        phantomBoardPos = nil
+                        NSLog("👻 v3.122: Phantom stone cleared")
+                    }
+                }
+
+            // Show phantom stone if we have a valid position AND it's our turn
+            if let pos = phantomBoardPos, ogsClient.isMyTurn {
+                let stoneX = boardFrame.minX + offsetX + CGFloat(pos.x) * cellWidth
+                let stoneY = boardFrame.minY + offsetY + CGFloat(pos.y) * cellHeight
+
+                // Determine stone color based on OGS player assignment (not turn)
+                let stoneColor = ogsClient.playerColor ?? ((player.currentIndex % 2 == 0) ? Stone.black : Stone.white)
+
+                // Log color selection (using let _ = pattern to avoid ViewBuilder issues)
+                let _ = {
+                    NSLog("👻 Phantom color: \(stoneColor == .black ? "BLACK" : "WHITE"), playerColor: \(ogsClient.playerColor.map { $0 == .black ? "BLACK" : "WHITE" } ?? "nil"), currentIndex: \(player.currentIndex)")
+                }()
+
+                let stoneSize = stoneColor == .black ? blackStoneSize : whiteStoneSize
+                let imageName = stoneColor == .black ? "stone_black" : "clam_01"
+                let opacity = stoneColor == .black ? 0.4 : 0.6  // Black more transparent in 2D
+
+                Image(imageName)
+                    .resizable()
+                    .frame(width: stoneSize, height: stoneSize)
+                    .opacity(opacity)
+                    .position(x: stoneX, y: stoneY)
+                    .allowsHitTesting(false) // Don't interfere with hover detection
+            }
+        })
+    }
+
+    // MARK: - Click Handler
+    private func handleClick() {
+        NSLog("👻 2D Click detected!")
+        NSLog("👻   isMyTurn: \(ogsClient.isMyTurn)")
+        NSLog("👻   gamePhase: \(ogsClient.gamePhase.rawValue)")
+        NSLog("👻   phantomBoardPos: \(phantomBoardPos.map { "(\($0.x), \($0.y))" } ?? "nil")")
+        NSLog("👻   currentGameID: \(ogsClient.currentGameID.map { String($0) } ?? "nil")")
+
+        // Only send move if it's our turn and game is in progress
+        guard ogsClient.isMyTurn,
+              ogsClient.gamePhase == .playing,
+              let position = phantomBoardPos,
+              let gameID = ogsClient.currentGameID else {
+            NSLog("👻 ❌ Click ignored - conditions not met")
+            return
+        }
+
+        // Convert board position to SGF notation (a-s for both x and y)
+        let letters = "abcdefghijklmnopqrs"
+        let xChar = letters[letters.index(letters.startIndex, offsetBy: position.x)]
+        let yChar = letters[letters.index(letters.startIndex, offsetBy: position.y)]
+        let sgfMove = "\(xChar)\(yChar)"
+
+        // Send move to OGS
+        NSLog("👻 🎯 2D: Sending move \(sgfMove) at board position (\(position.x), \(position.y))")
+        ogsClient.sendMove(gameID: gameID, move: sgfMove)
+
+        // Clear phantom stone after sending
+        phantomBoardPos = nil
     }
 }

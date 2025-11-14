@@ -8,6 +8,7 @@ struct SettingsPanelView: View {
     @Binding var isPanelOpen: Bool
     @Binding var activePhysicsModelRaw: Int
     @ObservedObject var physicsIntegration: PhysicsIntegration
+    @ObservedObject var soundManager: SoundManager
 
     // Physics model parameters - kept for compatibility
     @Binding var m1_repel: Double
@@ -599,6 +600,40 @@ struct SettingsPanelView: View {
                     Divider()
                         .padding(.horizontal, 16)
 
+                    // Sound Volume Control
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Sound")
+                            .font(.headline)
+                            .padding(.horizontal, 16)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("Volume")
+                                Spacer()
+                                Text("\(Int(soundManager.volume * 100))%")
+                                    .monospacedDigit()
+                            }
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                            Slider(
+                                value: Binding(
+                                    get: { soundManager.volume },
+                                    set: { newValue in
+                                        soundManager.setVolume(newValue)
+                                    }
+                                ),
+                                in: 0.0...1.0,
+                                step: 0.05
+                            )
+                            .controlSize(.regular)
+                        }
+                        .padding(.horizontal, 16)
+                    }
+
+                    Divider()
+                        .padding(.horizontal, 16)
+
                     // Stone Jitter Controls
                     if let gameCacheManager = gameCacheManager {
                         JitterControlsView(gameCacheManager: gameCacheManager)
@@ -991,6 +1026,7 @@ struct SettingsPanelView_Previews: PreviewProvider {
             isPanelOpen: .constant(true),
             activePhysicsModelRaw: .constant(2),
             physicsIntegration: PhysicsIntegration(),
+            soundManager: SoundManager.shared,
             m1_repel: .constant(1.6),
             m1_spacing: .constant(2.1),
             m1_centerPullK: .constant(0.003),

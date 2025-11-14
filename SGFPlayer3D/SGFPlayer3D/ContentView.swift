@@ -147,7 +147,9 @@ struct ContentView: View {
     }
 
     var body: some View {
-        ZStack {
+        NSLog("📺 ContentView.body CALLED - 2D view is rendering!")
+
+        return ZStack {
             mainGameContent
             topButtonsOverlay
             settingsPanelOverlay
@@ -159,6 +161,23 @@ struct ContentView: View {
             }
 
             gameInfoOverlay
+
+            // v3.123: Phantom stones working in both 2D and 3D
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    Text("v3.123")
+                        .foregroundColor(.white)
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .padding(10)
+                        .background(Color.red)
+                        .cornerRadius(5)
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 20)
+                }
+            }
         }
         .contentShape(Rectangle())
         .onContinuousHover { phase in
@@ -403,6 +422,13 @@ struct ContentView: View {
                 NSLog("ContentView: 🔄 OGSGameLoaded poll - move count unchanged (\(moveCount))")
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSUndoRequested"))) { notification in
+            if let userInfo = notification.userInfo,
+               let gameID = userInfo["gameID"] as? Int,
+               let moveNumber = userInfo["moveNumber"] as? Int {
+                handleUndoRequest(gameID: gameID, moveNumber: moveNumber)
+            }
+        }
         .focusable()
         .focusEffectDisabled()  // Disable blue focus ring while keeping keyboard shortcuts
         .onKeyPress { keyPress in
@@ -522,6 +548,7 @@ struct ContentView: View {
                             isPanelOpen: $isPanelOpen,
                             activePhysicsModelRaw: $activePhysicsModelRaw,
                             physicsIntegration: physicsIntegration,
+                            soundManager: soundManager,
                             m1_repel: $m1_repel,
                             m1_spacing: $m1_spacing,
                             m1_centerPullK: $m1_centerPullK,
@@ -664,6 +691,70 @@ struct ContentView: View {
 
             Spacer()
 
+            // OGS Game Control Buttons (only visible during OGS gameplay)
+            if ogsClient.currentGameID != nil, ogsClient.gamePhase == .playing {
+                HStack(spacing: 20) {
+                    // Undo button
+                    Button(action: {
+                        if let gameID = ogsClient.currentGameID {
+                            // Pass current move number as validation
+                            ogsClient.requestUndo(gameID: gameID, moveNumber: player.currentIndex)
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.uturn.backward")
+                            Text("Undo")
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.orange.opacity(0.7))
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+
+                    // Pass button
+                    Button(action: {
+                        if let gameID = ogsClient.currentGameID {
+                            ogsClient.sendPass(gameID: gameID)
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "forward.end")
+                            Text("Pass")
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.blue.opacity(0.7))
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+
+                    // Resign button
+                    Button(action: {
+                        if let gameID = ogsClient.currentGameID {
+                            // Show confirmation before resigning
+                            resignConfirmation(gameID: gameID)
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "flag.fill")
+                            Text("Resign")
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.red.opacity(0.7))
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.bottom, 10)
+                .opacity(uiStateVM.buttonsVisible ? 1.0 : 0.0)
+                .animation(.easeInOut(duration: 0.2), value: uiStateVM.buttonsVisible)
+            }
+
             // Playback controls at bottom center (using same component as 3D view)
             PlaybackControls(
                 player: player,
@@ -682,6 +773,42 @@ struct ContentView: View {
     }
 
     // MARK: - Helper Functions
+
+    private func resignConfirmation(gameID: Int) {
+        #if os(macOS)
+        let alert = NSAlert()
+        alert.messageText = "Resign Game?"
+        alert.informativeText = "Are you sure you want to resign this game? This action cannot be undone."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Resign")
+        alert.addButton(withTitle: "Cancel")
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            ogsClient.sendResign(gameID: gameID)
+        }
+        #endif
+    }
+
+    private func handleUndoRequest(gameID: Int, moveNumber: Int) {
+        #if os(macOS)
+        let alert = NSAlert()
+        alert.messageText = "Undo Request"
+        alert.informativeText = "Your opponent wants to undo move \(moveNumber). Do you accept?"
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Accept")
+        alert.addButton(withTitle: "Decline")
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            NSLog("OGS: ✅ User accepted undo request")
+            ogsClient.acceptUndo(gameID: gameID, moveNumber: moveNumber)
+        } else {
+            NSLog("OGS: ❌ User declined undo request")
+            ogsClient.rejectUndo(gameID: gameID, moveNumber: moveNumber)
+        }
+        #endif
+    }
 
     private func updateWindowTitle() {
         DispatchQueue.main.async {
