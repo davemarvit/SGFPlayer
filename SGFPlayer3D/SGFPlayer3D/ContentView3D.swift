@@ -140,7 +140,7 @@ struct ContentView3D: View {
         }
     }
 
-    private var contentWithEventHandlers: some View {
+    private var baseZStackWithPlayerHandlers: some View {
         baseZStack
         .onReceive(player.$currentIndex) { newIndex in
             // Update 3D board immediately
@@ -271,6 +271,10 @@ struct ContentView3D: View {
                 timeControl.startClock()
             }
         }
+    }
+
+    private var contentWithEventHandlers: some View {
+        AnyView(baseZStackWithPlayerHandlers)
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { _ in
             isFullscreen = true
         }
