@@ -82,14 +82,16 @@ struct GameResultOverlay: View {
                     .padding(.vertical, 10)
 
                     // Player names (if available from OGSGameViewModel)
-                    if let game = ogsGame {
+                    if let game = ogsGame,
+                       let blackName = game.blackName,
+                       let whiteName = game.whiteName {
                         VStack(spacing: 8) {
                             HStack {
-                                Text(game.blackPlayerName)
+                                Text(blackName)
                                     .foregroundColor(.white.opacity(0.7))
                                 Text("vs")
                                     .foregroundColor(.white.opacity(0.5))
-                                Text(game.whitePlayerName)
+                                Text(whiteName)
                                     .foregroundColor(.white.opacity(0.7))
                             }
                             .font(.system(size: 14))
