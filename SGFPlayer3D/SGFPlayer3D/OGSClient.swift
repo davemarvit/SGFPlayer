@@ -11,7 +11,7 @@ enum GamePhase: String {
 }
 
 /// Represents the outcome of a finished game
-enum GameOutcome: String, Codable {
+enum GameOutcome: String {
     case blackWins = "B"        // Black wins by points or resignation
     case whiteWins = "W"        // White wins by points or resignation
     case tie = "0"              // Tie game (rare in Go)
@@ -22,7 +22,7 @@ enum GameOutcome: String, Codable {
 }
 
 /// Represents the final result of a game
-struct GameResult: Codable {
+struct GameResult {
     let gameID: Int
     let outcome: GameOutcome
     let winner: Stone?          // nil if tie or unknown
