@@ -2579,7 +2579,7 @@ class OGSClient: NSObject, ObservableObject {
 
         // Route to specific handlers based on event name
         if eventName.contains("requested") || eventName.hasSuffix("/request") {
-            handleUndoRequest(data)
+            handleUndoRequest(eventName: eventName, data: data)
         } else if eventName.contains("accepted") || eventName.hasSuffix("/accept") {
             handleUndoAccepted(data)
         } else if eventName.contains("rejected") || eventName.hasSuffix("/reject") {
@@ -2587,15 +2587,28 @@ class OGSClient: NSObject, ObservableObject {
         }
     }
 
-    private func handleUndoRequest(_ data: [String: Any]) {
+    private func handleUndoRequest(eventName: String, data: [String: Any]) {
         NSLog("OGS: ↩️ ========== UNDO REQUEST RECEIVED ==========")
+        NSLog("OGS: ↩️ Event: \(eventName)")
         NSLog("OGS: ↩️ Data: \(data)")
 
-        guard let gameID = data["game_id"] as? Int,
-              let moveNumber = data["move_number"] as? Int else {
-            NSLog("OGS: ❌ Missing game_id or move_number in undo request")
+        // Extract game ID from event name (format: "game/12345/undo_requested")
+        let components = eventName.components(separatedBy: "/")
+        guard components.count >= 2,
+              let gameID = Int(components[1]),
+              let moveNumber = data["move_number"] as? Int,
+              let requestedBy = data["requested_by"] as? Int else {
+            NSLog("OGS: ❌ Missing required fields in undo request")
             return
         }
+
+        // Only show dialog if the request is from opponent (not ourselves)
+        if requestedBy == self.playerID {
+            NSLog("OGS: ↩️ Undo request is from us - ignoring")
+            return
+        }
+
+        NSLog("OGS: ↩️ ✅ Opponent requested undo - showing dialog")
 
         // Post notification for UI to handle (show dialog to accept/reject)
         DispatchQueue.main.async {
