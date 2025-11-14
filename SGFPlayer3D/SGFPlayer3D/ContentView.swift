@@ -422,6 +422,13 @@ struct ContentView: View {
                 NSLog("ContentView: 🔄 OGSGameLoaded poll - move count unchanged (\(moveCount))")
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSUndoRequested"))) { notification in
+            if let userInfo = notification.userInfo,
+               let gameID = userInfo["gameID"] as? Int,
+               let moveNumber = userInfo["moveNumber"] as? Int {
+                handleUndoRequest(gameID: gameID, moveNumber: moveNumber)
+            }
+        }
         .focusable()
         .focusEffectDisabled()  // Disable blue focus ring while keeping keyboard shortcuts
         .onKeyPress { keyPress in
@@ -773,6 +780,26 @@ struct ContentView: View {
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
             ogsClient.sendResign(gameID: gameID)
+        }
+        #endif
+    }
+
+    private func handleUndoRequest(gameID: Int, moveNumber: Int) {
+        #if os(macOS)
+        let alert = NSAlert()
+        alert.messageText = "Undo Request"
+        alert.informativeText = "Your opponent wants to undo move \(moveNumber). Do you accept?"
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Accept")
+        alert.addButton(withTitle: "Decline")
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            NSLog("OGS: ✅ User accepted undo request")
+            ogsClient.acceptUndo(gameID: gameID, moveNumber: moveNumber)
+        } else {
+            NSLog("OGS: ❌ User declined undo request")
+            ogsClient.rejectUndo(gameID: gameID, moveNumber: moveNumber)
         }
         #endif
     }

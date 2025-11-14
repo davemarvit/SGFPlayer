@@ -156,6 +156,13 @@ struct ContentView3D: View {
         .onReceive(NotificationCenter.default.publisher(for: .gameDidFinish)) { _ in
             handleGameFinished()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSUndoRequested"))) { notification in
+            if let userInfo = notification.userInfo,
+               let gameID = userInfo["gameID"] as? Int,
+               let moveNumber = userInfo["moveNumber"] as? Int {
+                handleUndoRequest(gameID: gameID, moveNumber: moveNumber)
+            }
+        }
         .onChange(of: app.selection) { _, newSelection in
             if let gameWrapper = newSelection {
                 NSLog("DEBUG3D: 📂 Loading game from file: \(gameWrapper.url.lastPathComponent)")
@@ -922,6 +929,26 @@ struct ContentView3D: View {
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
             ogsClient.sendResign(gameID: gameID)
+        }
+        #endif
+    }
+
+    private func handleUndoRequest(gameID: Int, moveNumber: Int) {
+        #if os(macOS)
+        let alert = NSAlert()
+        alert.messageText = "Undo Request"
+        alert.informativeText = "Your opponent wants to undo move \(moveNumber). Do you accept?"
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Accept")
+        alert.addButton(withTitle: "Decline")
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            NSLog("OGS: ✅ User accepted undo request")
+            ogsClient.acceptUndo(gameID: gameID, moveNumber: moveNumber)
+        } else {
+            NSLog("OGS: ❌ User declined undo request")
+            ogsClient.rejectUndo(gameID: gameID, moveNumber: moveNumber)
         }
         #endif
     }

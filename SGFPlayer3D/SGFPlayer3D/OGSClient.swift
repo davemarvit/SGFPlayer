@@ -2032,6 +2032,32 @@ class OGSClient: NSObject, ObservableObject {
             } else {
                 NSLog("OGS: ❌ Failed to cast json[1] to [String: Any]. json[1] type: \(type(of: json[1]))")
             }
+        case _ where eventName.contains("/undo"):
+            NSLog("OGS: ↩️ ========== UNDO EVENT MATCHED! ==========")
+            NSLog("OGS: ↩️ Event name: \(eventName)")
+            NSLog("OGS: ↩️ Full message: \(message)")
+            if let undoData = json[1] as? [String: Any] {
+                NSLog("OGS: ↩️ Undo data: \(undoData)")
+                handleUndo(eventName: eventName, data: undoData)
+            } else {
+                NSLog("OGS: ❌ Failed to cast undo data. json[1] type: \(type(of: json[1]))")
+            }
+        case "game/undo/request", "game/undo/requested":
+            NSLog("OGS: ↩️ ========== UNDO REQUEST EVENT ==========")
+            NSLog("OGS: ↩️ Full message: \(message)")
+            if let undoData = json[1] as? [String: Any] {
+                handleUndoRequest(undoData)
+            }
+        case "game/undo/accept", "game/undo/accepted":
+            NSLog("OGS: ✅ ========== UNDO ACCEPTED ==========")
+            if let undoData = json[1] as? [String: Any] {
+                handleUndoAccepted(undoData)
+            }
+        case "game/undo/reject", "game/undo/rejected":
+            NSLog("OGS: ❌ ========== UNDO REJECTED ==========")
+            if let undoData = json[1] as? [String: Any] {
+                handleUndoRejected(undoData)
+            }
         case "automatch/entry":
             NSLog("OGS: 🎯 ========== AUTOMATCH ENTRY ==========")
             if let preferencesData = json[1] as? [String: Any] {
@@ -2540,6 +2566,109 @@ class OGSClient: NSObject, ObservableObject {
             }
         } else {
             NSLog("OGS: ❌ Could not extract white_time dictionary from clockData")
+        }
+    }
+
+    // MARK: - Undo Event Handlers
+
+    private func handleUndo(eventName: String, data: [String: Any]) {
+        NSLog("OGS: ↩️ handleUndo() - Event: \(eventName), Data: \(data)")
+
+        // Route to specific handlers based on event name
+        if eventName.contains("requested") || eventName.hasSuffix("/request") {
+            handleUndoRequest(data)
+        } else if eventName.contains("accepted") || eventName.hasSuffix("/accept") {
+            handleUndoAccepted(data)
+        } else if eventName.contains("rejected") || eventName.hasSuffix("/reject") {
+            handleUndoRejected(data)
+        }
+    }
+
+    private func handleUndoRequest(_ data: [String: Any]) {
+        NSLog("OGS: ↩️ ========== UNDO REQUEST RECEIVED ==========")
+        NSLog("OGS: ↩️ Data: \(data)")
+
+        guard let gameID = data["game_id"] as? Int,
+              let moveNumber = data["move_number"] as? Int else {
+            NSLog("OGS: ❌ Missing game_id or move_number in undo request")
+            return
+        }
+
+        // Post notification for UI to handle (show dialog to accept/reject)
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("OGSUndoRequested"),
+                object: nil,
+                userInfo: ["gameID": gameID, "moveNumber": moveNumber]
+            )
+        }
+    }
+
+    private func handleUndoAccepted(_ data: [String: Any]) {
+        NSLog("OGS: ✅ Undo request accepted")
+        NSLog("OGS: ✅ Data: \(data)")
+
+        // Reload game data to reflect the undo
+        if let gameID = data["game_id"] as? Int {
+            fetchGameData(gameID: gameID)
+        }
+    }
+
+    private func handleUndoRejected(_ data: [String: Any]) {
+        NSLog("OGS: ❌ Undo request rejected")
+        NSLog("OGS: ❌ Data: \(data)")
+
+        // Show notification to user
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: NSNotification.Name("OGSUndoRejected"),
+                object: nil,
+                userInfo: data
+            )
+        }
+    }
+
+    /// Accept an undo request from opponent
+    func acceptUndo(gameID: Int, moveNumber: Int) {
+        guard isConnected else {
+            NSLog("OGS: ❌ Cannot accept undo - not connected")
+            return
+        }
+
+        let acceptMessage = """
+        ["game/undo/accept",{"game_id":\(gameID),"move_number":\(moveNumber)}]
+        """
+
+        let message = URLSessionWebSocketTask.Message.string(acceptMessage)
+        webSocketTask?.send(message) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error accepting undo: \(error.localizedDescription)")
+                self.lastError = error.localizedDescription
+            } else {
+                NSLog("OGS: ✅ Undo accepted for game \(gameID) at move \(moveNumber)")
+            }
+        }
+    }
+
+    /// Reject an undo request from opponent
+    func rejectUndo(gameID: Int, moveNumber: Int) {
+        guard isConnected else {
+            NSLog("OGS: ❌ Cannot reject undo - not connected")
+            return
+        }
+
+        let rejectMessage = """
+        ["game/undo/reject",{"game_id":\(gameID),"move_number":\(moveNumber)}]
+        """
+
+        let message = URLSessionWebSocketTask.Message.string(rejectMessage)
+        webSocketTask?.send(message) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error rejecting undo: \(error.localizedDescription)")
+                self.lastError = error.localizedDescription
+            } else {
+                NSLog("OGS: ✅ Undo rejected for game \(gameID) at move \(moveNumber)")
+            }
         }
     }
 
