@@ -1518,15 +1518,17 @@ class OGSClient: NSObject, ObservableObject {
     }
 
     /// Request to undo the last move
-    /// - Parameter gameID: The game ID
-    func requestUndo(gameID: Int) {
+    /// - Parameters:
+    ///   - gameID: The game ID
+    ///   - moveNumber: The current move number (used as validation)
+    func requestUndo(gameID: Int, moveNumber: Int) {
         guard isConnected else {
             NSLog("OGS: ❌ Cannot request undo - not connected")
             return
         }
 
         let undoMessage = """
-        ["game/undo/request",{"game_id":\(gameID),"move_number":null}]
+        ["game/undo/request",{"game_id":\(gameID),"move_number":\(moveNumber)}]
         """
 
         let message = URLSessionWebSocketTask.Message.string(undoMessage)
@@ -1535,7 +1537,7 @@ class OGSClient: NSObject, ObservableObject {
                 NSLog("OGS: ❌ Error requesting undo: \(error.localizedDescription)")
                 self.lastError = error.localizedDescription
             } else {
-                NSLog("OGS: ✅ Undo request sent for game \(gameID)")
+                NSLog("OGS: ✅ Undo request sent for game \(gameID) at move \(moveNumber)")
             }
         }
     }

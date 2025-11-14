@@ -684,7 +684,8 @@ struct ContentView: View {
                     // Undo button
                     Button(action: {
                         if let gameID = ogsClient.currentGameID {
-                            ogsClient.requestUndo(gameID: gameID)
+                            // Pass current move number as validation
+                            ogsClient.requestUndo(gameID: gameID, moveNumber: player.currentIndex)
                         }
                     }) {
                         HStack(spacing: 4) {
