@@ -678,6 +678,69 @@ struct ContentView: View {
 
             Spacer()
 
+            // OGS Game Control Buttons (only visible during OGS gameplay)
+            if ogsClient.currentGameID != nil, ogsClient.gamePhase == .playing {
+                HStack(spacing: 20) {
+                    // Undo button
+                    Button(action: {
+                        if let gameID = ogsClient.currentGameID {
+                            ogsClient.requestUndo(gameID: gameID)
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.uturn.backward")
+                            Text("Undo")
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.orange.opacity(0.7))
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+
+                    // Pass button
+                    Button(action: {
+                        if let gameID = ogsClient.currentGameID {
+                            ogsClient.sendPass(gameID: gameID)
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "forward.end")
+                            Text("Pass")
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.blue.opacity(0.7))
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+
+                    // Resign button
+                    Button(action: {
+                        if let gameID = ogsClient.currentGameID {
+                            // Show confirmation before resigning
+                            resignConfirmation(gameID: gameID)
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "flag.fill")
+                            Text("Resign")
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.red.opacity(0.7))
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.bottom, 10)
+                .opacity(uiStateVM.buttonsVisible ? 1.0 : 0.0)
+                .animation(.easeInOut(duration: 0.2), value: uiStateVM.buttonsVisible)
+            }
+
             // Playback controls at bottom center (using same component as 3D view)
             PlaybackControls(
                 player: player,
@@ -696,6 +759,22 @@ struct ContentView: View {
     }
 
     // MARK: - Helper Functions
+
+    private func resignConfirmation(gameID: Int) {
+        #if os(macOS)
+        let alert = NSAlert()
+        alert.messageText = "Resign Game?"
+        alert.informativeText = "Are you sure you want to resign this game? This action cannot be undone."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Resign")
+        alert.addButton(withTitle: "Cancel")
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            ogsClient.sendResign(gameID: gameID)
+        }
+        #endif
+    }
 
     private func updateWindowTitle() {
         DispatchQueue.main.async {

@@ -1517,6 +1517,75 @@ class OGSClient: NSObject, ObservableObject {
         }
     }
 
+    /// Request to undo the last move
+    /// - Parameter gameID: The game ID
+    func requestUndo(gameID: Int) {
+        guard isConnected else {
+            NSLog("OGS: ❌ Cannot request undo - not connected")
+            return
+        }
+
+        let undoMessage = """
+        ["game/undo/request",{"game_id":\(gameID),"move_number":null}]
+        """
+
+        let message = URLSessionWebSocketTask.Message.string(undoMessage)
+        webSocketTask?.send(message) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error requesting undo: \(error.localizedDescription)")
+                self.lastError = error.localizedDescription
+            } else {
+                NSLog("OGS: ✅ Undo request sent for game \(gameID)")
+            }
+        }
+    }
+
+    /// Send a pass move
+    /// - Parameter gameID: The game ID
+    func sendPass(gameID: Int) {
+        guard isConnected else {
+            NSLog("OGS: ❌ Cannot send pass - not connected")
+            return
+        }
+
+        let passMessage = """
+        ["game/move",{"game_id":\(gameID),"move":".."}]
+        """
+
+        let message = URLSessionWebSocketTask.Message.string(passMessage)
+        webSocketTask?.send(message) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error sending pass: \(error.localizedDescription)")
+                self.lastError = error.localizedDescription
+            } else {
+                NSLog("OGS: ✅ Pass sent for game \(gameID)")
+            }
+        }
+    }
+
+    /// Resign from the game
+    /// - Parameter gameID: The game ID
+    func sendResign(gameID: Int) {
+        guard isConnected else {
+            NSLog("OGS: ❌ Cannot resign - not connected")
+            return
+        }
+
+        let resignMessage = """
+        ["game/resign",{"game_id":\(gameID)}]
+        """
+
+        let message = URLSessionWebSocketTask.Message.string(resignMessage)
+        webSocketTask?.send(message) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error sending resign: \(error.localizedDescription)")
+                self.lastError = error.localizedDescription
+            } else {
+                NSLog("OGS: ✅ Resign sent for game \(gameID)")
+            }
+        }
+    }
+
     /// Join a game to start receiving updates
     /// - Parameter gameID: The game ID to join
     func joinGame(gameID: Int) {

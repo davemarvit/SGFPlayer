@@ -649,8 +649,8 @@ struct PhantomStoneOverlay: View {
                     }
                 }
 
-            // Show phantom stone if we have a valid position
-            if let pos = phantomBoardPos {
+            // Show phantom stone if we have a valid position AND it's our turn
+            if let pos = phantomBoardPos, ogsClient.isMyTurn {
                 let stoneX = boardFrame.minX + offsetX + CGFloat(pos.x) * cellWidth
                 let stoneY = boardFrame.minY + offsetY + CGFloat(pos.y) * cellHeight
 

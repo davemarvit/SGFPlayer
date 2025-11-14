@@ -580,18 +580,67 @@ struct ContentView3D: View {
 
                 Spacer()
 
-                // v3.123: Phantom stones in both 2D and 3D
-                HStack {
-                    Spacer()
-                    Text("v3.123")
-                        .foregroundColor(.white)
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .padding(10)
-                        .background(Color.blue)
-                        .cornerRadius(5)
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 20)
+                // OGS Game Control Buttons (only visible during OGS gameplay)
+                if ogsClient.currentGameID != nil, ogsClient.gamePhase == .playing {
+                    HStack(spacing: 20) {
+                        // Undo button
+                        Button(action: {
+                            if let gameID = ogsClient.currentGameID {
+                                ogsClient.requestUndo(gameID: gameID)
+                            }
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.uturn.backward")
+                                Text("Undo")
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.orange.opacity(0.7))
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+
+                        // Pass button
+                        Button(action: {
+                            if let gameID = ogsClient.currentGameID {
+                                ogsClient.sendPass(gameID: gameID)
+                            }
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "forward.end")
+                                Text("Pass")
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.blue.opacity(0.7))
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+
+                        // Resign button
+                        Button(action: {
+                            if let gameID = ogsClient.currentGameID {
+                                // Show confirmation before resigning
+                                resignConfirmation(gameID: gameID)
+                            }
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "flag.fill")
+                                Text("Resign")
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.red.opacity(0.7))
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.bottom, 10)
+                    .opacity(showControls ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: 0.2), value: showControls)
                 }
 
                 // Bottom controls - extracted to PlaybackControls
@@ -826,8 +875,8 @@ struct ContentView3D: View {
     private func handle3DMouseMove(at location: CGPoint, viewSize: CGSize, isDown: Bool) {
         isMouseDown = isDown
 
-        // Only show phantom stones in OGS mode
-        guard ogsClient.currentGameID != nil else {
+        // Only show phantom stones in OGS mode AND when it's our turn
+        guard ogsClient.currentGameID != nil, ogsClient.isMyTurn else {
             sceneManager.hidePhantomStone()
             phantomStonePosition = nil
             return
@@ -858,6 +907,22 @@ struct ContentView3D: View {
             sceneManager.hidePhantomStone()
             phantomStonePosition = nil
         }
+    }
+
+    private func resignConfirmation(gameID: Int) {
+        #if os(macOS)
+        let alert = NSAlert()
+        alert.messageText = "Resign Game?"
+        alert.informativeText = "Are you sure you want to resign this game? This action cannot be undone."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Resign")
+        alert.addButton(withTitle: "Cancel")
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            ogsClient.sendResign(gameID: gameID)
+        }
+        #endif
     }
 
     private func handle3DMouseUp(at location: CGPoint, viewSize: CGSize) {
