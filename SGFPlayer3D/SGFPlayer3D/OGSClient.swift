@@ -111,9 +111,6 @@ class OGSClient: NSObject, ObservableObject {
     private var activeGameID: Int?  // Game ID associated with the active challenge
     private var challengeKeepaliveTimer: Timer?  // Timer to send periodic challenge/keepalive messages
 
-    // Track last loaded move count to avoid reloading game during polling
-    private var lastLoadedMoveCount: Int = -1
-
     /// Returns true if it's our turn to play
     var isMyTurn: Bool {
         guard let myColor = playerColor else { return false }
@@ -2303,12 +2300,6 @@ class OGSClient: NSObject, ObservableObject {
 
         // Parse initial game state
         if let gameID = gameData["game_id"] as? Int {
-            // Reset move count tracker if switching to a different game
-            if currentGameID != gameID {
-                NSLog("OGS: 🎮 Switching to new game \(gameID) from \(currentGameID?.description ?? "nil") - resetting move count tracker")
-                lastLoadedMoveCount = -1
-            }
-
             DispatchQueue.main.async {
                 self.currentGameID = gameID
             }
@@ -2482,36 +2473,24 @@ class OGSClient: NSObject, ObservableObject {
             // Get handicap for proper turn calculation
             let handicap = gameData["handicap"] as? Int ?? 0
 
-            // CRITICAL: Only reload the game if move count has changed or this is the first load
-            // This prevents the board from being cleared and reloaded during polling
-            let currentMoveCount = movesArray.count
-            let shouldReloadGame = (currentMoveCount != lastLoadedMoveCount)
-
-            if shouldReloadGame {
-                NSLog("OGS: 🎮 Move count changed from \(lastLoadedMoveCount) to \(currentMoveCount) - reloading game")
-                lastLoadedMoveCount = currentMoveCount
-
-                // Send notification with all moves for ContentView3D to load
-                let boardSize = gameData["width"] as? Int ?? 19
-                NSLog("OGS: 🎮 About to post OGSGameDataReceived notification with \(movesArray.count) moves")
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("OGSGameDataReceived"),
-                    object: nil,
-                    userInfo: [
-                        "gameData": gameData,
-                        "moves": movesArray,
-                        "gameID": gameData["game_id"] as? Int ?? 0,
-                        "handicap": handicap,
-                        "boardSize": boardSize,
-                        "blackPlayerID": blackPlayerID as Any,
-                        "whitePlayerID": whitePlayerID as Any,
-                        "playerToMoveID": playerToMoveID as Any
-                    ]
-                )
-                NSLog("OGS: 🎮 Notification posted successfully")
-            } else {
-                NSLog("OGS: 🎮 Move count unchanged (\(currentMoveCount)) - skipping game reload to prevent board corruption")
-            }
+            // Send notification with all moves for ContentView3D to load
+            let boardSize = gameData["width"] as? Int ?? 19
+            NSLog("OGS: 🎮 About to post OGSGameDataReceived notification with \(movesArray.count) moves")
+            NotificationCenter.default.post(
+                name: NSNotification.Name("OGSGameDataReceived"),
+                object: nil,
+                userInfo: [
+                    "gameData": gameData,
+                    "moves": movesArray,
+                    "gameID": gameData["game_id"] as? Int ?? 0,
+                    "handicap": handicap,
+                    "boardSize": boardSize,
+                    "blackPlayerID": blackPlayerID as Any,
+                    "whitePlayerID": whitePlayerID as Any,
+                    "playerToMoveID": playerToMoveID as Any
+                ]
+            )
+            NSLog("OGS: 🎮 Notification posted successfully")
         } else {
             NSLog("OGS: ❌ NO MOVES ARRAY FOUND in gameData!")
             NSLog("OGS: ❌ moves field type: \(type(of: gameData["moves"]))")
