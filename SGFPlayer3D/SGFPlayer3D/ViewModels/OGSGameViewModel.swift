@@ -214,18 +214,17 @@ class OGSGameViewModel: ObservableObject {
         }
 
         if isPass {
-            NSLog("OGSGameVM: 🎯 Opponent passed - reloading game to get updated move list")
+            NSLog("OGSGameVM: 🎯 Opponent passed - polling will sync the game state")
         } else {
-            NSLog("OGSGameVM: 🎯 Opponent played at (\(x), \(y)) - reloading game to get updated move list")
+            NSLog("OGSGameVM: 🎯 Opponent played at (\(x), \(y)) - polling will sync the game state")
         }
 
-        // Re-fetch the game data to get all moves including the new one
-        if let gameID = ogsClient.currentGameID {
-            NSLog("OGSGameVM: 🎯 Re-fetching game \(gameID) to include new move")
-            ogsClient.joinGame(gameID: gameID)
-        } else {
-            NSLog("OGSGameVM: ❌ No current game ID to re-fetch")
-        }
+        // DO NOT call joinGame() here! The WebSocket already sent us the move notification,
+        // and polling will pick up the new move within 1 second. Calling joinGame() causes
+        // player.load() to clear the board, which can make all stones disappear.
+        // The polling mechanism (which runs every 1 second) will detect the new move count
+        // and reload the game properly.
+        NSLog("OGSGameVM: 🎯 Relying on polling to sync new move (avoids board clearing)")
     }
 
     /// Handle incoming OGS player info notification
