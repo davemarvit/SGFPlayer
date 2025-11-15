@@ -35,7 +35,19 @@ final class SGFPlayer: ObservableObject {
 
     // Load a new SGF game
     func load(game: SGFGame) {
+        let prevMoveCount = _moves.count
+        let prevStoneCount = board.grid.flatMap { $0 }.compactMap { $0 }.count
+
         print("🔍 LOAD: Loading game with board size \(game.boardSize), \(game.moves.count) moves")
+        print("🔍 LOAD: Previous state: \(prevMoveCount) moves, \(prevStoneCount) stones on board")
+        print("🔍 LOAD: New state: \(game.moves.count) moves")
+
+        if game.moves.isEmpty && prevMoveCount > 0 {
+            print("🔍 LOAD: ⚠️⚠️⚠️ WARNING: Loading game with 0 moves when previous had \(prevMoveCount) moves!")
+            print("🔍 LOAD: ⚠️⚠️⚠️ This will CLEAR THE BOARD with \(prevStoneCount) stones!")
+            print("🔍 LOAD: ⚠️⚠️⚠️ Call stack: \(Thread.callStackSymbols.prefix(10))")
+        }
+
         baseSize = game.boardSize
         _baseSetup = game.setup
         _moves = game.moves

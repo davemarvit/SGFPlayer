@@ -56,6 +56,15 @@ class OGSGameViewModel: ObservableObject {
             return
         }
 
+        // === DEFENSIVE: Validate game data to prevent board clearing ===
+        // If we have a current game with stones, don't reload with empty/corrupted data
+        if moves.isEmpty && player.currentIndex > 0 {
+            NSLog("OGSGameVM: ⚠️ DEFENSIVE: Server sent 0 moves but board has \(player.currentIndex) moves!")
+            NSLog("OGSGameVM: ⚠️ DEFENSIVE: Refusing to reload - this would clear all stones!")
+            NSLog("OGSGameVM: ⚠️ DEFENSIVE: gameData keys: \(gameData.keys.sorted())")
+            return
+        }
+
         NSLog("OGSGameVM: 🎮 Loading OGS game \(gameID) with \(moves.count) moves")
 
         // IMPORTANT: Stop any existing polling timer from a previous game
@@ -194,9 +203,18 @@ class OGSGameViewModel: ObservableObject {
             NSLog("OGSGameVM: 🕐 After \(moves.count) moves (handicap: \(handicap)), it's \(currentTurn == .black ? "Black" : "White")'s turn")
             timeControl.switchToPlayer(currentTurn)
 
-            // Always restart polling with the new game ID
+            // Manage polling based on game phase
             stopPolling()
-            startPolling(gameID: gameID)
+
+            // Check if game is finished - if so, DON'T restart polling
+            let gamePhase = gameData["phase"] as? String ?? "unknown"
+            if gamePhase == "finished" {
+                NSLog("OGSGameVM: 🏁 Game is FINISHED - NOT restarting polling (no need to poll completed games)")
+                NSLog("OGSGameVM: 🏁 Board will remain stable with final position")
+            } else {
+                NSLog("OGSGameVM: ⏰ Game phase '\(gamePhase)' - restarting polling")
+                startPolling(gameID: gameID)
+            }
         } else {
             NSLog("OGSGameVM: ❌ Failed to parse SGF from OGS data")
         }
