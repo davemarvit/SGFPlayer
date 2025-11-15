@@ -20,6 +20,13 @@ DerivedData
 # Build logs
 build_output*.log
 
+# Debug/log files for troubleshooting
+PASTE_LOGS_HERE.txt
+*.log
+debug_latest
+latest.log
+logfile*.txt
+
 # macOS
 .DS_Store
 .AppleDouble
