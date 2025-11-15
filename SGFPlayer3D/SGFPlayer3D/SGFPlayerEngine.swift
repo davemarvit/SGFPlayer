@@ -43,6 +43,23 @@ final class SGFPlayer: ObservableObject {
         reset()
     }
 
+    /// Place a move optimistically (for OGS live play before server confirms)
+    /// This provides instant visual feedback - the stone appears immediately
+    /// When the server responds, load() will overwrite with authoritative state
+    func playMoveOptimistically(color: Stone, x: Int, y: Int) {
+        print("⚡️ OPTIMISTIC: Playing \(color) at (\(x), \(y)) - instant visual feedback")
+
+        // Append to internal moves array
+        _moves.append((color, (x, y)))
+
+        // Apply it immediately (updates board snapshot and triggers UI refresh)
+        apply(moveAt: _moves.count - 1)
+        currentIndex = _moves.count
+
+        print("⚡️ OPTIMISTIC: Stone placed! currentIndex now \(currentIndex)")
+        print("⚡️ OPTIMISTIC: Server will correct if move is rejected (rare)")
+    }
+
     // Clear everything - completely empty board with no game loaded
     func clear() {
         pause()

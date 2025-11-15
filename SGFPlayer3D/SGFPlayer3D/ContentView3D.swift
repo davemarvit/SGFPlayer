@@ -974,7 +974,8 @@ struct ContentView3D: View {
         guard ogsClient.isMyTurn,
               ogsClient.gamePhase == .playing,
               let position = phantomStonePosition,
-              let gameID = ogsClient.currentGameID else {
+              let gameID = ogsClient.currentGameID,
+              let myColor = ogsClient.playerColor else {
             NSLog("👻 ❌ 3D Click ignored - conditions not met (keeping phantom stone visible)")
             // Don't hide the phantom stone - let it remain visible so user can see what they tried to click
             return
@@ -983,8 +984,12 @@ struct ContentView3D: View {
         // Convert board position to SGF notation
         let sgfMove = boardPositionToSGF(x: position.x, y: position.y)
 
-        // Send move to OGS
-        NSLog("👻 🎯 3D: Sending move \(sgfMove) at board position (\(position.x), \(position.y))")
+        // === OPTIMISTIC PLACEMENT: Place stone IMMEDIATELY for instant feedback ===
+        NSLog("👻 ⚡️ 3D: Placing \(myColor) stone INSTANTLY at (\(position.x), \(position.y))")
+        player.playMoveOptimistically(color: myColor, x: position.x, y: position.y)
+
+        // Send move to OGS in background (server will correct if rejected)
+        NSLog("👻 🎯 3D: Sending move \(sgfMove) to server in background")
         ogsClient.sendMove(gameID: gameID, move: sgfMove)
 
         // Clear phantom stone
