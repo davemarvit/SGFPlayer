@@ -141,6 +141,20 @@ struct ContentView3D: View {
             // Game result overlay (Phase 1 scoring)
             GameResultOverlay(ogsClient: ogsClient, ogsGame: ogsGame)
                 .showWhenResultAvailable()
+
+            // Chat panel - show only when in an active OGS game
+            if ogsClient.currentGameID != nil && ogsClient.gamePhase == .playing {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        ChatPanel(ogsClient: ogsClient)
+                            .frame(width: 300)
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 80)  // Above playback controls
+                    }
+                }
+            }
         }
     }
 

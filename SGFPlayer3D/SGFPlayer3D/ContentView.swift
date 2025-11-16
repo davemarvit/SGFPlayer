@@ -164,6 +164,20 @@ struct ContentView: View {
             GameResultOverlay(ogsClient: ogsClient, ogsGame: ogsGame)
                 .showWhenResultAvailable()
 
+            // Chat panel - show only when in an active OGS game
+            if ogsClient.currentGameID != nil && ogsClient.gamePhase == .playing {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        ChatPanel(ogsClient: ogsClient)
+                            .frame(width: 300)
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 80)  // Above playback controls
+                    }
+                }
+            }
+
             // v3.123: Phantom stones working in both 2D and 3D
             VStack {
                 Spacer()

@@ -91,6 +91,10 @@ class OGSClient: NSObject, ObservableObject {
     /// Available games/challenges that can be accepted
     @Published var availableGames: [OGSChallenge] = []
 
+    // MARK: - Chat State
+    /// Chat messages for the current game
+    @Published var chatMessages: [ChatMessage] = []
+
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
     private var authToken: String?
@@ -2131,6 +2135,13 @@ class OGSClient: NSObject, ObservableObject {
             } else {
                 NSLog("OGS: ⚠️ Seekgraph data in unexpected format: \(type(of: json[1]))")
             }
+        case _ where eventName.contains("/chat"):
+            NSLog("OGS: 💬 ========== CHAT MESSAGE ==========")
+            if let chatData = json[1] as? [String: Any] {
+                handleChatMessage(chatData)
+            } else {
+                NSLog("OGS: ⚠️ Chat data in unexpected format: \(type(of: json[1]))")
+            }
         case "active-bots", "active-players", "incident-report", "notification":
             // Suppress these broadcast messages - they're noisy
             break
@@ -3146,6 +3157,66 @@ class OGSClient: NSObject, ObservableObject {
                 if self.verboseLogging {
                     NSLog("OGS: 📊 Replaced availableGames with \(newGames.count) games from snapshot")
                 }
+            }
+        }
+    }
+
+    // MARK: - Chat Handlers
+
+    private func handleChatMessage(_ chatData: [String: Any]) {
+        NSLog("OGS: 💬 Chat message received: \(chatData)")
+
+        // OGS chat format: {"username": "player", "body": "message text", "chat_id": "game-123"}
+        guard let username = chatData["username"] as? String,
+              let messageText = chatData["body"] as? String else {
+            NSLog("OGS: ⚠️ Invalid chat message format: \(chatData)")
+            return
+        }
+
+        // Determine if this message is from us
+        let isFromMe = username == self.username
+
+        // Create chat message
+        let chatMessage = ChatMessage(
+            username: username,
+            message: messageText,
+            timestamp: Date(),
+            isFromMe: isFromMe
+        )
+
+        // Add to chat history on main thread
+        DispatchQueue.main.async {
+            self.chatMessages.append(chatMessage)
+            NSLog("OGS: 💬 Added chat message from \(username): \(messageText)")
+        }
+    }
+
+    /// Send a chat message to the current OGS game
+    func sendChatMessage(gameID: Int, message: String) {
+        guard isConnected else {
+            NSLog("OGS: ❌ Cannot send chat message - not connected")
+            return
+        }
+
+        guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            NSLog("OGS: ⚠️ Cannot send empty chat message")
+            return
+        }
+
+        // OGS chat message format: ["game/chat", {"game_id": 123, "body": "message text"}]
+        let chatMessage = """
+        ["game/chat",{"game_id":\(gameID),"body":"\(message)"}]
+        """
+
+        let wsMessage = URLSessionWebSocketTask.Message.string(chatMessage)
+        webSocketTask?.send(wsMessage) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error sending chat message: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    self.lastError = error.localizedDescription
+                }
+            } else {
+                NSLog("OGS: ✅ Chat message sent: \(message)")
             }
         }
     }
