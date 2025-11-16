@@ -3296,12 +3296,15 @@ class OGSClient: NSObject, ObservableObject {
             }
         }
 
-        // OGS chat message format: ["game/chat", {"game_id": 123, "body": "message text"}]
+        // OGS chat message format: Send to the game-specific chat channel
+        // We subscribed to "game/<gameID>/chat", so send messages there
+        // Format: ["game/<gameID>/chat", {"body": "message text", "move_number": <current_move>}]
         let chatMessage = """
-        ["game/chat",{"game_id":\(gameID),"body":"\(message)"}]
+        ["game/\(gameID)/chat",{"body":"\(message)","move_number":""}]
         """
 
-        NSLog("OGS: 📤 Sending chat message: \(chatMessage)")
+        NSLog("OGS: 📤 Sending chat message to channel game/\(gameID)/chat")
+        NSLog("OGS: 📤 Message payload: \(chatMessage)")
         let wsMessage = URLSessionWebSocketTask.Message.string(chatMessage)
         webSocketTask?.send(wsMessage) { error in
             if let error = error {
