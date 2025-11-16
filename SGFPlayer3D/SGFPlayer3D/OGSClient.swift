@@ -95,6 +95,11 @@ class OGSClient: NSObject, ObservableObject {
     /// Chat messages for the current game
     @Published var chatMessages: [ChatMessage] = []
 
+    // MARK: - Error Tracking
+    /// Track consecutive game data fetch failures to stop polling stuck games
+    private var consecutiveFailures: Int = 0
+    private let maxConsecutiveFailures: Int = 3
+
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
     private var authToken: String?
@@ -1671,6 +1676,27 @@ class OGSClient: NSObject, ObservableObject {
                 NSLog("OGS: ❌ Game data fetch failed: \(error.localizedDescription)")
                 DispatchQueue.main.async {
                     self.lastError = "Failed to load game: \(error.localizedDescription)"
+
+                    // Track consecutive failures to stop polling stuck games
+                    self.consecutiveFailures += 1
+                    NSLog("OGS: ⚠️ Consecutive failures: \(self.consecutiveFailures)/\(self.maxConsecutiveFailures)")
+
+                    if self.consecutiveFailures >= self.maxConsecutiveFailures {
+                        NSLog("OGS: 🛑 Max consecutive failures reached - stopping polling and clearing game")
+                        NSLog("OGS: 🛑 Game \(gameID) appears to be inaccessible or deleted")
+
+                        // Stop polling and clear game state
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("OGSGameError"),
+                            object: nil,
+                            userInfo: ["error": "Game \(gameID) is no longer accessible"]
+                        )
+
+                        // Clear the current game to stop further polling attempts
+                        self.currentGameID = nil
+                        self.gamePhase = .preGame
+                        self.consecutiveFailures = 0  // Reset for next game
+                    }
                 }
                 return
             }
@@ -1686,6 +1712,11 @@ class OGSClient: NSObject, ObservableObject {
                 do {
                     if let restResponse = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
                         NSLog("OGS: ✅ Game data fetched successfully from REST API")
+
+                        // Reset failure counter on success
+                        DispatchQueue.main.async {
+                            self.consecutiveFailures = 0
+                        }
 
                         // REST API returns gamedata in a nested structure
                         // Extract the gamedata object which contains moves, game_id, etc.

@@ -37,6 +37,16 @@ class OGSGameViewModel: ObservableObject {
         self.timeControl = timeControl
 
         NSLog("OGSGameVM: 🎮 OGSGameViewModel initialized")
+
+        // Listen for game errors (e.g., repeated fetch failures)
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("OGSGameError"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            NSLog("OGSGameVM: ❌ Received OGSGameError - stopping polling")
+            self?.stopPolling()
+        }
     }
 
     deinit {
