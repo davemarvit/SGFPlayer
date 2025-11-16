@@ -3319,6 +3319,74 @@ class OGSClient: NSObject, ObservableObject {
         }
     }
 
+    /// Fetch chat messages for a game via REST API
+    /// Polls the chat endpoint to get new messages
+    func fetchChatMessages(gameID: Int) {
+        NSLog("OGS: 💬 Fetching chat messages via REST API for game \(gameID)")
+
+        guard let url = URL(string: "https://online-go.com/api/v1/games/\(gameID)/chat") else {
+            NSLog("OGS: ❌ Invalid chat URL")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            guard let self = self else { return }
+
+            if let error = error {
+                NSLog("OGS: ❌ Chat fetch failed: \(error.localizedDescription)")
+                return
+            }
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                NSLog("OGS: ❌ Invalid chat response type")
+                return
+            }
+
+            NSLog("OGS: 📡 Chat response status: \(httpResponse.statusCode)")
+
+            if httpResponse.statusCode == 200, let data = data {
+                do {
+                    if let chatResponse = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let messages = chatResponse["messages"] as? [[String: Any]] {
+                        NSLog("OGS: 💬 Received \(messages.count) chat messages from REST API")
+
+                        DispatchQueue.main.async {
+                            // Clear existing messages to avoid duplicates
+                            // In production, we'd track message IDs to only add new ones
+                            self.chatMessages.removeAll()
+
+                            for msgData in messages {
+                                if let username = msgData["player"] as? String,
+                                   let messageText = msgData["body"] as? String,
+                                   let timestamp = msgData["date"] as? Double {
+                                    let isFromMe = username == self.username
+                                    let chatMessage = ChatMessage(
+                                        username: username,
+                                        message: messageText,
+                                        timestamp: Date(timeIntervalSince1970: timestamp / 1000.0),
+                                        isFromMe: isFromMe
+                                    )
+                                    self.chatMessages.append(chatMessage)
+                                }
+                            }
+                            NSLog("OGS: 💬 Loaded \(self.chatMessages.count) chat messages")
+                        }
+                    } else {
+                        NSLog("OGS: ⚠️ Unexpected chat response format")
+                        NSLog("OGS: 📄 Response: \(String(data: data, encoding: .utf8) ?? "nil")")
+                    }
+                } catch {
+                    NSLog("OGS: ❌ Failed to parse chat response: \(error)")
+                }
+            } else {
+                NSLog("OGS: ❌ Chat fetch failed with status: \(httpResponse.statusCode)")
+            }
+        }.resume()
+    }
+
     private func convertSeekgraphToChallenge(_ seekgraphItem: [String: Any]) -> OGSChallenge? {
         // Seekgraph format is different from REST API format
         // We need to convert it to match our OGSChallenge struct

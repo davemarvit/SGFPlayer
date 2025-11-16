@@ -329,6 +329,8 @@ class OGSGameViewModel: ObservableObject {
         pollingTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             NSLog("OGSGameVM: 🔄 Polling OGS for updates to game \(gameID)...")
             self?.ogsClient.joinGame(gameID: gameID)
+            // Also poll chat messages via REST API
+            self?.ogsClient.fetchChatMessages(gameID: gameID)
         }
 
         pollingInterval = interval
