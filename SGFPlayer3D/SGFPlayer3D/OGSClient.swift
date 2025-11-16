@@ -100,6 +100,10 @@ class OGSClient: NSObject, ObservableObject {
     private var consecutiveFailures: Int = 0
     private let maxConsecutiveFailures: Int = 3
 
+    // MARK: - Subscription Tracking
+    /// Track which game we're currently subscribed to (prevent duplicate subscriptions)
+    private var subscribedGameID: Int? = nil
+
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
     private var authToken: String?
@@ -1695,6 +1699,7 @@ class OGSClient: NSObject, ObservableObject {
                         // Clear the current game to stop further polling attempts
                         self.currentGameID = nil
                         self.gamePhase = .preGame
+                        self.subscribedGameID = nil  // Reset subscription tracking
                         self.consecutiveFailures = 0  // Reset for next game
                     }
                 }
@@ -1811,6 +1816,12 @@ class OGSClient: NSObject, ObservableObject {
 
     /// Subscribe to WebSocket updates for a game
     private func subscribeToGame(gameID: Int) {
+        // Check if we're already subscribed to this game
+        if subscribedGameID == gameID {
+            NSLog("OGS: ✓ Already subscribed to game \(gameID) - skipping duplicate subscription")
+            return
+        }
+
         NSLog("OGS: 📡 Subscribing to WebSocket updates for game \(gameID)")
 
         // v3.86: Plain JSON format (NO Socket.io prefix)
@@ -1870,6 +1881,10 @@ class OGSClient: NSObject, ObservableObject {
                 NSLog("OGS: ✅ Subscribed to chat channel for game \(gameID)")
             }
         }
+
+        // Mark this game as subscribed
+        subscribedGameID = gameID
+        NSLog("OGS: 📝 Marked game \(gameID) as subscribed")
     }
 
     /// Convert board position to SGF move notation
