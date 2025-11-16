@@ -299,14 +299,19 @@ struct ContentView3D: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSConnected"))) { _ in
-            NSLog("DEBUG3D: 🔌 OGS connected - clearing local game selection and clearing board")
-            app.selection = nil
-            player.clear()  // Completely clear board including handicap stones
-            player.pause()  // Stop any playback
-            ogsClient.currentGameID = nil  // Clear any active OGS game
-            lastLoadedOGSMoveCount = -1  // Reset move counter for next game
-            lastLoadedOGSGameID = nil  // Reset game ID tracker
-            NSLog("DEBUG3D: 🔌 Reset lastLoadedOGSMoveCount and lastLoadedOGSGameID")
+            // === FIX: Only clear board on INITIAL connection, not on reconnects during active game ===
+            if ogsClient.currentGameID == nil {
+                NSLog("DEBUG3D: 🔌 OGS connected (initial) - clearing local game selection and board")
+                app.selection = nil
+                player.clear()  // Completely clear board including handicap stones
+                player.pause()  // Stop any playback
+                lastLoadedOGSMoveCount = -1  // Reset move counter for next game
+                lastLoadedOGSGameID = nil  // Reset game ID tracker
+                NSLog("DEBUG3D: 🔌 Reset lastLoadedOGSMoveCount and lastLoadedOGSGameID")
+            } else {
+                NSLog("DEBUG3D: 🔌 OGS reconnected during active game \(ogsClient.currentGameID!) - preserving board state")
+                NSLog("DEBUG3D: 🔌 Board has \(player.currentIndex) moves - NOT clearing!")
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameDataReceived"))) { notification in
             // Only process if we have an active OGS game ID (allows initial game load)

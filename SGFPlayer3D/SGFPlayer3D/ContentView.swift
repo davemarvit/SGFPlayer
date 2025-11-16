@@ -353,11 +353,16 @@ struct ContentView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSConnected"))) { _ in
-            NSLog("ContentView: 🔌 OGS connected - clearing local game selection and clearing board")
-            app.selection = nil
-            player.clear()  // Completely clear board including handicap stones
-            player.pause()  // Stop any playback
-            ogsClient.currentGameID = nil  // Clear any active OGS game
+            // === FIX: Only clear board on INITIAL connection, not on reconnects during active game ===
+            if ogsClient.currentGameID == nil {
+                NSLog("ContentView: 🔌 OGS connected (initial) - clearing local game selection and board")
+                app.selection = nil
+                player.clear()  // Completely clear board including handicap stones
+                player.pause()  // Stop any playback
+            } else {
+                NSLog("ContentView: 🔌 OGS reconnected during active game \(ogsClient.currentGameID!) - preserving board state")
+                NSLog("ContentView: 🔌 Board has \(player.currentIndex) moves - NOT clearing!")
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameDataReceived"))) { notification in
             // Only process if we have an active OGS game ID (allows initial game load)
