@@ -2168,10 +2168,14 @@ class OGSClient: NSObject, ObservableObject {
             }
         case _ where eventName.contains("/chat"):
             NSLog("OGS: 💬 ========== CHAT MESSAGE ==========")
+            NSLog("OGS: 💬 Event name: \(eventName)")
+            NSLog("OGS: 💬 Full JSON: \(json)")
             if let chatData = json[1] as? [String: Any] {
+                NSLog("OGS: 💬 Chat data keys: \(chatData.keys.sorted())")
                 handleChatMessage(chatData)
             } else {
                 NSLog("OGS: ⚠️ Chat data in unexpected format: \(type(of: json[1]))")
+                NSLog("OGS: ⚠️ Raw data: \(json[1])")
             }
         case "active-bots", "active-players", "incident-report", "notification":
             // Suppress these broadcast messages - they're noisy
@@ -3195,17 +3199,25 @@ class OGSClient: NSObject, ObservableObject {
     // MARK: - Chat Handlers
 
     private func handleChatMessage(_ chatData: [String: Any]) {
-        NSLog("OGS: 💬 Chat message received: \(chatData)")
+        NSLog("OGS: 💬 handleChatMessage called with data: \(chatData)")
+        NSLog("OGS: 💬 Available keys: \(chatData.keys.sorted())")
 
         // OGS chat format: {"username": "player", "body": "message text", "chat_id": "game-123"}
-        guard let username = chatData["username"] as? String,
-              let messageText = chatData["body"] as? String else {
-            NSLog("OGS: ⚠️ Invalid chat message format: \(chatData)")
+        // Also check for alternative formats: "player_id", "message" instead of "body"
+        let username = chatData["username"] as? String
+        let messageText = chatData["body"] as? String ?? chatData["message"] as? String
+
+        NSLog("OGS: 💬 Extracted username: \(username ?? "nil"), message: \(messageText ?? "nil")")
+
+        guard let username = username, let messageText = messageText else {
+            NSLog("OGS: ⚠️ Invalid chat message format - missing username or body")
+            NSLog("OGS: ⚠️ Full data: \(chatData)")
             return
         }
 
         // Determine if this message is from us
         let isFromMe = username == self.username
+        NSLog("OGS: 💬 Message from '\(username)', isFromMe: \(isFromMe) (our username: \(self.username ?? "nil"))")
 
         // Create chat message
         let chatMessage = ChatMessage(
@@ -3219,6 +3231,7 @@ class OGSClient: NSObject, ObservableObject {
         DispatchQueue.main.async {
             self.chatMessages.append(chatMessage)
             NSLog("OGS: 💬 Added chat message from \(username): \(messageText)")
+            NSLog("OGS: 💬 Total chat messages now: \(self.chatMessages.count)")
         }
     }
 
@@ -3232,6 +3245,22 @@ class OGSClient: NSObject, ObservableObject {
         guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             NSLog("OGS: ⚠️ Cannot send empty chat message")
             return
+        }
+
+        // Optimistically add our own message to the chat immediately
+        // OGS doesn't echo back our own messages, so we add them locally
+        if let username = self.username {
+            let chatMessage = ChatMessage(
+                username: username,
+                message: message,
+                timestamp: Date(),
+                isFromMe: true
+            )
+
+            DispatchQueue.main.async {
+                self.chatMessages.append(chatMessage)
+                NSLog("OGS: 💬 Added own chat message locally: \(message)")
+            }
         }
 
         // OGS chat message format: ["game/chat", {"game_id": 123, "body": "message text"}]
