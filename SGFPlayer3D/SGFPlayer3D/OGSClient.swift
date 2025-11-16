@@ -10,6 +10,48 @@ enum GamePhase: String {
     case finished   // Game complete, showing results
 }
 
+/// Represents the outcome of a finished game
+enum GameOutcome: String {
+    case blackWins = "B"        // Black wins by points or resignation
+    case whiteWins = "W"        // White wins by points or resignation
+    case tie = "0"              // Tie game (rare in Go)
+    case timeout = "Timeout"    // Win by timeout
+    case resignation = "Resignation"  // Win by resignation
+    case cancellation = "Cancellation"  // Game cancelled
+    case unknown = "?"          // Unknown outcome
+}
+
+/// Represents the final result of a game
+struct GameResult {
+    let gameID: Int
+    let outcome: GameOutcome
+    let winner: Stone?          // nil if tie or unknown
+    let blackScore: Double
+    let whiteScore: Double
+    let winReason: String       // "resignation", "timeout", "points", etc.
+
+    /// Score margin (absolute difference)
+    var margin: Double {
+        abs(blackScore - whiteScore)
+    }
+
+    /// Human-readable description of the result
+    var winDescription: String {
+        if let winner = winner {
+            let winnerName = winner == .black ? "Black" : "White"
+            if winReason == "resignation" || winReason == "Resignation" {
+                return "\(winnerName) wins by resignation"
+            } else if winReason == "timeout" || winReason == "Timeout" {
+                return "\(winnerName) wins by timeout"
+            } else {
+                return "\(winnerName) wins by \(String(format: "%.1f", margin)) points"
+            }
+        } else {
+            return "Game ended in a tie"
+        }
+    }
+}
+
 /// OGS (Online Go Server) WebSocket client for real-time game communication
 class OGSClient: NSObject, ObservableObject {
     // MARK: - Debug Settings
@@ -34,6 +76,8 @@ class OGSClient: NSObject, ObservableObject {
     // MARK: - Live Play State
     /// Current game phase - drives UI visibility and interaction
     @Published var gamePhase: GamePhase = .preGame
+    /// Game result when the game is finished
+    @Published var gameResult: GameResult? = nil
 
     // MARK: - Automatch State
     /// UUID of the current automatch request (if any)
@@ -46,6 +90,19 @@ class OGSClient: NSObject, ObservableObject {
     @Published var isSendingChallenge: Bool = false
     /// Available games/challenges that can be accepted
     @Published var availableGames: [OGSChallenge] = []
+
+    // MARK: - Chat State
+    /// Chat messages for the current game
+    @Published var chatMessages: [ChatMessage] = []
+
+    // MARK: - Error Tracking
+    /// Track consecutive game data fetch failures to stop polling stuck games
+    private var consecutiveFailures: Int = 0
+    private let maxConsecutiveFailures: Int = 3
+
+    // MARK: - Subscription Tracking
+    /// Track which game we're currently subscribed to (prevent duplicate subscriptions)
+    private var subscribedGameID: Int? = nil
 
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
@@ -66,6 +123,10 @@ class OGSClient: NSObject, ObservableObject {
     private var activeChallengeID: Int?  // Currently active challenge that needs keepalives
     private var activeGameID: Int?  // Game ID associated with the active challenge
     private var challengeKeepaliveTimer: Timer?  // Timer to send periodic challenge/keepalive messages
+
+    // Track last posted game state to prevent duplicate reloads
+    private var lastPostedGameID: Int? = nil
+    private var lastPostedMoveCount: Int = -1
 
     /// Returns true if it's our turn to play
     var isMyTurn: Bool {
@@ -1602,6 +1663,28 @@ class OGSClient: NSObject, ObservableObject {
                 NSLog("OGS: ❌ Game data fetch failed: \(error.localizedDescription)")
                 DispatchQueue.main.async {
                     self.lastError = "Failed to load game: \(error.localizedDescription)"
+
+                    // Track consecutive failures to stop polling stuck games
+                    self.consecutiveFailures += 1
+                    NSLog("OGS: ⚠️ Consecutive failures: \(self.consecutiveFailures)/\(self.maxConsecutiveFailures)")
+
+                    if self.consecutiveFailures >= self.maxConsecutiveFailures {
+                        NSLog("OGS: 🛑 Max consecutive failures reached - stopping polling and clearing game")
+                        NSLog("OGS: 🛑 Game \(gameID) appears to be inaccessible or deleted")
+
+                        // Stop polling and clear game state
+                        NotificationCenter.default.post(
+                            name: NSNotification.Name("OGSGameError"),
+                            object: nil,
+                            userInfo: ["error": "Game \(gameID) is no longer accessible"]
+                        )
+
+                        // Clear the current game to stop further polling attempts
+                        self.currentGameID = nil
+                        self.gamePhase = .preGame
+                        self.subscribedGameID = nil  // Reset subscription tracking
+                        self.consecutiveFailures = 0  // Reset for next game
+                    }
                 }
                 return
             }
@@ -1617,6 +1700,11 @@ class OGSClient: NSObject, ObservableObject {
                 do {
                     if let restResponse = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
                         NSLog("OGS: ✅ Game data fetched successfully from REST API")
+
+                        // Reset failure counter on success
+                        DispatchQueue.main.async {
+                            self.consecutiveFailures = 0
+                        }
 
                         // REST API returns gamedata in a nested structure
                         // Extract the gamedata object which contains moves, game_id, etc.
@@ -1711,6 +1799,12 @@ class OGSClient: NSObject, ObservableObject {
 
     /// Subscribe to WebSocket updates for a game
     private func subscribeToGame(gameID: Int) {
+        // Check if we're already subscribed to this game
+        if subscribedGameID == gameID {
+            NSLog("OGS: ✓ Already subscribed to game \(gameID) - skipping duplicate subscription")
+            return
+        }
+
         NSLog("OGS: 📡 Subscribing to WebSocket updates for game \(gameID)")
 
         // v3.86: Plain JSON format (NO Socket.io prefix)
@@ -1729,6 +1823,7 @@ class OGSClient: NSObject, ObservableObject {
             """
         }
 
+        NSLog("OGS: 📤 Sending game/connect: \(connectMessage)")
         let message1 = URLSessionWebSocketTask.Message.string(connectMessage)
         webSocketTask?.send(message1) { error in
             if let error = error {
@@ -1744,6 +1839,7 @@ class OGSClient: NSObject, ObservableObject {
         ["spectate",{"game_id":\(gameID)}]
         """
 
+        NSLog("OGS: 📤 Sending spectate: \(spectateMessage)")
         let message2 = URLSessionWebSocketTask.Message.string(spectateMessage)
         webSocketTask?.send(message2) { error in
             if let error = error {
@@ -1752,6 +1848,26 @@ class OGSClient: NSObject, ObservableObject {
                 NSLog("OGS: ✅ Sent spectate request for game \(gameID)")
             }
         }
+
+        // OGS v5+ requires explicit chat channel subscription
+        // Subscribe to game chat separately
+        let chatSubscribeMessage = """
+        ["game/\(gameID)/chat",{}]
+        """
+
+        NSLog("OGS: 📤 Sending chat subscription: \(chatSubscribeMessage)")
+        let message3 = URLSessionWebSocketTask.Message.string(chatSubscribeMessage)
+        webSocketTask?.send(message3) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error subscribing to chat: \(error.localizedDescription)")
+            } else {
+                NSLog("OGS: ✅ Subscribed to chat channel for game \(gameID)")
+            }
+        }
+
+        // Mark this game as subscribed
+        subscribedGameID = gameID
+        NSLog("OGS: 📝 Marked game \(gameID) as subscribed")
     }
 
     /// Convert board position to SGF move notation
@@ -2066,6 +2182,17 @@ class OGSClient: NSObject, ObservableObject {
             } else {
                 NSLog("OGS: ⚠️ Seekgraph data in unexpected format: \(type(of: json[1]))")
             }
+        case _ where eventName.contains("/chat"):
+            NSLog("OGS: 💬 ========== CHAT MESSAGE ==========")
+            NSLog("OGS: 💬 Event name: \(eventName)")
+            NSLog("OGS: 💬 Full JSON: \(json)")
+            if let chatData = json[1] as? [String: Any] {
+                NSLog("OGS: 💬 Chat data keys: \(chatData.keys.sorted())")
+                handleChatMessage(chatData)
+            } else {
+                NSLog("OGS: ⚠️ Chat data in unexpected format: \(type(of: json[1]))")
+                NSLog("OGS: ⚠️ Raw data: \(json[1])")
+            }
         case "active-bots", "active-players", "incident-report", "notification":
             // Suppress these broadcast messages - they're noisy
             break
@@ -2265,6 +2392,42 @@ class OGSClient: NSObject, ObservableObject {
                     NSLog("OGS: ⚠️ Unknown phase '\(phase)' - keeping current gamePhase")
                 }
             }
+
+            // If game is finished, extract the result data
+            if phase == "finished" {
+                NSLog("OGS: 🏁 ========== GAME FINISHED - EXTRACTING RESULT DATA ==========")
+                NSLog("OGS: 🏁 All gameData keys: \(gameData.keys.sorted())")
+
+                // Log potential scoring fields to discover the exact structure
+                if let outcome = gameData["outcome"] {
+                    NSLog("OGS: 🏁 outcome field: \(outcome) (type: \(type(of: outcome)))")
+                }
+                if let winner = gameData["winner"] {
+                    NSLog("OGS: 🏁 winner field: \(winner) (type: \(type(of: winner)))")
+                }
+                if let whitePoints = gameData["white_points"] {
+                    NSLog("OGS: 🏁 white_points field: \(whitePoints)")
+                }
+                if let blackPoints = gameData["black_points"] {
+                    NSLog("OGS: 🏁 black_points field: \(blackPoints)")
+                }
+                if let whiteLost = gameData["white_lost"] {
+                    NSLog("OGS: 🏁 white_lost field: \(whiteLost)")
+                }
+                if let blackLost = gameData["black_lost"] {
+                    NSLog("OGS: 🏁 black_lost field: \(blackLost)")
+                }
+                if let endTime = gameData["end_time"] {
+                    NSLog("OGS: 🏁 end_time field: \(endTime)")
+                }
+
+                // Extract game result data
+                if let gameID = gameData["game_id"] as? Int {
+                    self.extractGameResult(gameData: gameData, gameID: gameID)
+                } else {
+                    NSLog("OGS: ⚠️ Cannot extract game result - no game_id found")
+                }
+            }
         }
 
         // Get the current player (whose turn it is)
@@ -2376,24 +2539,39 @@ class OGSClient: NSObject, ObservableObject {
             // Get handicap for proper turn calculation
             let handicap = gameData["handicap"] as? Int ?? 0
 
-            // Send notification with all moves for ContentView3D to load
-            let boardSize = gameData["width"] as? Int ?? 19
-            NSLog("OGS: 🎮 About to post OGSGameDataReceived notification with \(movesArray.count) moves")
-            NotificationCenter.default.post(
-                name: NSNotification.Name("OGSGameDataReceived"),
-                object: nil,
-                userInfo: [
-                    "gameData": gameData,
-                    "moves": movesArray,
-                    "gameID": gameData["game_id"] as? Int ?? 0,
-                    "handicap": handicap,
-                    "boardSize": boardSize,
-                    "blackPlayerID": blackPlayerID as Any,
-                    "whitePlayerID": whitePlayerID as Any,
-                    "playerToMoveID": playerToMoveID as Any
-                ]
-            )
-            NSLog("OGS: 🎮 Notification posted successfully")
+            // CRITICAL: Only post notification if game ID or move count changed
+            // This prevents duplicate reloads that cause the board to go blank
+            let currentMoveCount = movesArray.count
+            let gameID = gameData["game_id"] as? Int ?? 0
+            let shouldPostNotification = (lastPostedGameID != gameID) || (currentMoveCount > lastPostedMoveCount)
+
+            if shouldPostNotification {
+                NSLog("OGS: 🎮 Game state changed (gameID: \(lastPostedGameID?.description ?? "nil")→\(gameID), moves: \(lastPostedMoveCount)→\(currentMoveCount)) - posting notification")
+
+                // Update trackers BEFORE posting to prevent race conditions
+                lastPostedGameID = gameID
+                lastPostedMoveCount = currentMoveCount
+
+                // Send notification with all moves for ContentView3D to load
+                let boardSize = gameData["width"] as? Int ?? 19
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("OGSGameDataReceived"),
+                    object: nil,
+                    userInfo: [
+                        "gameData": gameData,
+                        "moves": movesArray,
+                        "gameID": gameID,
+                        "handicap": handicap,
+                        "boardSize": boardSize,
+                        "blackPlayerID": blackPlayerID as Any,
+                        "whitePlayerID": whitePlayerID as Any,
+                        "playerToMoveID": playerToMoveID as Any
+                    ]
+                )
+                NSLog("OGS: 🎮 Notification posted successfully")
+            } else {
+                NSLog("OGS: 🎮 Game state unchanged (gameID: \(gameID), moves: \(currentMoveCount)) - skipping duplicate notification to prevent board clearing")
+            }
         } else {
             NSLog("OGS: ❌ NO MOVES ARRAY FOUND in gameData!")
             NSLog("OGS: ❌ moves field type: \(type(of: gameData["moves"]))")
@@ -2552,6 +2730,122 @@ class OGSClient: NSObject, ObservableObject {
             }
         } else {
             NSLog("OGS: ❌ Could not extract white_time dictionary from clockData")
+        }
+    }
+
+    private func extractGameResult(gameData: [String: Any], gameID: Int) {
+        NSLog("OGS: 🏁 Extracting game result for game \(gameID)")
+
+        // Extract outcome string (e.g., "B+15.5", "W+R", "W+T", "0" for tie)
+        let outcomeString = gameData["outcome"] as? String ?? "?"
+        NSLog("OGS: 🏁 Outcome string: '\(outcomeString)'")
+
+        // Extract winner (player ID or nil for tie)
+        let winnerID = gameData["winner"] as? Int
+        NSLog("OGS: 🏁 Winner ID: \(winnerID?.description ?? "nil")")
+
+        // Extract scores
+        // OGS may send scores in different formats - try both direct fields and nested objects
+        var blackScore: Double = 0.0
+        var whiteScore: Double = 0.0
+
+        // Try direct fields first
+        if let blackPoints = gameData["black_points"] as? Double {
+            blackScore = blackPoints
+            NSLog("OGS: 🏁 Black score (direct): \(blackScore)")
+        } else if let blackPoints = gameData["black_points"] as? Int {
+            blackScore = Double(blackPoints)
+            NSLog("OGS: 🏁 Black score (direct int): \(blackScore)")
+        }
+
+        if let whitePoints = gameData["white_points"] as? Double {
+            whiteScore = whitePoints
+            NSLog("OGS: 🏁 White score (direct): \(whiteScore)")
+        } else if let whitePoints = gameData["white_points"] as? Int {
+            whiteScore = Double(whitePoints)
+            NSLog("OGS: 🏁 White score (direct int): \(whiteScore)")
+        }
+
+        // Try nested player objects if direct fields weren't found
+        if blackScore == 0.0 || whiteScore == 0.0 {
+            if let players = gameData["players"] as? [String: Any] {
+                if let blackPlayer = players["black"] as? [String: Any],
+                   let blackPts = blackPlayer["score"] as? Double {
+                    blackScore = blackPts
+                    NSLog("OGS: 🏁 Black score (nested): \(blackScore)")
+                }
+                if let whitePlayer = players["white"] as? [String: Any],
+                   let whitePts = whitePlayer["score"] as? Double {
+                    whiteScore = whitePts
+                    NSLog("OGS: 🏁 White score (nested): \(whiteScore)")
+                }
+            }
+        }
+
+        // Determine winner color based on winner ID
+        var winnerColor: Stone? = nil
+        if let winnerID = winnerID {
+            // Get black and white player IDs to compare
+            if let players = gameData["players"] as? [String: Any],
+               let blackPlayer = players["black"] as? [String: Any],
+               let whitePlayer = players["white"] as? [String: Any],
+               let blackPlayerID = blackPlayer["id"] as? Int,
+               let whitePlayerID = whitePlayer["id"] as? Int {
+
+                if winnerID == blackPlayerID {
+                    winnerColor = .black
+                    NSLog("OGS: 🏁 Winner is Black")
+                } else if winnerID == whitePlayerID {
+                    winnerColor = .white
+                    NSLog("OGS: 🏁 Winner is White")
+                }
+            }
+        } else {
+            NSLog("OGS: 🏁 No winner - likely a tie")
+        }
+
+        // Parse outcome type and reason
+        var outcomeType: GameOutcome = .unknown
+        var winReason = "points"
+
+        if outcomeString.contains("R") || outcomeString.contains("Resignation") {
+            outcomeType = .resignation
+            winReason = "resignation"
+        } else if outcomeString.contains("T") || outcomeString.contains("Timeout") {
+            outcomeType = .timeout
+            winReason = "timeout"
+        } else if outcomeString == "0" || outcomeString.contains("Tie") {
+            outcomeType = .tie
+            winReason = "tie"
+        } else if outcomeString.contains("C") || outcomeString.contains("Cancellation") {
+            outcomeType = .cancellation
+            winReason = "cancellation"
+        } else if outcomeString.starts(with: "B+") {
+            outcomeType = .blackWins
+            winReason = "points"
+        } else if outcomeString.starts(with: "W+") {
+            outcomeType = .whiteWins
+            winReason = "points"
+        }
+
+        NSLog("OGS: 🏁 Outcome type: \(outcomeType), Win reason: \(winReason)")
+
+        // Create GameResult object
+        let result = GameResult(
+            gameID: gameID,
+            outcome: outcomeType,
+            winner: winnerColor,
+            blackScore: blackScore,
+            whiteScore: whiteScore,
+            winReason: winReason
+        )
+
+        NSLog("OGS: 🏁 Created GameResult: \(result.winDescription)")
+
+        // Update published property on main thread
+        DispatchQueue.main.async {
+            self.gameResult = result
+            NSLog("OGS: 🏁 gameResult published to UI")
         }
     }
 
@@ -2916,6 +3210,176 @@ class OGSClient: NSObject, ObservableObject {
                 }
             }
         }
+    }
+
+    // MARK: - Chat Handlers
+
+    private func handleChatMessage(_ chatData: [String: Any]) {
+        NSLog("OGS: 💬 handleChatMessage called with data: \(chatData)")
+        NSLog("OGS: 💬 Available keys: \(chatData.keys.sorted())")
+
+        // OGS chat format from browser inspection:
+        // Incoming: ["game/81302497/chat", {"channel": "main", "line": {...}}]
+        // The actual message data is in the "line" object
+        guard let lineData = chatData["line"] as? [String: Any] else {
+            NSLog("OGS: ⚠️ No 'line' object in chat message")
+            NSLog("OGS: ⚠️ Full data: \(chatData)")
+            return
+        }
+
+        NSLog("OGS: 💬 Line data keys: \(lineData.keys.sorted())")
+
+        guard let username = lineData["username"] as? String,
+              let messageText = lineData["body"] as? String else {
+            NSLog("OGS: ⚠️ Invalid chat message format - missing username or body in line")
+            NSLog("OGS: ⚠️ Line data: \(lineData)")
+            return
+        }
+
+        // Get timestamp from date field (Unix timestamp in seconds)
+        let timestamp: Date
+        if let dateValue = lineData["date"] as? TimeInterval {
+            timestamp = Date(timeIntervalSince1970: dateValue)
+        } else {
+            timestamp = Date()
+        }
+
+        // Determine if this message is from us
+        let isFromMe = username == self.username
+        NSLog("OGS: 💬 Message from '\(username)', isFromMe: \(isFromMe) (our username: \(self.username ?? "nil"))")
+
+        // Create chat message
+        let chatMessage = ChatMessage(
+            username: username,
+            message: messageText,
+            timestamp: timestamp,
+            isFromMe: isFromMe
+        )
+
+        // Add to chat history on main thread
+        DispatchQueue.main.async {
+            self.chatMessages.append(chatMessage)
+            NSLog("OGS: 💬 Added chat message from \(username): \(messageText)")
+            NSLog("OGS: 💬 Total chat messages now: \(self.chatMessages.count)")
+        }
+    }
+
+    /// Send a chat message to the current OGS game
+    func sendChatMessage(gameID: Int, message: String) {
+        guard isConnected else {
+            NSLog("OGS: ❌ Cannot send chat message - not connected")
+            return
+        }
+
+        guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            NSLog("OGS: ⚠️ Cannot send empty chat message")
+            return
+        }
+
+        // Optimistically add our own message to the chat immediately
+        // OGS doesn't echo back our own messages, so we add them locally
+        if let username = self.username {
+            let chatMessage = ChatMessage(
+                username: username,
+                message: message,
+                timestamp: Date(),
+                isFromMe: true
+            )
+
+            DispatchQueue.main.async {
+                self.chatMessages.append(chatMessage)
+                NSLog("OGS: 💬 Added own chat message locally: \(message)")
+            }
+        }
+
+        // OGS chat message format from browser inspection:
+        // Send to: ["game/chat", {"body": "...", "type": "main", "game_id": 123, "move_number": 0}]
+        let chatMessage = """
+        ["game/chat",{"body":"\(message)","type":"main","game_id":\(gameID),"move_number":0}]
+        """
+
+        NSLog("OGS: 📤 Sending chat to game/chat channel")
+        NSLog("OGS: 📤 Message payload: \(chatMessage)")
+        let wsMessage = URLSessionWebSocketTask.Message.string(chatMessage)
+        webSocketTask?.send(wsMessage) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error sending chat message: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    self.lastError = error.localizedDescription
+                }
+            } else {
+                NSLog("OGS: ✅ Chat message sent successfully to server")
+                NSLog("OGS: 💬 Message content: \(message)")
+            }
+        }
+    }
+
+    /// Fetch chat messages for a game via REST API
+    /// Polls the chat endpoint to get new messages
+    func fetchChatMessages(gameID: Int) {
+        NSLog("OGS: 💬 Fetching chat messages via REST API for game \(gameID)")
+
+        guard let url = URL(string: "https://online-go.com/api/v1/games/\(gameID)/chat") else {
+            NSLog("OGS: ❌ Invalid chat URL")
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            guard let self = self else { return }
+
+            if let error = error {
+                NSLog("OGS: ❌ Chat fetch failed: \(error.localizedDescription)")
+                return
+            }
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                NSLog("OGS: ❌ Invalid chat response type")
+                return
+            }
+
+            NSLog("OGS: 📡 Chat response status: \(httpResponse.statusCode)")
+
+            if httpResponse.statusCode == 200, let data = data {
+                do {
+                    if let chatResponse = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let messages = chatResponse["messages"] as? [[String: Any]] {
+                        NSLog("OGS: 💬 Received \(messages.count) chat messages from REST API")
+
+                        DispatchQueue.main.async {
+                            // Clear existing messages to avoid duplicates
+                            // In production, we'd track message IDs to only add new ones
+                            self.chatMessages.removeAll()
+
+                            for msgData in messages {
+                                if let username = msgData["player"] as? String,
+                                   let messageText = msgData["body"] as? String,
+                                   let timestamp = msgData["date"] as? Double {
+                                    let isFromMe = username == self.username
+                                    let chatMessage = ChatMessage(
+                                        username: username,
+                                        message: messageText,
+                                        timestamp: Date(timeIntervalSince1970: timestamp / 1000.0),
+                                        isFromMe: isFromMe
+                                    )
+                                    self.chatMessages.append(chatMessage)
+                                }
+                            }
+                            NSLog("OGS: 💬 Loaded \(self.chatMessages.count) chat messages")
+                        }
+                    } else {
+                        NSLog("OGS: ⚠️ Unexpected chat response format")
+                        NSLog("OGS: 📄 Response: \(String(data: data, encoding: .utf8) ?? "nil")")
+                    }
+                } catch {
+                    NSLog("OGS: ❌ Failed to parse chat response: \(error)")
+                }
+            } else {
+                NSLog("OGS: ❌ Chat fetch failed with status: \(httpResponse.statusCode)")
+            }
+        }.resume()
     }
 
     private func convertSeekgraphToChallenge(_ seekgraphItem: [String: Any]) -> OGSChallenge? {

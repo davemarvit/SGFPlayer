@@ -146,11 +146,9 @@ struct ContentView: View {
         return isSearchActive && !filteredGames.isEmpty ? filteredGames : app.games
     }
 
-    var body: some View {
-        NSLog("📺 ContentView.body CALLED - 2D view is rendering!")
-
-        return ZStack {
-            mainGameContent
+    // Break up complex ZStack to help compiler type-checking
+    private var overlaysGroup: some View {
+        Group {
             topButtonsOverlay
             settingsPanelOverlay
             physicsOverlay
@@ -161,6 +159,24 @@ struct ContentView: View {
             }
 
             gameInfoOverlay
+
+            // Game result overlay (Phase 1 scoring)
+            GameResultOverlay(ogsClient: ogsClient, ogsGame: ogsGame)
+                .showWhenResultAvailable()
+
+            // Chat panel - show only when in an active OGS game
+            if ogsClient.currentGameID != nil && ogsClient.gamePhase == .playing {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        ChatPanel(ogsClient: ogsClient)
+                            .frame(width: 300)
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 80)  // Above playback controls
+                    }
+                }
+            }
 
             // v3.123: Phantom stones working in both 2D and 3D
             VStack {
@@ -178,6 +194,15 @@ struct ContentView: View {
                         .padding(.bottom, 20)
                 }
             }
+        }
+    }
+
+    var body: some View {
+        NSLog("📺 ContentView.body CALLED - 2D view is rendering!")
+
+        return ZStack {
+            mainGameContent
+            overlaysGroup
         }
         .contentShape(Rectangle())
         .onContinuousHover { phase in
@@ -349,11 +374,16 @@ struct ContentView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSConnected"))) { _ in
-            NSLog("ContentView: 🔌 OGS connected - clearing local game selection and clearing board")
-            app.selection = nil
-            player.clear()  // Completely clear board including handicap stones
-            player.pause()  // Stop any playback
-            ogsClient.currentGameID = nil  // Clear any active OGS game
+            // === FIX: Only clear board on INITIAL connection, not on reconnects during active game ===
+            if ogsClient.currentGameID == nil {
+                NSLog("ContentView: 🔌 OGS connected (initial) - clearing local game selection and board")
+                app.selection = nil
+                player.clear()  // Completely clear board including handicap stones
+                player.pause()  // Stop any playback
+            } else {
+                NSLog("ContentView: 🔌 OGS reconnected during active game \(ogsClient.currentGameID!) - preserving board state")
+                NSLog("ContentView: 🔌 Board has \(player.currentIndex) moves - NOT clearing!")
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameDataReceived"))) { notification in
             // Only process if we have an active OGS game ID (allows initial game load)

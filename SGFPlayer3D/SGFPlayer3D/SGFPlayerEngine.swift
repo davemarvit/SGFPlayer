@@ -35,12 +35,41 @@ final class SGFPlayer: ObservableObject {
 
     // Load a new SGF game
     func load(game: SGFGame) {
+        let prevMoveCount = _moves.count
+        let prevStoneCount = board.grid.flatMap { $0 }.compactMap { $0 }.count
+
         print("🔍 LOAD: Loading game with board size \(game.boardSize), \(game.moves.count) moves")
+        print("🔍 LOAD: Previous state: \(prevMoveCount) moves, \(prevStoneCount) stones on board")
+        print("🔍 LOAD: New state: \(game.moves.count) moves")
+
+        if game.moves.isEmpty && prevMoveCount > 0 {
+            print("🔍 LOAD: ⚠️⚠️⚠️ WARNING: Loading game with 0 moves when previous had \(prevMoveCount) moves!")
+            print("🔍 LOAD: ⚠️⚠️⚠️ This will CLEAR THE BOARD with \(prevStoneCount) stones!")
+            print("🔍 LOAD: ⚠️⚠️⚠️ Call stack: \(Thread.callStackSymbols.prefix(10))")
+        }
+
         baseSize = game.boardSize
         _baseSetup = game.setup
         _moves = game.moves
         print("🔍 LOAD: First 5 moves: \(Array(_moves.prefix(5)))")
         reset()
+    }
+
+    /// Place a move optimistically (for OGS live play before server confirms)
+    /// This provides instant visual feedback - the stone appears immediately
+    /// When the server responds, load() will overwrite with authoritative state
+    func playMoveOptimistically(color: Stone, x: Int, y: Int) {
+        print("⚡️ OPTIMISTIC: Playing \(color) at (\(x), \(y)) - instant visual feedback")
+
+        // Append to internal moves array
+        _moves.append((color, (x, y)))
+
+        // Apply it immediately (updates board snapshot and triggers UI refresh)
+        apply(moveAt: _moves.count - 1)
+        currentIndex = _moves.count
+
+        print("⚡️ OPTIMISTIC: Stone placed! currentIndex now \(currentIndex)")
+        print("⚡️ OPTIMISTIC: Server will correct if move is rejected (rare)")
     }
 
     // Clear everything - completely empty board with no game loaded

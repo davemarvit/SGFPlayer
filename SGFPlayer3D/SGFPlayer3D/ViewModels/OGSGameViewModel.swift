@@ -37,6 +37,16 @@ class OGSGameViewModel: ObservableObject {
         self.timeControl = timeControl
 
         NSLog("OGSGameVM: 🎮 OGSGameViewModel initialized")
+
+        // Listen for game errors (e.g., repeated fetch failures)
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("OGSGameError"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            NSLog("OGSGameVM: ❌ Received OGSGameError - stopping polling")
+            self?.stopPolling()
+        }
     }
 
     deinit {
@@ -53,6 +63,15 @@ class OGSGameViewModel: ObservableObject {
               let gameID = userInfo["gameID"] as? Int,
               let gameData = userInfo["gameData"] as? [String: Any] else {
             NSLog("OGSGameVM: ❌ Invalid game data in notification")
+            return
+        }
+
+        // === DEFENSIVE: Validate game data to prevent board clearing ===
+        // If we have a current game with stones, don't reload with empty/corrupted data
+        if moves.isEmpty && player.currentIndex > 0 {
+            NSLog("OGSGameVM: ⚠️ DEFENSIVE: Server sent 0 moves but board has \(player.currentIndex) moves!")
+            NSLog("OGSGameVM: ⚠️ DEFENSIVE: Refusing to reload - this would clear all stones!")
+            NSLog("OGSGameVM: ⚠️ DEFENSIVE: gameData keys: \(gameData.keys.sorted())")
             return
         }
 
@@ -194,9 +213,18 @@ class OGSGameViewModel: ObservableObject {
             NSLog("OGSGameVM: 🕐 After \(moves.count) moves (handicap: \(handicap)), it's \(currentTurn == .black ? "Black" : "White")'s turn")
             timeControl.switchToPlayer(currentTurn)
 
-            // Always restart polling with the new game ID
+            // Manage polling based on game phase
             stopPolling()
-            startPolling(gameID: gameID)
+
+            // Check if game is finished - if so, DON'T restart polling
+            let gamePhase = gameData["phase"] as? String ?? "unknown"
+            if gamePhase == "finished" {
+                NSLog("OGSGameVM: 🏁 Game is FINISHED - NOT restarting polling (no need to poll completed games)")
+                NSLog("OGSGameVM: 🏁 Board will remain stable with final position")
+            } else {
+                NSLog("OGSGameVM: ⏰ Game phase '\(gamePhase)' - restarting polling")
+                startPolling(gameID: gameID)
+            }
         } else {
             NSLog("OGSGameVM: ❌ Failed to parse SGF from OGS data")
         }
@@ -301,6 +329,8 @@ class OGSGameViewModel: ObservableObject {
         pollingTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             NSLog("OGSGameVM: 🔄 Polling OGS for updates to game \(gameID)...")
             self?.ogsClient.joinGame(gameID: gameID)
+            // Also poll chat messages via REST API
+            self?.ogsClient.fetchChatMessages(gameID: gameID)
         }
 
         pollingInterval = interval

@@ -688,7 +688,8 @@ struct PhantomStoneOverlay: View {
         guard ogsClient.isMyTurn,
               ogsClient.gamePhase == .playing,
               let position = phantomBoardPos,
-              let gameID = ogsClient.currentGameID else {
+              let gameID = ogsClient.currentGameID,
+              let myColor = ogsClient.playerColor else {
             NSLog("👻 ❌ Click ignored - conditions not met")
             return
         }
@@ -699,11 +700,15 @@ struct PhantomStoneOverlay: View {
         let yChar = letters[letters.index(letters.startIndex, offsetBy: position.y)]
         let sgfMove = "\(xChar)\(yChar)"
 
-        // Send move to OGS
-        NSLog("👻 🎯 2D: Sending move \(sgfMove) at board position (\(position.x), \(position.y))")
+        // === OPTIMISTIC PLACEMENT: Place stone IMMEDIATELY for instant feedback ===
+        NSLog("👻 ⚡️ 2D: Placing \(myColor) stone INSTANTLY at (\(position.x), \(position.y))")
+        player.playMoveOptimistically(color: myColor, x: position.x, y: position.y)
+
+        // Send move to OGS in background (server will correct if rejected)
+        NSLog("👻 🎯 2D: Sending move \(sgfMove) to server in background")
         ogsClient.sendMove(gameID: gameID, move: sgfMove)
 
-        // Clear phantom stone after sending
+        // Clear phantom stone after placing
         phantomBoardPos = nil
     }
 }

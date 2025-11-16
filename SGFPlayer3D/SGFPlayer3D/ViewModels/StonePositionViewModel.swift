@@ -79,16 +79,23 @@ class StonePositionViewModel: ObservableObject {
         stoneRadius: CGFloat,
         gameSeed: UInt64
     ) {
-        // Special handling for move 0 or when both counts are 0 - force clear
-        if currentMove == 0 || (blackStoneCount == 0 && whiteStoneCount == 0) {
-            print("🔄 ViewModel: Force clearing stones for move \(currentMove), counts: B=\(blackStoneCount), W=\(whiteStoneCount)")
+        // === FIX FOR STONE DISAPPEARING BUG ===
+        // ORIGINAL CODE: if currentMove == 0 || (blackStoneCount == 0 && whiteStoneCount == 0)
+        // PROBLEM: The condition "(blackStoneCount == 0 && whiteStoneCount == 0)" triggers
+        //          when there are NO captured stones, which is a VALID game state!
+        //          This caused all board stones to disappear during OGS gameplay.
+        // FIX: Only clear on move 0. Zero captures is perfectly normal and should NOT clear.
+        // TO REVERT: Restore the "|| (blackStoneCount == 0 && whiteStoneCount == 0)" condition
+        if currentMove == 0 {
+            print("🔄 ViewModel: Force clearing stones for move 0")
             blackStonePositions.removeAll()
             whiteStonePositions.removeAll()
             currentBlackStoneCount = 0
             currentWhiteStoneCount = 0
-            physicsInfo = "Cleared for move \(currentMove)"
+            physicsInfo = "Cleared for move 0"
             return
         }
+        // === END FIX ===
 
         // Check cache first
         if let cachedLayout = cacheManager.getCachedLayout(forMove: currentMove) {
