@@ -146,11 +146,9 @@ struct ContentView: View {
         return isSearchActive && !filteredGames.isEmpty ? filteredGames : app.games
     }
 
-    var body: some View {
-        NSLog("📺 ContentView.body CALLED - 2D view is rendering!")
-
-        return ZStack {
-            mainGameContent
+    // Break up complex ZStack to help compiler type-checking
+    private var overlaysGroup: some View {
+        Group {
             topButtonsOverlay
             settingsPanelOverlay
             physicsOverlay
@@ -182,6 +180,15 @@ struct ContentView: View {
                         .padding(.bottom, 20)
                 }
             }
+        }
+    }
+
+    var body: some View {
+        NSLog("📺 ContentView.body CALLED - 2D view is rendering!")
+
+        return ZStack {
+            mainGameContent
+            overlaysGroup
         }
         .contentShape(Rectangle())
         .onContinuousHover { phase in
