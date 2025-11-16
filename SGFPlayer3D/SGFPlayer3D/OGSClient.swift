@@ -3235,17 +3235,30 @@ class OGSClient: NSObject, ObservableObject {
         NSLog("OGS: 💬 handleChatMessage called with data: \(chatData)")
         NSLog("OGS: 💬 Available keys: \(chatData.keys.sorted())")
 
-        // OGS chat format: {"username": "player", "body": "message text", "chat_id": "game-123"}
-        // Also check for alternative formats: "player_id", "message" instead of "body"
-        let username = chatData["username"] as? String
-        let messageText = chatData["body"] as? String ?? chatData["message"] as? String
-
-        NSLog("OGS: 💬 Extracted username: \(username ?? "nil"), message: \(messageText ?? "nil")")
-
-        guard let username = username, let messageText = messageText else {
-            NSLog("OGS: ⚠️ Invalid chat message format - missing username or body")
+        // OGS chat format from browser inspection:
+        // Incoming: ["game/81302497/chat", {"channel": "main", "line": {...}}]
+        // The actual message data is in the "line" object
+        guard let lineData = chatData["line"] as? [String: Any] else {
+            NSLog("OGS: ⚠️ No 'line' object in chat message")
             NSLog("OGS: ⚠️ Full data: \(chatData)")
             return
+        }
+
+        NSLog("OGS: 💬 Line data keys: \(lineData.keys.sorted())")
+
+        guard let username = lineData["username"] as? String,
+              let messageText = lineData["body"] as? String else {
+            NSLog("OGS: ⚠️ Invalid chat message format - missing username or body in line")
+            NSLog("OGS: ⚠️ Line data: \(lineData)")
+            return
+        }
+
+        // Get timestamp from date field (Unix timestamp in seconds)
+        let timestamp: Date
+        if let dateValue = lineData["date"] as? TimeInterval {
+            timestamp = Date(timeIntervalSince1970: dateValue)
+        } else {
+            timestamp = Date()
         }
 
         // Determine if this message is from us
@@ -3256,7 +3269,7 @@ class OGSClient: NSObject, ObservableObject {
         let chatMessage = ChatMessage(
             username: username,
             message: messageText,
-            timestamp: Date(),
+            timestamp: timestamp,
             isFromMe: isFromMe
         )
 
@@ -3296,14 +3309,13 @@ class OGSClient: NSObject, ObservableObject {
             }
         }
 
-        // OGS chat message format: Send to the game-specific chat channel
-        // We subscribed to "game/<gameID>/chat", so send messages there
-        // Format: ["game/<gameID>/chat", {"body": "message text", "move_number": <current_move>}]
+        // OGS chat message format from browser inspection:
+        // Send to: ["game/chat", {"body": "...", "type": "main", "game_id": 123, "move_number": 0}]
         let chatMessage = """
-        ["game/\(gameID)/chat",{"body":"\(message)","move_number":""}]
+        ["game/chat",{"body":"\(message)","type":"main","game_id":\(gameID),"move_number":0}]
         """
 
-        NSLog("OGS: 📤 Sending chat message to channel game/\(gameID)/chat")
+        NSLog("OGS: 📤 Sending chat to game/chat channel")
         NSLog("OGS: 📤 Message payload: \(chatMessage)")
         let wsMessage = URLSessionWebSocketTask.Message.string(chatMessage)
         webSocketTask?.send(wsMessage) { error in
