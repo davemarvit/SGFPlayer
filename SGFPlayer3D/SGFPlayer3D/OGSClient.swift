@@ -1829,6 +1829,7 @@ class OGSClient: NSObject, ObservableObject {
             """
         }
 
+        NSLog("OGS: 📤 Sending game/connect: \(connectMessage)")
         let message1 = URLSessionWebSocketTask.Message.string(connectMessage)
         webSocketTask?.send(message1) { error in
             if let error = error {
@@ -1844,12 +1845,29 @@ class OGSClient: NSObject, ObservableObject {
         ["spectate",{"game_id":\(gameID)}]
         """
 
+        NSLog("OGS: 📤 Sending spectate: \(spectateMessage)")
         let message2 = URLSessionWebSocketTask.Message.string(spectateMessage)
         webSocketTask?.send(message2) { error in
             if let error = error {
                 NSLog("OGS: ❌ Error sending spectate: \(error.localizedDescription)")
             } else {
                 NSLog("OGS: ✅ Sent spectate request for game \(gameID)")
+            }
+        }
+
+        // OGS v5+ requires explicit chat channel subscription
+        // Subscribe to game chat separately
+        let chatSubscribeMessage = """
+        ["game/\(gameID)/chat",{}]
+        """
+
+        NSLog("OGS: 📤 Sending chat subscription: \(chatSubscribeMessage)")
+        let message3 = URLSessionWebSocketTask.Message.string(chatSubscribeMessage)
+        webSocketTask?.send(message3) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error subscribing to chat: \(error.localizedDescription)")
+            } else {
+                NSLog("OGS: ✅ Subscribed to chat channel for game \(gameID)")
             }
         }
     }
@@ -3268,6 +3286,7 @@ class OGSClient: NSObject, ObservableObject {
         ["game/chat",{"game_id":\(gameID),"body":"\(message)"}]
         """
 
+        NSLog("OGS: 📤 Sending chat message: \(chatMessage)")
         let wsMessage = URLSessionWebSocketTask.Message.string(chatMessage)
         webSocketTask?.send(wsMessage) { error in
             if let error = error {
@@ -3276,7 +3295,8 @@ class OGSClient: NSObject, ObservableObject {
                     self.lastError = error.localizedDescription
                 }
             } else {
-                NSLog("OGS: ✅ Chat message sent: \(message)")
+                NSLog("OGS: ✅ Chat message sent successfully to server")
+                NSLog("OGS: 💬 Message content: \(message)")
             }
         }
     }
