@@ -1823,6 +1823,7 @@ class OGSClient: NSObject, ObservableObject {
         }
 
         NSLog("OGS: 📡 Subscribing to WebSocket updates for game \(gameID)")
+        NSLog("OGS: 📡 Current authentication state: playerID=\(playerID?.description ?? "nil"), isAuthenticated=\(isAuthenticated)")
 
         // v3.86: Plain JSON format (NO Socket.io prefix)
         // Build game/connect message with player_id if available
@@ -1874,17 +1875,17 @@ class OGSClient: NSObject, ObservableObject {
 
         NSLog("OGS: 📤 Sending chat subscription: \(chatSubscribeMessage)")
         let message3 = URLSessionWebSocketTask.Message.string(chatSubscribeMessage)
-        webSocketTask?.send(message3) { error in
+        webSocketTask?.send(message3) { [weak self] error in
             if let error = error {
                 NSLog("OGS: ❌ Error subscribing to chat: \(error.localizedDescription)")
+                // Don't mark as subscribed if it failed
             } else {
                 NSLog("OGS: ✅ Subscribed to chat channel for game \(gameID)")
+                // Mark this game as subscribed ONLY after chat subscription succeeds
+                self?.subscribedGameID = gameID
+                NSLog("OGS: 📝 Marked game \(gameID) as subscribed after successful chat subscription")
             }
         }
-
-        // Mark this game as subscribed
-        subscribedGameID = gameID
-        NSLog("OGS: 📝 Marked game \(gameID) as subscribed")
     }
 
     /// Convert board position to SGF move notation
@@ -2096,6 +2097,13 @@ class OGSClient: NSObject, ObservableObject {
         // DEBUGGING: Log ALL events to catch authentication response
         // Temporarily always log to debug undo issues
         NSLog("OGS: 📨 EVENT RECEIVED: \(eventName)")
+
+        // Extra logging for chat-related events
+        if eventName.lowercased().contains("chat") {
+            NSLog("OGS: 💬 CHAT-RELATED EVENT DETECTED: \(eventName)")
+            NSLog("OGS: 💬 Full JSON: \(json)")
+        }
+
         if verboseLogging {
             NSLog("OGS: 📨 Full event data: \(json[1])")
         }
