@@ -10,6 +10,31 @@ enum GamePhase: String {
     case finished   // Game complete, showing results
 }
 
+/// Represents a chat message in an OGS game
+struct ChatMessage: Identifiable, Codable {
+    let id: String           // Unique chat message ID (chat_id from OGS)
+    let body: String         // Message text
+    let username: String     // Sender's username
+    let playerID: Int        // Sender's player ID
+    let moveNumber: Int      // Move number when message was sent
+    let date: Date           // Timestamp
+
+    // Optional fields
+    let professional: Bool?  // Is sender a professional player
+    let ranking: Double?     // Sender's rank
+
+    enum CodingKeys: String, CodingKey {
+        case id = "chat_id"
+        case body
+        case username
+        case playerID = "player_id"
+        case moveNumber = "move_number"
+        case date
+        case professional
+        case ranking
+    }
+}
+
 /// OGS (Online Go Server) WebSocket client for real-time game communication
 class OGSClient: NSObject, ObservableObject {
     // MARK: - Debug Settings
@@ -46,6 +71,10 @@ class OGSClient: NSObject, ObservableObject {
     @Published var isSendingChallenge: Bool = false
     /// Available games/challenges that can be accepted
     @Published var availableGames: [OGSChallenge] = []
+
+    // MARK: - Chat State
+    /// Chat messages for the current game
+    @Published var chatMessages: [ChatMessage] = []
 
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
@@ -504,6 +533,7 @@ class OGSClient: NSObject, ObservableObject {
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
         isConnected = false
+        clearChatMessages()
         NSLog("OGS: 🔌 Disconnected from OGS")
     }
 
@@ -1713,6 +1743,9 @@ class OGSClient: NSObject, ObservableObject {
     private func subscribeToGame(gameID: Int) {
         NSLog("OGS: 📡 Subscribing to WebSocket updates for game \(gameID)")
 
+        // Clear previous game's chat messages
+        clearChatMessages()
+
         // v3.86: Plain JSON format (NO Socket.io prefix)
         // Build game/connect message with player_id if available
         // player_id is required to receive clock events and other game updates
@@ -2042,6 +2075,15 @@ class OGSClient: NSObject, ObservableObject {
             NSLog("OGS: ❌ ========== UNDO REJECTED ==========")
             if let undoData = json[1] as? [String: Any] {
                 handleUndoRejected(undoData)
+            }
+        case _ where eventName.contains("/chat"):
+            NSLog("OGS: 💬 ========== CHAT MESSAGE RECEIVED ==========")
+            NSLog("OGS: 💬 Event name: \(eventName)")
+            if let chatData = json[1] as? [String: Any] {
+                NSLog("OGS: 💬 Chat data: \(chatData)")
+                handleChatMessage(chatData)
+            } else {
+                NSLog("OGS: ❌ Failed to cast chat data. json[1] type: \(type(of: json[1]))")
             }
         case "automatch/entry":
             NSLog("OGS: 🎯 ========== AUTOMATCH ENTRY ==========")
@@ -2627,6 +2669,75 @@ class OGSClient: NSObject, ObservableObject {
         }
     }
 
+    private func handleChatMessage(_ data: [String: Any]) {
+        NSLog("OGS: 💬 Processing chat message")
+        NSLog("OGS: 💬 Full chat data: \(data)")
+
+        // Extract message data from the "line" field which contains the actual chat message
+        guard let lineData = data["line"] as? [String: Any] else {
+            NSLog("OGS: ⚠️ No 'line' field in chat data")
+            return
+        }
+
+        NSLog("OGS: 💬 Line data: \(lineData)")
+
+        // Extract required fields
+        guard let chatID = lineData["chat_id"] as? String,
+              let body = lineData["body"] as? String,
+              let username = lineData["username"] as? String,
+              let playerID = lineData["player_id"] as? Int,
+              let moveNumber = lineData["move_number"] as? Int else {
+            NSLog("OGS: ⚠️ Missing required chat message fields")
+            NSLog("OGS: ⚠️ chat_id: \(lineData["chat_id"] ?? "missing")")
+            NSLog("OGS: ⚠️ body: \(lineData["body"] ?? "missing")")
+            NSLog("OGS: ⚠️ username: \(lineData["username"] ?? "missing")")
+            NSLog("OGS: ⚠️ player_id: \(lineData["player_id"] ?? "missing")")
+            NSLog("OGS: ⚠️ move_number: \(lineData["move_number"] ?? "missing")")
+            return
+        }
+
+        // Parse date - OGS sends timestamps as milliseconds since epoch
+        let date: Date
+        if let timestamp = lineData["date"] as? TimeInterval {
+            // If timestamp is in milliseconds, convert to seconds
+            let timeInSeconds = timestamp > 10000000000 ? timestamp / 1000 : timestamp
+            date = Date(timeIntervalSince1970: timeInSeconds)
+        } else {
+            date = Date()
+        }
+
+        // Extract optional fields
+        let professional = lineData["professional"] as? Bool
+        let ranking = lineData["ranking"] as? Double
+
+        // Create chat message
+        let chatMessage = ChatMessage(
+            id: chatID,
+            body: body,
+            username: username,
+            playerID: playerID,
+            moveNumber: moveNumber,
+            date: date,
+            professional: professional,
+            ranking: ranking
+        )
+
+        NSLog("OGS: 💬 Chat message created: [\(username)] \(body)")
+
+        // Add to messages array on main thread
+        DispatchQueue.main.async {
+            self.chatMessages.append(chatMessage)
+            NSLog("OGS: 💬 Total chat messages: \(self.chatMessages.count)")
+
+            // Post notification for UI updates
+            NotificationCenter.default.post(
+                name: NSNotification.Name("OGSChatMessageReceived"),
+                object: nil,
+                userInfo: ["message": chatMessage]
+            )
+        }
+    }
+
     /// Accept an undo request from opponent
     func acceptUndo(gameID: Int, moveNumber: Int) {
         guard isConnected else {
@@ -2668,6 +2779,50 @@ class OGSClient: NSObject, ObservableObject {
             } else {
                 NSLog("OGS: ✅ Undo rejected for game \(gameID) at move \(moveNumber)")
             }
+        }
+    }
+
+    // MARK: - Chat Functions
+
+    /// Send a chat message to the current game
+    /// - Parameters:
+    ///   - gameID: The game ID to send the chat message to
+    ///   - moveNumber: The current move number (for context)
+    ///   - message: The message text to send
+    func sendChatMessage(gameID: Int, moveNumber: Int, message: String) {
+        guard isConnected else {
+            NSLog("OGS: ❌ Cannot send chat - not connected")
+            return
+        }
+
+        // Escape the message for JSON
+        guard let messageData = try? JSONSerialization.data(withJSONObject: message),
+              let escapedMessage = String(data: messageData, encoding: .utf8) else {
+            NSLog("OGS: ❌ Failed to encode chat message")
+            return
+        }
+
+        let chatMessage = """
+        ["game/chat",{"game_id":\(gameID),"player_id":\(playerID ?? 0),"body":\(escapedMessage),"move_number":\(moveNumber)}]
+        """
+
+        NSLog("OGS: 💬 Sending chat message: \(message)")
+        let wsMessage = URLSessionWebSocketTask.Message.string(chatMessage)
+        webSocketTask?.send(wsMessage) { error in
+            if let error = error {
+                NSLog("OGS: ❌ Error sending chat: \(error.localizedDescription)")
+                self.lastError = error.localizedDescription
+            } else {
+                NSLog("OGS: ✅ Chat message sent successfully")
+            }
+        }
+    }
+
+    /// Clear chat messages (e.g., when leaving a game)
+    func clearChatMessages() {
+        DispatchQueue.main.async {
+            self.chatMessages.removeAll()
+            NSLog("OGS: 💬 Chat messages cleared")
         }
     }
 
