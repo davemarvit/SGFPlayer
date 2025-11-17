@@ -1867,10 +1867,10 @@ class OGSClient: NSObject, ObservableObject {
             }
         }
 
-        // OGS v5+ requires explicit chat channel subscription
-        // Subscribe to game chat separately
+        // OGS chat subscription (from browser DevTools inspection)
+        // Format: ["chat/join",{"channel":"game-XXXXX"}]
         let chatSubscribeMessage = """
-        ["game/\(gameID)/chat",{}]
+        ["chat/join",{"channel":"game-\(gameID)"}]
         """
 
         NSLog("OGS: 📤 Sending chat subscription: \(chatSubscribeMessage)")
