@@ -1996,6 +1996,13 @@ class OGSClient: NSObject, ObservableObject {
         // DEBUGGING: Log ALL events to catch authentication response
         // Temporarily always log to debug undo issues
         NSLog("OGS: 📨 EVENT RECEIVED: \(eventName)")
+
+        // EXTRA DEBUG: Highlight chat events specifically
+        if eventName.lowercased().contains("chat") {
+            NSLog("OGS: 🔍 CHAT EVENT DETECTED! Event name: \(eventName)")
+            NSLog("OGS: 🔍 Full message: \(message)")
+        }
+
         if verboseLogging {
             NSLog("OGS: 📨 Full event data: \(json[1])")
         }
@@ -2672,10 +2679,13 @@ class OGSClient: NSObject, ObservableObject {
     private func handleChatMessage(_ data: [String: Any]) {
         NSLog("OGS: 💬 Processing chat message")
         NSLog("OGS: 💬 Full chat data: \(data)")
+        NSLog("OGS: 💬 Data keys: \(data.keys.sorted())")
 
         // Extract message data from the "line" field which contains the actual chat message
         guard let lineData = data["line"] as? [String: Any] else {
             NSLog("OGS: ⚠️ No 'line' field in chat data")
+            NSLog("OGS: ⚠️ Available keys: \(data.keys.joined(separator: ", "))")
+            NSLog("OGS: ⚠️ Data structure might be different than expected")
             return
         }
 
