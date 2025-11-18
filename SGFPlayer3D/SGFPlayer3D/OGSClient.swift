@@ -122,8 +122,8 @@ class OGSClient: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        NSLog("OGS: ========== OGSClient v3.84 BUILD MARKER ==========")
-        log("OGS: ========== v3.84 BUILD MARKER ==========")
+        NSLog("OGS: ========== OGSClient v3.87-CHAT-DEBUG BUILD MARKER ==========")
+        log("OGS: ========== v3.87-CHAT-DEBUG BUILD MARKER ==========")
         log("OGS: 🔧 Initializing OGSClient (self=\(Unmanaged.passUnretained(self).toOpaque()))...")
         // IMPORTANT: Initialize URLSession in init, not lazily
         // SwiftUI @StateObject requires proper initialization here
