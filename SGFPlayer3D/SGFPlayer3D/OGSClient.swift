@@ -1761,8 +1761,13 @@ class OGSClient: NSObject, ObservableObject {
     private func subscribeToGame(gameID: Int) {
         NSLog("OGS: 📡 Subscribing to WebSocket updates for game \(gameID)")
 
-        // Clear previous game's chat messages
-        clearChatMessages()
+        // Only clear chat if switching to a DIFFERENT game
+        if currentGameID != gameID {
+            NSLog("OGS: 💬 Switching to different game - clearing chat")
+            clearChatMessages()
+        } else {
+            NSLog("OGS: 💬 Same game - keeping existing chat messages")
+        }
 
         // v3.86: Plain JSON format (NO Socket.io prefix)
         // Build game/connect message with player_id if available
