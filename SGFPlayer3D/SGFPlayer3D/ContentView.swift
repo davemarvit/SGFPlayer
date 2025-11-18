@@ -162,12 +162,12 @@ struct ContentView: View {
 
             gameInfoOverlay
 
-            // v3.123: Phantom stones working in both 2D and 3D
+            // v3.88-CHAT: Added chat message handling backend
             VStack {
                 Spacer()
                 HStack {
                     Spacer()
-                    Text("v3.123")
+                    Text("v3.88-CHAT")
                         .foregroundColor(.white)
                         .font(.title)
                         .fontWeight(.bold)
