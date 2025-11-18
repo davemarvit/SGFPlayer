@@ -11,17 +11,29 @@ enum GamePhase: String {
 }
 
 /// Represents a chat message in an OGS game
-struct ChatMessage: Identifiable, Codable {
+struct ChatMessage: Identifiable, Codable, Equatable {
     let id: String           // Unique chat message ID (chat_id from OGS)
     let body: String         // Message text
     let username: String     // Sender's username
     let playerID: Int        // Sender's player ID
     let moveNumber: Int      // Move number when message was sent
     let date: Date           // Timestamp
+    let isFromMe: Bool       // Whether this message is from the current user
 
     // Optional fields
     let professional: Bool?  // Is sender a professional player
     let ranking: Double?     // Sender's rank
+
+    // Compatibility properties for ChatPanel UI
+    var message: String { body }         // Alias for body
+    var timestamp: Date { date }         // Alias for date
+
+    /// Formatted timestamp for display (e.g., "14:23")
+    var timeString: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
 
     enum CodingKeys: String, CodingKey {
         case id = "chat_id"
@@ -32,6 +44,12 @@ struct ChatMessage: Identifiable, Codable {
         case date
         case professional
         case ranking
+        case isFromMe
+    }
+
+    // Equatable conformance
+    static func == (lhs: ChatMessage, rhs: ChatMessage) -> Bool {
+        lhs.id == rhs.id
     }
 }
 
@@ -2720,6 +2738,9 @@ class OGSClient: NSObject, ObservableObject {
         let professional = lineData["professional"] as? Bool
         let ranking = lineData["ranking"] as? Double
 
+        // Determine if this message is from the current user
+        let isFromMe = (self.playerID != nil && playerID == self.playerID)
+
         // Create chat message
         let chatMessage = ChatMessage(
             id: chatID,
@@ -2728,6 +2749,7 @@ class OGSClient: NSObject, ObservableObject {
             playerID: playerID,
             moveNumber: moveNumber,
             date: date,
+            isFromMe: isFromMe,
             professional: professional,
             ranking: ranking
         )
@@ -2797,23 +2819,43 @@ class OGSClient: NSObject, ObservableObject {
     /// Send a chat message to the current game
     /// - Parameters:
     ///   - gameID: The game ID to send the chat message to
-    ///   - moveNumber: The current move number (for context)
     ///   - message: The message text to send
-    func sendChatMessage(gameID: Int, moveNumber: Int, message: String) {
+    func sendChatMessage(gameID: Int, message: String) {
         guard isConnected else {
-            NSLog("OGS: ❌ Cannot send chat - not connected")
+            NSLog("OGS: ❌ Cannot send chat message - not connected")
             return
         }
 
-        // Escape the message for JSON
-        guard let messageData = try? JSONSerialization.data(withJSONObject: message),
-              let escapedMessage = String(data: messageData, encoding: .utf8) else {
-            NSLog("OGS: ❌ Failed to encode chat message")
+        guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            NSLog("OGS: ⚠️ Cannot send empty chat message")
             return
         }
 
+        // Optimistically add our own message to the chat immediately
+        // OGS doesn't always echo back our own messages, so we add them locally
+        if let username = self.username {
+            let chatMessage = ChatMessage(
+                id: UUID().uuidString,  // Generate temporary ID
+                body: message,
+                username: username,
+                playerID: self.playerID ?? 0,
+                moveNumber: 0,  // Will be updated by server
+                date: Date(),
+                isFromMe: true,
+                professional: nil,
+                ranking: nil
+            )
+
+            DispatchQueue.main.async {
+                self.chatMessages.append(chatMessage)
+                NSLog("OGS: 💬 Added own chat message locally: \(message)")
+            }
+        }
+
+        // OGS chat message format from browser inspection:
+        // Send to: ["game/chat", {"body": "...", "type": "main", "game_id": 123, "move_number": 0}]
         let chatMessage = """
-        ["game/chat",{"game_id":\(gameID),"player_id":\(playerID ?? 0),"body":\(escapedMessage),"move_number":\(moveNumber)}]
+        ["game/chat",{"body":"\(message)","type":"main","game_id":\(gameID),"move_number":0}]
         """
 
         NSLog("OGS: 💬 Sending chat message: \(message)")

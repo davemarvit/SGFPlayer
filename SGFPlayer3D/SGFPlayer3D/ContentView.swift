@@ -162,6 +162,20 @@ struct ContentView: View {
 
             gameInfoOverlay
 
+            // Chat panel for OGS games
+            if ogsClient.currentGameID != nil && ogsClient.gamePhase == .playing {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        ChatPanel(ogsClient: ogsClient)
+                            .frame(width: 300)
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 80)  // Above playback controls
+                    }
+                }
+            }
+
             // v3.88-CHAT: Added chat message handling backend
             VStack {
                 Spacer()
