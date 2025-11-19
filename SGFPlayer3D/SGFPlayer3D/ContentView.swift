@@ -48,6 +48,9 @@ struct ContentView: View {
     @StateObject private var soundManager = SoundManager.shared
     @State private var previousMoveIndex: Int = 0
 
+    // Board layout for positioning controls
+    @State private var boardCenterX: CGFloat = 0
+
     // UI State (transitioning to uiStateVM)
     @State private var isPanelOpen: Bool = false
     // showFullscreen, buttonsVisible now managed by uiStateVM
@@ -163,23 +166,6 @@ struct ContentView: View {
             // Game result overlay (Phase 1 scoring)
             GameResultOverlay(ogsClient: ogsClient, ogsGame: ogsGame)
                 .showWhenResultAvailable()
-
-            // v3.123: Phantom stones working in both 2D and 3D
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Text("v3.123")
-                        .foregroundColor(.white)
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .padding(10)
-                        .background(Color.red)
-                        .cornerRadius(5)
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 20)
-                }
-            }
         }
     }
 
@@ -465,6 +451,7 @@ struct ContentView: View {
     private var mainGameContent: some View {
         GeometryReader { geometry in
             let layout = calculateResponsiveLayout(in: geometry)
+            let _ = DispatchQueue.main.async { boardCenterX = layout.boardCenterX }
 
             ZStack {
                 // Tatami background filling entire window
@@ -765,18 +752,27 @@ struct ContentView: View {
                 .animation(.easeInOut(duration: 0.2), value: uiStateVM.buttonsVisible)
             }
 
-            // Playback controls at bottom center (using same component as 3D view)
-            PlaybackControls(
-                player: player,
-                isPlaying: $autoNext,
-                onSeek: {
-                    // Update physics when seeking in 2D view
-                    updatePhysicsForMove(player.currentIndex)
-                },
-                onTogglePlayPause: {
-                    autoNext.toggle()
+            // Playback controls centered under the board
+            GeometryReader { geometry in
+                HStack {
+                    Spacer()
+                    PlaybackControls(
+                        player: player,
+                        isPlaying: $autoNext,
+                        onSeek: {
+                            // Update physics when seeking in 2D view
+                            updatePhysicsForMove(player.currentIndex)
+                        },
+                        onTogglePlayPause: {
+                            autoNext.toggle()
+                        }
+                    )
+                    Spacer()
                 }
-            )
+                .frame(width: geometry.size.width)
+                .offset(x: boardCenterX - (geometry.size.width / 2))
+            }
+            .frame(height: 60) // Fixed height for controls
         }
         .allowsHitTesting(true)
         .zIndex(15) // Above settings panel (10) to ensure button clicks work
@@ -1082,6 +1078,7 @@ struct ResponsiveLayout {
     let lrBowlCenter: CGPoint
     let bowlRadius: CGFloat
     let metadataY: CGFloat
+    let boardCenterX: CGFloat  // Horizontal center of the board for positioning controls
 }
 
 extension ContentView {
@@ -1126,28 +1123,34 @@ extension ContentView {
         let topSpace = app.gameCacheManager.topSpaceCellUnits * actualCellHeight
         let _ = app.gameCacheManager.bottomSpaceCellUnits * actualCellHeight // bottomSpace not used
 
-        let boardX = (screenWidth - boardWidth) / 2
+        // Calculate bowl size first to account for space needed on the right
+        let bowlDiameterInCells: CGFloat = (19.0 / 3.0) * 1.37  // ~6.33 cells * 1.37 = ~8.67 cells
+        let bowlRadius = (bowlDiameterInCells * actualCellHeight) / 2
+        let bowlOffset = bowlRadius * 1.1
+        let bowlSpaceNeeded = bowlRadius * 2 + bowlOffset // Full diameter plus offset
+
+        // TUNABLE: Shift board left to make room for bowls on the right
+        // 0.0 = no shift (centered), 1.0 = full shift (bowls fully visible)
+        let bowlShiftFactor: CGFloat = 0.5  // Start with half shift
+        let boardX = (screenWidth - boardWidth - (bowlSpaceNeeded * bowlShiftFactor)) / 2
         let boardY = topSpace
 
         let boardFrame = CGRect(x: boardX, y: boardY, width: boardWidth, height: boardHeight)
-
-        // Calculate bowl positions relative to board - bowls should be 1/3 the long side
-        // Board is 19x19 cells, and cell HEIGHT > cell WIDTH, so use height for proper scaling
-        let bowlDiameterInCells: CGFloat = (19.0 / 3.0) * 1.37  // ~6.33 cells * 1.37 = ~8.67 cells
-        let bowlRadius = (bowlDiameterInCells * actualCellHeight) / 2
         if app.verboseLogging {
             print("🥣 BOWL DEBUG: cellHeight=\(actualCellHeight), diameterInCells=\(bowlDiameterInCells), bowlRadius=\(bowlRadius), bowlDiameter=\(bowlRadius*2)")
         }
-        let bowlOffset = bowlRadius * 1.1 // Tighter spacing
 
+        // Upper bowl (captured black stones) - positioned on RIGHT
         let ulBowlCenter = CGPoint(
-            x: boardFrame.minX - bowlOffset,
-            y: boardFrame.minY + bowlOffset
+            x: boardFrame.maxX + bowlOffset,
+            y: boardFrame.minY + bowlOffset * 0.65  // Higher placement
         )
 
+        // Lower bowl (captured white stones) - positioned closer to board for visual variety
+        let lowerBowlInset: CGFloat = 0.2
         let lrBowlCenter = CGPoint(
-            x: boardFrame.maxX + bowlOffset,
-            y: boardFrame.maxY - bowlOffset + bowlRadius * 1.25
+            x: boardFrame.maxX + bowlOffset - (bowlRadius * lowerBowlInset),  // Moved left slightly
+            y: boardFrame.maxY - bowlOffset + bowlRadius * 1.25 - (bowlRadius * 0.5)
         )
 
         // Position metadata bar center midway between board bottom and window bottom
@@ -1171,7 +1174,8 @@ extension ContentView {
             ulBowlCenter: ulBowlCenter,
             lrBowlCenter: lrBowlCenter,
             bowlRadius: bowlRadius,
-            metadataY: metadataY
+            metadataY: metadataY,
+            boardCenterX: boardFrame.midX
         )
     }
 }

@@ -21,15 +21,19 @@ struct SGFPlayer3DApp: App {
         try? msg.appendToFile(at: "/tmp/sgfplayer3d_debug.log")
         print(msg)
         return WindowGroup {
-            Group {
+            let _ = print("🔍 APP: viewMode = \(app.viewMode)")
+            return Group {
                 if app.viewMode == .view2D {
                     ContentView()
                         .environmentObject(app)
+                        .frame(minWidth: 1200, minHeight: 900)
                 } else {
                     ContentView3D()
                         .environmentObject(app)
                 }
             }
         }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
     }
 }
