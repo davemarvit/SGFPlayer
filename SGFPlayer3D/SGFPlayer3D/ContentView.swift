@@ -496,28 +496,7 @@ struct ContentView: View {
     }
 
     private var topButtonsOverlay: some View {
-        VStack {
-            HStack {
-                // Settings button (upper left)
-                Button {
-                    withAnimation(.easeInOut(duration: 1.0)) {
-                        isPanelOpen.toggle()
-                    }
-                } label: {
-                    Image(systemName: "gearshape.fill")
-                        .imageScale(.large)
-                        .foregroundColor(.white)
-                }
-                .buttonStyle(.plain)
-                .padding(.leading, 20)
-                .padding(.top, 20)
-                .opacity(uiStateVM.buttonsVisible ? 1.0 : 0.0)
-                .animation(.easeInOut(duration: uiStateVM.buttonsVisible ? 0.2 : 0.5), value: uiStateVM.buttonsVisible)
-
-                Spacer()
-            }
-            Spacer()
-        }
+        TopButtonsView(isPanelOpen: $isPanelOpen, buttonsVisible: uiStateVM.buttonsVisible)
     }
 
     private var settingsPanelOverlay: some View {
@@ -534,11 +513,9 @@ struct ContentView: View {
                         }
 
                     HStack(spacing: 0) {
-                        // Add some negative space on the left
-                        Rectangle()
-                            .fill(Color.clear)
-                            .frame(width: 10)
-                            .allowsHitTesting(false)  // Let clicks pass through
+                        // Small left margin for visual breathing room
+                        Spacer()
+                            .frame(width: 5)
 
                         // Settings panel with translucent background
                         SettingsPanelView(
