@@ -63,7 +63,7 @@ struct RightSidebarView: View {
             }
 
             // Version badge
-            Text("v3.189-2D")
+            Text("v3.190-2D")
                 .foregroundColor(.white)
                 .font(.caption)
                 .fontWeight(.bold)

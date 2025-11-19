@@ -1,0 +1,685 @@
+{
+  "builtTestProducts" : [
+    {
+      "binaryPath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.xctest/Contents/MacOS/GoCorePackageTests",
+      "packagePath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore",
+      "productName" : "GoCorePackageTests"
+    }
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.GoCore-arm64-apple-macosx15.0-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/sources",
+      "importPath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Board.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Game.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Move.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/SGFParser.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Stone.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "GoCore",
+      "moduleOutputPath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/Modules/GoCore.swiftmodule",
+      "objects" : [
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Board.swift.o",
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Game.swift.o",
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Move.swift.o",
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/SGFParser.swift.o",
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Stone.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-enable-batch-mode",
+        "-index-store-path",
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-module-cache-path",
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/GoCore-Swift.h",
+        "-swift-version",
+        "5",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "gocore"
+      ],
+      "outputFileMapPath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Board.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Game.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Move.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/SGFParser.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Stone.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/Modules/GoCore.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Board.swift",
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Game.swift",
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Move.swift",
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/SGFParser.swift",
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Stone.swift"
+      ],
+      "tempsPath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.GoCorePackageTests-arm64-apple-macosx15.0-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.build/sources",
+      "importPath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.derived/runner.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/Modules/GoCoreTests.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "GoCorePackageTests",
+      "moduleOutputPath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/Modules/GoCorePackageTests.swiftmodule",
+      "objects" : [
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.build/runner.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-enable-batch-mode",
+        "-index-store-path",
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-module-cache-path",
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.build/GoCorePackageTests-Swift.h",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "gocore"
+      ],
+      "outputFileMapPath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.build/runner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/Modules/GoCorePackageTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.derived/runner.swift"
+      ],
+      "tempsPath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.GoCoreTests-arm64-apple-macosx15.0-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCoreTests.build/sources",
+      "importPath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Tests/GoCoreTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/Modules/GoCore.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCoreTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "GoCoreTests",
+      "moduleOutputPath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/Modules/GoCoreTests.swiftmodule",
+      "objects" : [
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCoreTests.build/GoCoreTests.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-enable-batch-mode",
+        "-index-store-path",
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-module-cache-path",
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-swift-version",
+        "5",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "gocore"
+      ],
+      "outputFileMapPath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCoreTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCoreTests.build/GoCoreTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/Modules/GoCoreTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Tests/GoCoreTests.swift"
+      ],
+      "tempsPath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCoreTests.build",
+      "wholeModuleOptimization" : false
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "GoCore" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "GoCore",
+      "-package-name",
+      "gocore",
+      "-incremental",
+      "-c",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Board.swift",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Game.swift",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Move.swift",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/SGFParser.swift",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Stone.swift",
+      "-I",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-enable-batch-mode",
+      "-index-store-path",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j10",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-module-cache-path",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/GoCore-Swift.h",
+      "-swift-version",
+      "5",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "gocore",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "GoCorePackageTests" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "GoCorePackageTests",
+      "-package-name",
+      "gocore",
+      "-incremental",
+      "-c",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.derived/runner.swift",
+      "-I",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-enable-batch-mode",
+      "-index-store-path",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-Xfrontend",
+      "-enable-cross-import-overlays",
+      "-j10",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-module-cache-path",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.build/GoCorePackageTests-Swift.h",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "gocore",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "GoCoreTests" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "GoCoreTests",
+      "-package-name",
+      "gocore",
+      "-incremental",
+      "-c",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Tests/GoCoreTests.swift",
+      "-I",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-enable-batch-mode",
+      "-index-store-path",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-Xfrontend",
+      "-enable-cross-import-overlays",
+      "-j10",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-module-cache-path",
+      "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-swift-version",
+      "5",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.5.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "gocore",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "GoCore" : [
+
+    ],
+    "GoCorePackageTests" : [
+      "GoCoreTests",
+      "GoCore"
+    ],
+    "GoCoreTests" : [
+      "GoCore"
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+    "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.derived/runner.swift" : {
+      "inputs" : [
+
+      ],
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.derived/runner.swift"
+        }
+      ]
+    }
+  },
+  "traitConfiguration" : {
+    "enableAllTraits" : false
+  },
+  "writeCommands" : {
+    "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Board.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Game.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Move.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/SGFParser.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Stone.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/sources"
+    },
+    "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.derived/runner.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.build/sources"
+    },
+    "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Board.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Game.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Move.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/SGFParser.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Stone.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.build/runner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCoreTests.build/GoCoreTests.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.product/Objects.LinkFileList"
+    },
+    "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCoreTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Tests/GoCoreTests.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCoreTests.build/sources"
+    },
+    "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+    }
+  }
+}

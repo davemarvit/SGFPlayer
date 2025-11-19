@@ -99,13 +99,13 @@ struct GameBoardView: View {
             let sixthFromBottomY = boardCenter.y - boardHeight/2 + offsetY + CGFloat(13) * cellHeight  
             let lrLidY = sixthFromBottomY + actualBowlRadius
             
-            // Position bowls in the reserved bowl space area
+            // Position both bowls on the right side of board
             let ulCenter = CGPoint(
-                x: availableWidth + (bowlSpaceWidth / 4),  // 1/4 into bowl space for left bowl
+                x: availableWidth + (bowlSpaceWidth / 2),  // Center of bowl space (right side)
                 y: ulLidY
             )
             let lrCenter = CGPoint(
-                x: availableWidth + (bowlSpaceWidth * 3/4),  // 3/4 into bowl space for right bowl
+                x: availableWidth + (bowlSpaceWidth / 2),  // Center of bowl space (right side)
                 y: lrLidY
             )
             

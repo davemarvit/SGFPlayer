@@ -1,0 +1,32 @@
+{
+  "source": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/Views/ControlsView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "All controls moved to Settings panel",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 45
+        }
+      },
+      {
+        "comment": "",
+        "key": "Move: %lld / %lld",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 50
+        }
+      },
+      {
+        "comment": "",
+        "key": "v2.3",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 58
+        }
+      }
+    ]
+  },
+  "version": 1
+}

@@ -1,0 +1,4 @@
+module GoCorePackageTests {
+    header "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCorePackageTests.build/GoCorePackageTests-Swift.h"
+    requires objc
+}

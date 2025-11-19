@@ -1,0 +1,35 @@
+{
+  "": {
+    "swift-dependencies": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/master.swiftdeps"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Board.swift": {
+    "dependencies": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Board.d",
+    "object": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Board.swift.o",
+    "swiftmodule": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Board~partial.swiftmodule",
+    "swift-dependencies": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Board.swiftdeps"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Game.swift": {
+    "dependencies": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Game.d",
+    "object": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Game.swift.o",
+    "swiftmodule": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Game~partial.swiftmodule",
+    "swift-dependencies": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Game.swiftdeps"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Move.swift": {
+    "dependencies": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Move.d",
+    "object": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Move.swift.o",
+    "swiftmodule": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Move~partial.swiftmodule",
+    "swift-dependencies": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Move.swiftdeps"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/SGFParser.swift": {
+    "dependencies": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/SGFParser.d",
+    "object": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/SGFParser.swift.o",
+    "swiftmodule": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/SGFParser~partial.swiftmodule",
+    "swift-dependencies": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/SGFParser.swiftdeps"
+  },
+  "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/Domain/Stone.swift": {
+    "dependencies": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Stone.d",
+    "object": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Stone.swift.o",
+    "swiftmodule": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Stone~partial.swiftmodule",
+    "swift-dependencies": "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/Sources/GoCore/.build/arm64-apple-macosx/debug/GoCore.build/Stone.swiftdeps"
+  }
+}

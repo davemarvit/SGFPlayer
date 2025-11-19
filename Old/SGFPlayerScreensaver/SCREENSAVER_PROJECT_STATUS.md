@@ -1,0 +1,196 @@
+# SGF Player Screensaver Project Status Report
+
+## Project Goal
+Create a macOS screensaver that displays Go game files (SGF format) in fullscreen mode, automatically cycling through games when the system is idle.
+
+## Current Status: Ready for Code Signing & Notarization
+
+### What We've Accomplished
+1. **✅ Core Implementation Complete**: Built a working SGF screensaver using extracted SGFPlayer components
+2. **✅ Architecture Resolved**: Converted from SwiftUI to Core Graphics/AppKit for screensaver compatibility
+3. **✅ Build System**: Created professional Makefile-based build system
+4. **✅ Testing Framework**: Developed minimal test screensavers to isolate issues
+5. **✅ Root Cause Identified**: macOS Sequoia v15.5 AMFI security requirements
+
+## The Core Problem: macOS Sequoia Security
+**Issue**: macOS Sequoia v15.5 has strict code signing requirements that block unsigned screensavers:
+```
+AMFI: '/Users/Dave/Library/Screen Savers/MinimalTest.saver/Contents/MacOS/MinimalTest'
+has no CMS blob? Unrecoverable CT signature issue, bailing out.
+```
+
+**Impact**: Screensaver works in preview mode but shows black screen in fullscreen due to AMFI rejection.
+
+## Solution Path: Option B (Proper Code Signing)
+**Requirements**:
+- Apple Developer Account ($99/year)
+- Developer ID Application certificate
+- Code signing + notarization process
+
+## Project File Locations
+
+### Main Screensaver Implementation
+```
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayerScreensaver/
+├── Sources/
+│   ├── SGFPlayerScreensaver.swift          # Main screensaver class
+│   ├── SimpleBoardRenderer.swift           # Go board rendering
+│   ├── SGFGameState.swift                  # Game state management
+│   ├── SGFLoader.swift                     # SGF file loading
+│   ├── SGFParser.swift                     # SGF parsing logic
+│   ├── SGFPlayer.swift                     # Game engine
+│   ├── GameTypes.swift                     # Data structures
+│   └── [14 other supporting files]         # Physics, UI, utilities
+├── Makefile                                # Professional build system
+├── Info.plist                             # Bundle configuration
+└── screensaver.entitlements               # Security entitlements
+```
+
+### Test Screensavers (for debugging)
+```
+├── Sources/TestScreensaver.swift           # Bouncing box test (WORKS in preview)
+├── Sources/MinimalTest.swift               # Red screen test (WORKS in preview)
+├── MinimalMakefile                         # Minimal build system
+```
+
+### Key Supporting Files
+```
+/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayer/
+├── SGFPlayer/                              # Original app source
+├── test_game.sgf                          # Test SGF file
+└── build/Debug/SGFPlayer.app              # Working standalone app
+```
+
+## Technical Architecture
+
+### Current Build Configuration
+- **Target**: ARM64 macOS 12.0+
+- **Frameworks**: ScreenSaver, Cocoa, CoreGraphics, Foundation
+- **Compiler**: Swift 5 with -emit-library flag
+- **Bundle**: Proper .saver structure with Info.plist
+
+### Core Components
+1. **SGFPlayerScreensaver**: Main ScreenSaverView subclass
+2. **SimpleBoardRenderer**: Core Graphics-based Go board drawing
+3. **SGFParser**: Robust SGF file parsing (handles variations, comments, etc.)
+4. **Physics System**: Stone positioning with realistic jitter/physics
+5. **Game Engine**: Move playback, captures, territory calculation
+
+## Lessons Learned
+
+### ✅ What Works
+- **Core Graphics rendering** in ScreenSaverView
+- **NSColor/AppKit drawing** (better than direct CGContext)
+- **ARM64 compilation** with proper framework linking
+- **Preview mode functionality** (proves core logic is sound)
+
+### ❌ What Doesn't Work
+- **Ad-hoc code signing**: Rejected by AMFI in Sequoia
+- **Unsigned binaries**: Blocked entirely in fullscreen mode
+- **SwiftUI in screensavers**: Linking issues, architectural mismatch
+- **Deprecated methods**: lockFocus/unlockFocus cause silent failures
+
+### 🔍 Key Insights
+1. **Preview vs Fullscreen**: Different security contexts - preview works, fullscreen blocked by AMFI
+2. **Sequoia Changes**: macOS 15.1+ eliminated unsigned app bypass methods
+3. **Screensaver Requirements**: Must be properly signed + notarized for distribution
+4. **Architecture Compatibility**: Core Graphics + AppKit is the reliable approach
+
+## Next Steps with Developer License
+
+### 1. Certificate Setup
+```bash
+# Download "Developer ID Application" certificate from Apple Developer portal
+# Install in Keychain Access
+# Verify with: security find-identity -v -p codesigning
+```
+
+### 2. Update Build System
+Modify `/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayerScreensaver/Makefile`:
+```makefile
+# Replace current signing line:
+@codesign --force --sign - $@
+
+# With proper Developer ID signing:
+@codesign --force --sign "Developer ID Application: [Your Name]" $@
+```
+
+### 3. Notarization Process
+```bash
+# Build screensaver
+make clean && make all
+
+# Create ZIP for notarization
+ditto -c -k build/SGFPlayerScreensaver.saver SGFPlayerScreensaver.zip
+
+# Submit for notarization (requires app-specific password)
+xcrun notarytool submit SGFPlayerScreensaver.zip \
+  --apple-id [your-apple-id] \
+  --password [app-specific-password] \
+  --team-id [team-id]
+
+# Check status
+xcrun notarytool history --apple-id [your-apple-id] --password [app-specific-password]
+
+# Staple notarization (after approval)
+xcrun stapler staple build/SGFPlayerScreensaver.saver
+```
+
+### 4. Testing & Distribution
+```bash
+# Install signed screensaver
+cp -R build/SGFPlayerScreensaver.saver ~/Library/Screen\ Savers/
+
+# Test in System Settings > Wallpaper > Screen Saver
+# Verify both preview AND fullscreen modes work
+```
+
+## Build Commands Reference
+
+### Main Screensaver
+```bash
+cd "/Users/Dave/Go/SGFPlayer Code/SGFPlayer/SGFPlayerScreensaver"
+make clean && make all && make install
+```
+
+### Test Screensavers
+```bash
+# Minimal test (red screen)
+make -f MinimalMakefile clean && make -f MinimalMakefile all && make -f MinimalMakefile install
+
+# TestScreensaver (bouncing box)
+# Update MAIN_SOURCE in Makefile to Sources/TestScreensaver.swift
+make clean && make all && make install
+```
+
+## Known Working Configuration
+- **Hardware**: Apple Silicon Mac
+- **OS**: macOS Sequoia v15.5
+- **Architecture**: ARM64
+- **Swift**: Version 5
+- **Frameworks**: ScreenSaver.framework + standard system frameworks
+
+## Current Blockers
+1. **Code Signing**: Need Developer ID Application certificate
+2. **Notarization**: Need Apple Developer Account + app-specific password
+3. **AMFI Security**: Current ad-hoc signing rejected by Sequoia
+
+## Expected Timeline with Developer License
+- **Certificate setup**: 30 minutes
+- **Build system updates**: 15 minutes
+- **Notarization**: 15-60 minutes (Apple processing)
+- **Testing**: 30 minutes
+- **Total**: ~2-3 hours for complete solution
+
+## Contact Information for Continuation
+When resuming this project:
+1. Provide Developer ID certificate name for Makefile updates
+2. Confirm Apple ID and team ID for notarization
+3. Create app-specific password in Apple ID settings
+4. Run the updated build and notarization process
+5. Test final screensaver in both preview and fullscreen modes
+
+---
+**Project Status**: ✅ Code Complete, ⏳ Awaiting Code Signing
+**Next Action**: Update build system with Developer ID certificate
+**Success Criteria**: SGF screensaver works in both preview and fullscreen modes after signing

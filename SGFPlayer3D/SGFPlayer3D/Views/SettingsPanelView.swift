@@ -106,13 +106,10 @@ struct SettingsPanelView: View {
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
-                    .padding(.leading, 20)
-                    .padding(.top, 20)
 
                     Text("Settings")
                         .font(.title2.bold())
                         .foregroundColor(.white)
-                        .padding(.top, 20)
 
                     Spacer()
 
@@ -126,9 +123,9 @@ struct SettingsPanelView: View {
                             .foregroundColor(.white.opacity(0.8))
                     }
                     .buttonStyle(.plain)
-                    .padding(.top, 20)
                 }
-                .padding(.trailing, 50)
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
                 .padding(.bottom, 16)
 
                 // Scrollable content

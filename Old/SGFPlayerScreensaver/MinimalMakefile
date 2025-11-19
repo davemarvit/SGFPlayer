@@ -1,0 +1,61 @@
+# Ultra Minimal Test Screensaver
+PRODUCT_NAME = MinimalTest
+BUNDLE_IDENTIFIER = com.minimal.test
+DEPLOYMENT_TARGET = 12.0
+SWIFT_VERSION = 5
+
+BUILD_DIR = minimal_build
+TEST_SOURCE = Sources/MinimalTest.swift
+
+BUNDLE_DIR = $(BUILD_DIR)/$(PRODUCT_NAME).saver
+EXECUTABLE = $(BUNDLE_DIR)/Contents/MacOS/$(PRODUCT_NAME)
+INFO_PLIST = $(BUNDLE_DIR)/Contents/Info.plist
+
+SWIFT_FLAGS = -target arm64-apple-macos$(DEPLOYMENT_TARGET) \
+              -swift-version $(SWIFT_VERSION) \
+              -O \
+              -module-name $(PRODUCT_NAME) \
+              -emit-library \
+              -framework ScreenSaver \
+              -framework Cocoa
+
+.PHONY: all clean install
+
+all: $(EXECUTABLE)
+
+$(EXECUTABLE): $(TEST_SOURCE) | $(BUNDLE_DIR)/Contents/MacOS
+	@echo "🔨 Building ultra minimal screensaver..."
+	@swiftc $(SWIFT_FLAGS) -o $@ $(TEST_SOURCE)
+	@echo "🔍 Testing unsigned binary for Sequoia compatibility..."
+	@echo "✅ Minimal build complete: $@"
+
+$(BUNDLE_DIR)/Contents/MacOS:
+	@echo "📁 Creating minimal bundle..."
+	@mkdir -p $@
+	@mkdir -p $(BUNDLE_DIR)/Contents/Resources
+
+$(INFO_PLIST): | $(BUNDLE_DIR)/Contents
+	@echo "📋 Creating minimal Info.plist..."
+	@echo '<?xml version="1.0" encoding="UTF-8"?>' > $@
+	@echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> $@
+	@echo '<plist version="1.0"><dict>' >> $@
+	@echo '<key>CFBundleDevelopmentRegion</key><string>en</string>' >> $@
+	@echo '<key>CFBundleExecutable</key><string>$(PRODUCT_NAME)</string>' >> $@
+	@echo '<key>CFBundleIdentifier</key><string>$(BUNDLE_IDENTIFIER)</string>' >> $@
+	@echo '<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>' >> $@
+	@echo '<key>CFBundleName</key><string>$(PRODUCT_NAME)</string>' >> $@
+	@echo '<key>CFBundlePackageType</key><string>BNDL</string>' >> $@
+	@echo '<key>CFBundleShortVersionString</key><string>1.0</string>' >> $@
+	@echo '<key>CFBundleVersion</key><string>1</string>' >> $@
+	@echo '<key>LSMinimumSystemVersion</key><string>12.0</string>' >> $@
+	@echo '<key>NSPrincipalClass</key><string>MinimalTest</string>' >> $@
+	@echo '<key>NSHumanReadableCopyright</key><string>Test Screensaver</string>' >> $@
+	@echo '</dict></plist>' >> $@
+
+clean:
+	@rm -rf $(BUILD_DIR)
+
+install: $(EXECUTABLE) $(INFO_PLIST)
+	@echo "📦 Installing minimal test screensaver..."
+	@cp -R $(BUNDLE_DIR) ~/Library/Screen\ Savers/
+	@echo "✅ Minimal test installed to ~/Library/Screen Savers/$(PRODUCT_NAME).saver"
