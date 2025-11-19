@@ -601,32 +601,7 @@ struct ContentView: View {
     }
 
     private var physicsOverlay: some View {
-        Group {
-            if showPhysicsDemo {
-                ZStack {
-                    Color.black.opacity(0.7).ignoresSafeArea()
-
-                    PhysicsIntegrationDemo()
-                        .frame(width: 800, height: 900)
-                        .background(Color(NSColor.windowBackgroundColor))
-                        .cornerRadius(12)
-                        .shadow(radius: 20)
-
-                    VStack {
-                        HStack {
-                            Spacer()
-                            Button("Close Demo") {
-                                showPhysicsDemo = false
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .padding()
-                        }
-                        Spacer()
-                    }
-                }
-                .zIndex(20)
-            }
-        }
+        PhysicsOverlayView(showPhysicsDemo: $showPhysicsDemo)
     }
 
     private var gameInfoOverlay: some View {
