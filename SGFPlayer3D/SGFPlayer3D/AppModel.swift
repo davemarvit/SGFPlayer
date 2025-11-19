@@ -44,7 +44,7 @@ final class AppModel: ObservableObject {
     @Published var player = SGFPlayer()
 
     // View mode selection - persisted across app launches
-    @AppStorage("viewMode") var viewMode: ViewMode = .view3D
+    @AppStorage("viewMode") var viewMode: ViewMode = .view2D
 
     // CENTRALIZED OGS COMPONENTS - Shared between 2D and 3D views
     @Published var ogsClient = OGSClient()

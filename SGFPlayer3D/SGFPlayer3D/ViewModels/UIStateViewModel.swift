@@ -6,7 +6,6 @@ import Combine
 import AppKit
 
 /// ViewModel responsible for UI state, window management, and visual feedback
-@MainActor
 class UIStateViewModel: ObservableObject {
     // MARK: - Window State
     @Published var showFullscreen: Bool = false
@@ -32,10 +31,24 @@ class UIStateViewModel: ObservableObject {
     // Mouse tracking timer - only active when needed
     private var mouseTrackingTimer: Timer?
 
+    // Fullscreen polling timer - check window state periodically
+    private var fullscreenPollingTimer: Timer?
+
     // MARK: - Initialization
     init() {
+        let msg1 = "🔍 UIStateViewModel.init() called\n"
+        try? msg1.appendToFile(at: NSHomeDirectory() + "/Desktop/uistate_init.txt")
+        NSLog("🔍 UIStateViewModel.init() called")
+        print("🔍 UIStateViewModel.init() called")
+
         // Don't start mouse tracking timer immediately - start on first mouse move
         setupWindowStateMonitoring()
+        startFullscreenPolling()
+
+        let msg2 = "🔍 UIStateViewModel.init() completed\n"
+        try? msg2.appendToFile(at: NSHomeDirectory() + "/Desktop/uistate_init.txt")
+        NSLog("🔍 UIStateViewModel.init() completed")
+        print("🔍 UIStateViewModel.init() completed")
     }
 
     // MARK: - Public Interface
@@ -246,6 +259,59 @@ class UIStateViewModel: ObservableObject {
         isWindowFullscreen = false
         showFullscreen = false
         showButtons()
+    }
+
+    // MARK: - Fullscreen Polling
+
+    private func startFullscreenPolling() {
+        // Poll every 0.5 seconds to check window fullscreen state
+        // This is necessary because .windowStyle(.hiddenTitleBar) prevents normal fullscreen notifications
+        NSLog("🔍 Starting fullscreen polling timer on thread: \(Thread.current)")
+        print("🔍 Starting fullscreen polling timer on thread: \(Thread.current)")
+
+        // MUST run on main thread and add to common run loop modes
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            NSLog("🔍 Creating timer on main thread")
+            print("🔍 Creating timer on main thread")
+
+            let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
+                self?.checkFullscreenState()
+            }
+
+            // Add to run loop with common modes so it fires during animations/scrolling
+            RunLoop.main.add(timer, forMode: .common)
+            self.fullscreenPollingTimer = timer
+
+            NSLog("🔍 Timer added to run loop")
+            print("🔍 Timer added to run loop")
+        }
+    }
+
+    private func checkFullscreenState() {
+        guard let window = NSApplication.shared.windows.first else {
+            print("🔍 Poll: No window found")
+            return
+        }
+
+        let isFullscreen = window.styleMask.contains(.fullScreen)
+        print("🔍 Poll: window.fullScreen=\(isFullscreen), isWindowFullscreen=\(isWindowFullscreen)")
+
+        if isFullscreen != isWindowFullscreen {
+            print("🔍 Fullscreen state CHANGED: \(isWindowFullscreen) -> \(isFullscreen)")
+
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.isWindowFullscreen = isFullscreen
+                self.showFullscreen = isFullscreen
+
+                if isFullscreen {
+                    self.hideButtonsWithDelay()
+                } else {
+                    self.showButtons()
+                }
+            }
+        }
     }
 
     // MARK: - Combine Support
