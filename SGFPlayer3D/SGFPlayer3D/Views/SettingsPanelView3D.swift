@@ -206,50 +206,14 @@ struct SettingsPanelView3D: View {
                             }
                             .pickerStyle(.segmented)
                             .onAppear {
-                                // Auto-connect if OGS mode is already enabled on startup
-                                if settingsVM.ogsMode && !ogsClient.isConnected {
-                                    ogsClient.connect()
-                                    NSLog("OGS: 🔌 Auto-connecting on startup (OGS Mode was already ON)")
-                                }
+                                app.setOGSMode(settingsVM.ogsMode)
                             }
                             .onChange(of: settingsVM.ogsMode) { _, newValue in
-                                if newValue {
-                                    // Auto-connect when OGS mode is turned on
-                                    if !ogsClient.isConnected {
-                                        ogsClient.connect()
-                                        NSLog("OGS: 🔌 Auto-connecting when OGS Mode enabled")
-                                    }
-                                } else {
-                                    // Disconnect when OGS mode is turned off
-                                    if ogsClient.isConnected {
-                                        ogsClient.disconnect()
-                                        NSLog("OGS: 🔌 Disconnecting when OGS Mode disabled")
-                                    }
-
-                                    // Auto-start playing local games if enabled
-                                    if autoStartOnLaunch {
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                            // If no game is selected, pick one first
-                                            if app.selection == nil && !app.games.isEmpty {
-                                                let randomOnStart = UserDefaults.standard.bool(forKey: "randomOnStart")
-                                                if randomOnStart {
-                                                    app.pickRandomGame(from: app.games)
-                                                    NSLog("OGS: 🎲 Picked random game after switching to local mode")
-                                                } else {
-                                                    app.selectGame(app.games[0])
-                                                    NSLog("OGS: 🎮 Picked first game after switching to local mode")
-                                                }
-                                            }
-
-                                            // Start playing
-                                            if app.selection != nil {
-                                                autoPlay = true
-                                                player.play()
-                                                NSLog("OGS: ▶️ Auto-started playback after switching to local mode")
-                                            }
-                                        }
-                                    }
-                                }
+                                app.setOGSMode(
+                                    newValue,
+                                    autoStartLocal: autoStartOnLaunch,
+                                    randomOnStart: UserDefaults.standard.bool(forKey: "randomOnStart")
+                                ) { autoPlay = $0 }
                             }
 
                             Text(settingsVM.ogsMode ? "Play live games on Online Go Server" : "Play local SGF game files")

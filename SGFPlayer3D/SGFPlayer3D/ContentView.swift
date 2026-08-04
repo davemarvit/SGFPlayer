@@ -189,9 +189,8 @@ struct ContentView: View {
         .onAppear {
             // Auto-connect to OGS if OGS mode is enabled
             let ogsMode = UserDefaults.standard.bool(forKey: "ogsMode")
-            if ogsMode && !ogsClient.isConnected {
-                ogsClient.connect()
-                NSLog("ContentView: 🔌 Auto-connecting to OGS on startup (OGS Mode was ON)")
+            if ogsMode {
+                app.setOGSMode(true)
             }
         }
         .onReceive(player.$currentIndex) { newIndex in
@@ -227,18 +226,9 @@ struct ContentView: View {
                 tallyAtMove.removeAll()
                 physicsIntegration.reset()
 
-                // IMPORTANT: Stop OGS polling and clear OGS state when switching to a local game
-                if app.ogsGame?.blackName != nil {
-                    NSLog("ContentView: 🛑 Switching from OGS game to local game - stopping OGS polling")
-                    app.ogsGame?.stopPolling()
-                    app.ogsGame?.blackName = nil
-                    app.ogsGame?.whiteName = nil
-                    app.ogsGame?.blackRank = nil
-                    app.ogsGame?.whiteRank = nil
-                    app.ogsGame?.komi = nil
-                    app.ogsGame?.ruleset = nil
-                    app.ogsClient.currentGameID = nil
-                    app.timeControl.reset()
+                if app.isOGSMode {
+                    NSLog("ContentView: 🛑 Ignoring local selection while in OGS mode")
+                    return
                 }
 
                 // Note: Game is now loaded by app.selectGame() in AppModel
@@ -275,19 +265,19 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             // Don't auto-select random games when connected to OGS
-            if randomOnStart, app.selection == nil, !ogsClient.isConnected {
+            if randomOnStart, app.selection == nil, app.isLocalMode {
                 app.pickRandomGame(from: activeGamesList)
             }
 
             // Resume auto-play if in local mode and a game is loaded
-            if !ogsClient.isConnected, app.selection != nil, autoNext, !player.isPlaying {
+            if app.isLocalMode, app.selection != nil, autoNext, !player.isPlaying {
                 NSLog("ContentView: ▶️ Resuming auto-play on app activation")
                 player.play()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .gameDidFinish)) { _ in
             // Don't auto-advance when connected to OGS
-            if randomNext, !ogsClient.isConnected {
+            if randomNext, app.isLocalMode {
                 // Wait 5 seconds, then pick the next random game and restart if auto-play is on
                 DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
                     app.pickRandomGame(from: activeGamesList)
@@ -298,7 +288,7 @@ struct ContentView: View {
                         }
                     }
                 }
-            } else if loopGames {
+            } else if loopGames, app.isLocalMode {
                 // Wait 5 seconds, then advance to next game in sequence (or loop back to first)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
                     app.advanceToNextGame(from: activeGamesList)
@@ -347,6 +337,10 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSConnected"))) { _ in
             // === FIX: Only clear board on INITIAL connection, not on reconnects during active game ===
+            guard app.isOGSMode else {
+                NSLog("ContentView: 🛑 Ignoring OGSConnected while in local mode")
+                return
+            }
             if ogsClient.currentGameID == nil {
                 NSLog("ContentView: 🔌 OGS connected (initial) - clearing local game selection and board")
                 app.selection = nil
@@ -359,8 +353,8 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameDataReceived"))) { notification in
             // Only process if we have an active OGS game ID (allows initial game load)
-            guard ogsClient.currentGameID != nil else {
-                NSLog("ContentView: 🛑 Ignoring OGSGameDataReceived - no active game ID")
+            guard app.isOGSMode, ogsClient.currentGameID != nil else {
+                NSLog("ContentView: 🛑 Ignoring OGSGameDataReceived - not in active OGS game")
                 return
             }
 
@@ -374,32 +368,32 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSMoveReceived"))) { notification in
             // Only process if we have an active OGS game ID
-            guard ogsClient.currentGameID != nil else {
-                NSLog("ContentView: 🛑 Ignoring OGSMoveReceived - no active game ID")
+            guard app.isOGSMode, ogsClient.currentGameID != nil else {
+                NSLog("ContentView: 🛑 Ignoring OGSMoveReceived - not in active OGS game")
                 return
             }
             ogsGame?.handleMove(notification)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSRateLimited"))) { _ in
             // Only process if we have an active OGS game ID
-            guard ogsClient.currentGameID != nil else {
-                NSLog("ContentView: 🛑 Ignoring OGSRateLimited - no active game ID")
+            guard app.isOGSMode, ogsClient.currentGameID != nil else {
+                NSLog("ContentView: 🛑 Ignoring OGSRateLimited - not in active OGS game")
                 return
             }
             ogsGame?.handleThrottling()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSPlayerInfo"))) { notification in
             // Only process if we have an active OGS game ID (allows initial player info load)
-            guard ogsClient.currentGameID != nil else {
-                NSLog("ContentView: 🛑 Ignoring OGSPlayerInfo - no active game ID")
+            guard app.isOGSMode, ogsClient.currentGameID != nil else {
+                NSLog("ContentView: 🛑 Ignoring OGSPlayerInfo - not in active OGS game")
                 return
             }
             ogsGame?.handlePlayerInfo(notification)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameLoaded"))) { notification in
             // Only process if we have an active OGS game ID
-            guard ogsClient.currentGameID != nil else {
-                NSLog("ContentView: 🛑 Ignoring OGSGameLoaded - no active game ID")
+            guard app.isOGSMode, ogsClient.currentGameID != nil else {
+                NSLog("ContentView: 🛑 Ignoring OGSGameLoaded - not in active OGS game")
                 return
             }
 
@@ -717,14 +711,13 @@ struct ContentView: View {
         }
 
         // Auto-start playing on launch if enabled, we have a game selected, and NOT in OGS mode
-        let ogsMode = UserDefaults.standard.bool(forKey: "ogsMode")
-        if autoStartOnLaunch && app.selection != nil && !ogsMode {
+        if autoStartOnLaunch && app.selection != nil && app.isLocalMode {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 autoNext = true
                 player.play()
                 print("🚀 Auto-started playback on launch")
             }
-        } else if ogsMode {
+        } else if app.isOGSMode {
             print("⏸️ Skipping auto-play - in OGS mode")
         }
 
@@ -1051,4 +1044,3 @@ struct GlassTopButton: ButtonStyle {
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
-

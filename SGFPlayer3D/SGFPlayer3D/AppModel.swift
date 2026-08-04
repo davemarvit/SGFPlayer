@@ -20,6 +20,17 @@ enum ViewMode: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - PlayMode Enum
+enum PlayMode: String, CaseIterable, Identifiable {
+    case local
+    case ogs
+
+    var id: String { rawValue }
+
+    var isOGS: Bool { self == .ogs }
+    var isLocal: Bool { self == .local }
+}
+
 final class AppModel: ObservableObject {
     // MARK: - Debug Settings
     @AppStorage("verboseLogging") var verboseLogging: Bool = false
@@ -46,6 +57,13 @@ final class AppModel: ObservableObject {
     // View mode selection - persisted across app launches
     @AppStorage("viewMode") var viewMode: ViewMode = .view2D
 
+    // Playback source selection - local SGF library or live OGS.
+    @Published private(set) var playMode: PlayMode =
+        UserDefaults.standard.bool(forKey: "ogsMode") ? .ogs : .local
+
+    var isOGSMode: Bool { playMode.isOGS }
+    var isLocalMode: Bool { playMode.isLocal }
+
     // CENTRALIZED OGS COMPONENTS - Shared between 2D and 3D views
     @Published var ogsClient = OGSClient()
     @Published var timeControl = TimeControlManager()
@@ -67,14 +85,7 @@ final class AppModel: ObservableObject {
         ogsGame = OGSGameViewModel(ogsClient: ogsClient, player: player, timeControl: timeControl)
         NSLog("AppModel: 🎮 Initialized OGSGameViewModel")
 
-        // If connected to OGS on startup, clear local game
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-            if let self = self, self.ogsClient.isConnected {
-                NSLog("AppModel: 🏁 Started with OGS connected - clearing local game")
-                self.selection = nil
-                self.player.clear()  // Completely clear board including handicap stones
-            }
-        }
+        NSLog("AppModel: 🎛️ Initial play mode: \(playMode.rawValue)")
     }
 
     private func setupAudio() {
@@ -140,6 +151,84 @@ final class AppModel: ObservableObject {
                 }
             }
         }
+    }
+
+    func setOGSMode(_ enabled: Bool,
+                    autoStartLocal: Bool = false,
+                    randomOnStart: Bool = false,
+                    setAutoPlay: ((Bool) -> Void)? = nil) {
+        UserDefaults.standard.set(enabled, forKey: "ogsMode")
+
+        if enabled {
+            guard playMode != .ogs || !ogsClient.isConnected else { return }
+            enterOGSMode()
+        } else {
+            guard playMode != .local || ogsClient.isConnected || ogsClient.currentGameID != nil || ogsGame?.blackName != nil else {
+                if autoStartLocal, selection != nil, !player.isPlaying {
+                    setAutoPlay?(true)
+                    player.play()
+                }
+                return
+            }
+            enterLocalMode(autoStart: autoStartLocal, randomOnStart: randomOnStart, setAutoPlay: setAutoPlay)
+        }
+    }
+
+    private func enterOGSMode() {
+        playMode = .ogs
+        showPreGameOverlay = false
+        selection = nil
+        player.pause()
+        player.clear()
+
+        if !ogsClient.isConnected {
+            ogsClient.connect()
+            NSLog("AppModel: 🔌 Entered OGS mode and started connection")
+        } else {
+            NSLog("AppModel: 🔌 Entered OGS mode using existing connection")
+        }
+    }
+
+    private func enterLocalMode(autoStart: Bool, randomOnStart: Bool, setAutoPlay: ((Bool) -> Void)?) {
+        playMode = .local
+        showPreGameOverlay = false
+        ogsGame?.stopPolling()
+        clearOGSGameMetadata()
+
+        if ogsClient.isConnected {
+            ogsClient.disconnect()
+        }
+        ogsClient.currentGameID = nil
+        ogsClient.gamePhase = .preGame
+        timeControl.reset()
+
+        if selection == nil, !games.isEmpty {
+            if randomOnStart {
+                pickRandomGame(from: games)
+                NSLog("AppModel: 🎲 Picked random local game after leaving OGS mode")
+            } else {
+                selectGame(games[0])
+                NSLog("AppModel: 🎮 Picked first local game after leaving OGS mode")
+            }
+        }
+
+        if autoStart, selection != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                guard let self, self.isLocalMode, self.selection != nil else { return }
+                setAutoPlay?(true)
+                self.player.play()
+                NSLog("AppModel: ▶️ Auto-started local playback after leaving OGS mode")
+            }
+        }
+    }
+
+    private func clearOGSGameMetadata() {
+        ogsGame?.blackName = nil
+        ogsGame?.whiteName = nil
+        ogsGame?.blackRank = nil
+        ogsGame?.whiteRank = nil
+        ogsGame?.komi = nil
+        ogsGame?.ruleset = nil
     }
 
     // MARK: - Shared Game Navigation (used by both 2D and 3D views)

@@ -173,25 +173,9 @@ struct ContentView3D: View {
                 NSLog("DEBUG3D: 📂 Game has \(gameWrapper.game.setup.count) setup stones: \(gameWrapper.game.setup)")
                 NSLog("DEBUG3D: 📂 Game has \(gameWrapper.game.moves.count) moves")
 
-                // IMPORTANT: Only allow local game selection when NOT connected to OGS
-                if ogsClient.isConnected {
-                    NSLog("DEBUG3D: 🛑 Cannot select local game - OGS is connected")
+                if app.isOGSMode {
+                    NSLog("DEBUG3D: 🛑 Ignoring local selection while in OGS mode")
                     return
-                }
-
-                // Stop OGS polling and clear OGS state when switching to a local game
-                // Otherwise OGS polling will continue updating the board with OGS game moves
-                if ogsGame?.blackName != nil {
-                    NSLog("DEBUG3D: 🛑 Switching from OGS game to local game - stopping OGS polling")
-                    ogsGame?.stopPolling()
-                    ogsGame?.blackName = nil
-                    ogsGame?.whiteName = nil
-                    ogsGame?.blackRank = nil
-                    ogsGame?.whiteRank = nil
-                    ogsGame?.komi = nil
-                    ogsGame?.ruleset = nil
-                    ogsClient.currentGameID = nil
-                    timeControl.reset()
                 }
 
                 // Note: player.load() is now handled by app.selectGame() in AppModel
@@ -287,19 +271,23 @@ struct ContentView3D: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             // Don't auto-select random games when connected to OGS
-            if randomOnStart, app.selection == nil, !ogsClient.isConnected {
+            if randomOnStart, app.selection == nil, app.isLocalMode {
                 app.pickRandomGame(from: activeGamesList)
                 NSLog("DEBUG3D: 🎲 Random game selected on app activation")
             }
 
             // Resume auto-play if in local mode and a game is loaded
-            if !ogsClient.isConnected, app.selection != nil, autoNext, !player.isPlaying {
+            if app.isLocalMode, app.selection != nil, autoNext, !player.isPlaying {
                 NSLog("DEBUG3D: ▶️ Resuming auto-play on app activation")
                 player.play()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSConnected"))) { _ in
             // === FIX: Only clear board on INITIAL connection, not on reconnects during active game ===
+            guard app.isOGSMode else {
+                NSLog("DEBUG3D: 🛑 Ignoring OGSConnected while in local mode")
+                return
+            }
             if ogsClient.currentGameID == nil {
                 NSLog("DEBUG3D: 🔌 OGS connected (initial) - clearing local game selection and board")
                 app.selection = nil
@@ -315,8 +303,8 @@ struct ContentView3D: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameDataReceived"))) { notification in
             // Only process if we have an active OGS game ID (allows initial game load)
-            guard ogsClient.currentGameID != nil else {
-                NSLog("DEBUG3D: 🛑 Ignoring OGSGameDataReceived - no active game ID")
+            guard app.isOGSMode, ogsClient.currentGameID != nil else {
+                NSLog("DEBUG3D: 🛑 Ignoring OGSGameDataReceived - not in active OGS game")
                 return
             }
 
@@ -330,32 +318,32 @@ struct ContentView3D: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSMoveReceived"))) { notification in
             // Only process if we have an active OGS game ID
-            guard ogsClient.currentGameID != nil else {
-                NSLog("DEBUG3D: 🛑 Ignoring OGSMoveReceived - no active game ID")
+            guard app.isOGSMode, ogsClient.currentGameID != nil else {
+                NSLog("DEBUG3D: 🛑 Ignoring OGSMoveReceived - not in active OGS game")
                 return
             }
             ogsGame?.handleMove(notification)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSRateLimited"))) { _ in
             // Only process if we have an active OGS game ID
-            guard ogsClient.currentGameID != nil else {
-                NSLog("DEBUG3D: 🛑 Ignoring OGSRateLimited - no active game ID")
+            guard app.isOGSMode, ogsClient.currentGameID != nil else {
+                NSLog("DEBUG3D: 🛑 Ignoring OGSRateLimited - not in active OGS game")
                 return
             }
             ogsGame?.handleThrottling()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSPlayerInfo"))) { notification in
             // Only process if we have an active OGS game ID (allows initial player info load)
-            guard ogsClient.currentGameID != nil else {
-                NSLog("DEBUG3D: 🛑 Ignoring OGSPlayerInfo - no active game ID")
+            guard app.isOGSMode, ogsClient.currentGameID != nil else {
+                NSLog("DEBUG3D: 🛑 Ignoring OGSPlayerInfo - not in active OGS game")
                 return
             }
             ogsGame?.handlePlayerInfo(notification)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("OGSGameLoaded"))) { notification in
             // Only process if we have an active OGS game ID
-            guard ogsClient.currentGameID != nil else {
-                NSLog("DEBUG3D: 🛑 Ignoring OGSGameLoaded - no active game ID")
+            guard app.isOGSMode, ogsClient.currentGameID != nil else {
+                NSLog("DEBUG3D: 🛑 Ignoring OGSGameLoaded - not in active OGS game")
                 return
             }
 
@@ -396,9 +384,8 @@ struct ContentView3D: View {
             // This ensures it's shared between 2D and 3D views
 
             // Auto-connect to OGS if OGS mode is enabled
-            if settingsVM.ogsMode && !ogsClient.isConnected {
-                ogsClient.connect()
-                NSLog("DEBUG3D: 🔌 Auto-connecting to OGS on startup (OGS Mode was ON)")
+            if settingsVM.ogsMode {
+                app.setOGSMode(true)
             }
 
             // Restore camera position on appear
@@ -601,7 +588,7 @@ struct ContentView3D: View {
                 Spacer()
 
                 // OGS Game Control Buttons (only visible during OGS gameplay)
-                if ogsClient.currentGameID != nil, ogsClient.gamePhase == .playing {
+                if app.isOGSMode, ogsClient.currentGameID != nil, ogsClient.gamePhase == .playing {
                     HStack(spacing: 20) {
                         // Undo button
                         Button(action: {
@@ -729,7 +716,7 @@ struct ContentView3D: View {
     private func handleGameFinished() {
         // Game has finished - advance to next game if in loop mode
         // Don't auto-advance when connected to OGS
-        if randomNext, !ogsClient.isConnected {
+        if randomNext, app.isLocalMode {
             // Wait 5 seconds, then pick the next random game and restart if auto-play is on
             DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
                 app.pickRandomGame(from: activeGamesList)
@@ -740,7 +727,7 @@ struct ContentView3D: View {
                     }
                 }
             }
-        } else if loopGames && !ogsClient.isConnected {
+        } else if loopGames && app.isLocalMode {
             // Wait 5 seconds, then advance to next game in sequence (or loop back to first)
             // Only for local games, not OGS games (they receive moves continuously)
             DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
@@ -771,13 +758,13 @@ struct ContentView3D: View {
 
     private func handleAppLaunch() {
         // Auto-start playing on launch if enabled, we have a game selected, and NOT in OGS mode
-        if autoStartOnLaunch && app.selection != nil && !settingsVM.ogsMode {
+        if autoStartOnLaunch && app.selection != nil && app.isLocalMode {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 autoNext = true
                 player.play()
                 NSLog("DEBUG3D: 🚀 Auto-started playback on launch")
             }
-        } else if settingsVM.ogsMode {
+        } else if app.isOGSMode {
             NSLog("DEBUG3D: ⏸️ Skipping auto-play - in OGS mode")
         }
     }
@@ -897,7 +884,7 @@ struct ContentView3D: View {
         isMouseDown = isDown
 
         // Only show phantom stones in OGS mode AND when it's our turn
-        guard ogsClient.currentGameID != nil, ogsClient.isMyTurn else {
+        guard app.isOGSMode, ogsClient.currentGameID != nil, ogsClient.isMyTurn else {
             sceneManager.hidePhantomStone()
             phantomStonePosition = nil
             return
